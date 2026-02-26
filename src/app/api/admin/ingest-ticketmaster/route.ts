@@ -38,7 +38,7 @@ async function fetchTicketmasterMontreal(page = 0) {
   url.searchParams.set("radius", "35");
   url.searchParams.set("unit", "km");
   url.searchParams.set("latlong", "45.5019,-73.5674"); // Montreal
-  url.searchParams.set("size", "200");
+  url.searchParams.set("size", "50");
   url.searchParams.set("page", String(page));
   url.searchParams.set("sort", "date,asc");
   url.searchParams.set("classificationName", "music,arts");
