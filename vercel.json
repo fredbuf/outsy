@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/ingest-ticketmaster?key=cuzte3-quxpEp-jynwit",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}
