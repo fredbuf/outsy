@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/ingest-ticketmaster?key=cuzte3-quxpEp-jynwit",
+      "path": "/api/cron/ingest-ticketmaster?key=cuzte3-quxpEp-jynwit&maxPages=3&size=50",
       "schedule": "0 10 * * *"
     }
   ]
