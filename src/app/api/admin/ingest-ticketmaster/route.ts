@@ -18,13 +18,132 @@ function extractBestImageUrl(tm: any): string | null {
   return best?.url ?? null;
 }
 
-/**
- * Basic category mapping (we'll make nightlife smarter next).
- */
+function getTicketmasterText(tm: any) {
+  const title = (tm?.name ?? "").toString();
+  const venueName = (tm?._embedded?.venues?.[0]?.name ?? "").toString();
+
+  const segment = (tm?.classifications?.[0]?.segment?.name ?? "").toString();
+  const genre = (tm?.classifications?.[0]?.genre?.name ?? "").toString();
+  const subGenre = (tm?.classifications?.[0]?.subGenre?.name ?? "").toString();
+
+  return { title, venueName, segment, genre, subGenre };
+}
+
+function toLower(s: string) {
+  return (s || "").toLowerCase();
+}
+
+function hasAny(haystack: string, needles: string[]) {
+  const h = toLower(haystack);
+  return needles.some((n) => h.includes(n));
+}
+
+function getHourLocal(isoUtc: string) {
+  // Ticketmaster dateTime is typically an ISO UTC string.
+  // We compute the hour in America/Toronto (Montreal) for classification.
+  const d = new Date(isoUtc);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+
+  const hourPart = parts.find((p) => p.type === "hour")?.value ?? "00";
+  return Number(hourPart);
+}
+
+function nightlifeScore(tm: any): number {
+  const { title, venueName, genre, subGenre } = getTicketmasterText(tm);
+
+  const nightlifeTitleKeywords = [
+    "dj",
+    "afterparty",
+    "after party",
+    "after-party",
+    "rave",
+    "club night",
+    "clubnight",
+    "dance party",
+    "danceparty",
+    "boiler room",
+    "boilerroom",
+    "late night",
+    "latenight",
+    "all night",
+    "all-night",
+    "warehouse",
+    "edm",
+    "electronic",
+    "techno",
+    "house",
+    "trance",
+    "drum",
+    "dnb",
+    "dubstep",
+  ];
+
+  const nightlifeVenueKeywords = [
+    "club",
+    "nightclub",
+    "lounge",
+    "bar",
+    "pub",
+    "rooftop",
+    "cabaret",
+  ];
+
+  const nightlifeGenreKeywords = [
+    "dance",
+    "electronic",
+    "club",
+    "house",
+    "techno",
+    "edm",
+    "trance",
+    "drum",
+    "bass",
+    "dnb",
+  ];
+
+  let score = 0;
+
+  // Time-based scoring (strong signal)
+  const startAt = tm?.dates?.start?.dateTime;
+  if (startAt) {
+    const hour = getHourLocal(startAt);
+    if (hour >= 23) score += 4;
+    else if (hour >= 21) score += 3;
+    else if (hour >= 19) score += 1;
+  }
+
+  // Keyword scoring
+  if (hasAny(title, nightlifeTitleKeywords)) score += 3;
+  if (hasAny(venueName, nightlifeVenueKeywords)) score += 2;
+
+  const g = `${genre} ${subGenre}`;
+  if (hasAny(g, nightlifeGenreKeywords)) score += 2;
+
+  return score;
+}
+
 function pickCategory(tm: any): Category {
-  const segment = tm?.classifications?.[0]?.segment?.name?.toLowerCase?.() || "";
-  if (segment.includes("music")) return "music";
-  if (segment.includes("arts") || segment.includes("theatre") || segment.includes("art")) return "art";
+  const { segment } = getTicketmasterText(tm);
+  const segmentLower = toLower(segment);
+
+  // If Ticketmaster says it's arts/theatre, keep it art no matter what
+  if (
+    segmentLower.includes("arts") ||
+    segmentLower.includes("theatre") ||
+    segmentLower.includes("art")
+  ) {
+    return "art";
+  }
+
+  // Nightlife inference
+  const score = nightlifeScore(tm);
+  if (score >= 4) return "nightlife";
+
+  // Default
   return "music";
 }
 
