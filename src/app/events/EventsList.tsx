@@ -216,7 +216,7 @@ export function EventsList() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search events"
-          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.2)" }}
+          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
         />
 
         {/* Row 1: category / source / date preset / price */}
@@ -280,14 +280,14 @@ export function EventsList() {
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.2)" }}
+            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)" }}
           />
           <label style={{ fontSize: 13, opacity: 0.7 }}>To</label>
           <input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.2)" }}
+            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)" }}
           />
           {hasCustomRange && (
             <button
@@ -298,7 +298,7 @@ export function EventsList() {
               style={{
                 padding: "6px 12px",
                 borderRadius: 8,
-                border: "1px solid rgba(0,0,0,0.2)",
+                border: "1px solid rgba(255,255,255,0.2)",
                 background: "transparent",
                 cursor: "pointer",
                 fontSize: 13,
@@ -319,7 +319,7 @@ export function EventsList() {
           <article
             key={e.id}
             style={{
-              border: "1px solid rgba(0,0,0,0.12)",
+              border: "1px solid rgba(255,255,255,0.12)",
               borderRadius: 14,
               padding: 14,
               display: "flex",
@@ -389,7 +389,7 @@ export function EventsList() {
               style={{
                 padding: "10px 32px",
                 borderRadius: 10,
-                border: "1px solid rgba(0,0,0,0.2)",
+                border: "1px solid rgba(255,255,255,0.2)",
                 background: "transparent",
                 cursor: loadingMore ? "not-allowed" : "pointer",
                 fontWeight: 600,
