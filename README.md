@@ -151,6 +151,27 @@ lib/
 
 ---
 
+# Database Schema Notes
+
+## event_source enum
+
+The `events.source` column is backed by a PostgreSQL enum type called `event_source`.
+
+Current values: `ticketmaster`, `manual`
+
+**Adding a new ingestion source (e.g. Eventbrite) requires a migration before the first upsert:**
+
+```sql
+ALTER TYPE event_source ADD VALUE 'eventbrite';
+```
+
+Run this in the Supabase SQL editor before deploying the corresponding ingestion adapter.
+Without it, any insert/upsert with the new source value will fail with a type error.
+
+The `ingest_runs.source` column is plain `text` and does not require a migration.
+
+---
+
 # Supabase Security Model
 
 Two Supabase clients are used.

@@ -1,5 +1,5 @@
 import { EventsList } from "./EventsList";
-import { SubmitEventForm } from "./SubmitEventForm";
+import { SubmitEventToggle } from "./SubmitEventToggle";
 
 export default function EventsPage() {
   return (
@@ -9,7 +9,7 @@ export default function EventsPage() {
         <p style={{ opacity: 0.7, marginTop: 8 }}>Music • Nightlife • Art</p>
       </header>
 
-      <SubmitEventForm />
+      <SubmitEventToggle />
       <EventsList />
     </main>
   );

@@ -76,7 +76,7 @@ export function SubmitEventForm() {
   return (
     <section
       style={{
-        border: "1px solid rgba(255,255,255,0.12)",
+        border: "1px solid var(--border)",
         borderRadius: 14,
         padding: 16,
         display: "grid",
@@ -92,7 +92,7 @@ export function SubmitEventForm() {
           placeholder="Event title"
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
         />
 
         <textarea
@@ -100,7 +100,7 @@ export function SubmitEventForm() {
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           rows={3}
-          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
         />
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -111,7 +111,7 @@ export function SubmitEventForm() {
               type="datetime-local"
               value={form.startAt}
               onChange={(e) => setForm((f) => ({ ...f, startAt: e.target.value }))}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
             />
           </label>
 
@@ -121,7 +121,7 @@ export function SubmitEventForm() {
               type="datetime-local"
               value={form.endAt}
               onChange={(e) => setForm((f) => ({ ...f, endAt: e.target.value }))}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
             />
           </label>
         </div>
@@ -132,7 +132,7 @@ export function SubmitEventForm() {
             onChange={(e) =>
               setForm((f) => ({ ...f, category: e.target.value as FormState["category"] }))
             }
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           >
             <option value="music">Music</option>
             <option value="nightlife">Nightlife</option>
@@ -143,7 +143,7 @@ export function SubmitEventForm() {
             placeholder="Ticket/info link"
             value={form.sourceUrl}
             onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           />
         </div>
 
@@ -152,19 +152,19 @@ export function SubmitEventForm() {
             placeholder="Venue name"
             value={form.venueName}
             onChange={(e) => setForm((f) => ({ ...f, venueName: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           />
           <input
             placeholder="Venue address"
             value={form.venueAddress}
             onChange={(e) => setForm((f) => ({ ...f, venueAddress: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           />
           <input
             placeholder="City"
             value={form.venueCity}
             onChange={(e) => setForm((f) => ({ ...f, venueCity: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           />
         </div>
 
@@ -176,7 +176,7 @@ export function SubmitEventForm() {
             placeholder="Min price (CAD)"
             value={form.minPrice}
             onChange={(e) => setForm((f) => ({ ...f, minPrice: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           />
           <input
             type="number"
@@ -185,7 +185,7 @@ export function SubmitEventForm() {
             placeholder="Max price (CAD)"
             value={form.maxPrice}
             onChange={(e) => setForm((f) => ({ ...f, maxPrice: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)" }}
+            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
           />
         </div>
 
@@ -195,9 +195,9 @@ export function SubmitEventForm() {
           style={{
             padding: "10px 14px",
             borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.2)",
+            border: "1px solid var(--border-strong)",
             fontWeight: 700,
-            background: submitting || !canSubmit ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.15)",
+            background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--btn-bg)",
             cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
           }}
         >
@@ -205,8 +205,8 @@ export function SubmitEventForm() {
         </button>
       </form>
 
-      {message ? <p style={{ color: "#116600" }}>{message}</p> : null}
-      {error ? <p style={{ color: "#aa2222" }}>{error}</p> : null}
+      {message ? <p style={{ color: "#16a34a" }}>{message}</p> : null}
+      {error ? <p style={{ color: "#dc2626" }}>{error}</p> : null}
     </section>
   );
 }

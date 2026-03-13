@@ -120,7 +120,7 @@ export default function AdminEventsPage() {
             style={{
               padding: "8px 12px",
               borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.2)",
+              border: "1px solid var(--border-strong)",
               width: 280,
               fontFamily: "monospace",
             }}
@@ -150,7 +150,7 @@ export default function AdminEventsPage() {
             style={{
               padding: "8px 16px",
               borderRadius: 8,
-              border: "1px solid rgba(0,0,0,0.2)",
+              border: "1px solid var(--border-strong)",
               background: "transparent",
               cursor: "pointer",
             }}
@@ -178,7 +178,7 @@ export default function AdminEventsPage() {
             }}
           >
             <thead>
-              <tr style={{ borderBottom: "2px solid rgba(0,0,0,0.12)", textAlign: "left" }}>
+              <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left" }}>
                 <th style={{ padding: "8px 12px" }}>Title</th>
                 <th style={{ padding: "8px 12px" }}>Start</th>
                 <th style={{ padding: "8px 12px" }}>Category</th>
@@ -194,7 +194,7 @@ export default function AdminEventsPage() {
                 return (
                   <tr
                     key={e.id}
-                    style={{ borderBottom: "1px solid rgba(0,0,0,0.08)" }}
+                    style={{ borderBottom: "1px solid var(--border)" }}
                   >
                     <td style={{ padding: "10px 12px", fontWeight: 600, maxWidth: 260 }}>
                       {e.title}

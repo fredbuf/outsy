@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
 
 type Category = "music" | "nightlife" | "art";
 const TITLE_MAX = 140;
@@ -13,13 +14,6 @@ const RATE_LIMIT_MAX = 6;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const submissionWindow = new Map<string, number[]>();
 
-function normalizeText(s: string): string {
-  return (s || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-}
 
 function toIso(value?: string | null): string | null {
   if (!value) return null;
@@ -181,49 +175,21 @@ export async function POST(req: Request) {
   let venueId: string | null = null;
 
   if (venueName) {
-    const cityNorm = normalizeText(venueCity);
-
-    const { data: existingVenue, error: existingVenueError } = await supabase
-      .from("venues")
-      .select("id")
-      .eq("name", venueName)
-      .eq("address_line1", venueAddress)
-      .eq("city_normalized", cityNorm)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingVenueError) {
+    try {
+      const result = await upsertVenue(supabase, {
+        name: venueName,
+        address_line1: venueAddress,
+        city: venueCity,
+        region: "QC",
+        country: "CA",
+        timezone: "America/Toronto",
+      });
+      venueId = result?.id ?? null;
+    } catch (err) {
       return NextResponse.json(
-        { ok: false, error: `Venue lookup failed: ${existingVenueError.message}` },
+        { ok: false, error: `Venue error: ${err instanceof Error ? err.message : "unknown"}` },
         { status: 500 }
       );
-    }
-
-    if (existingVenue?.id) {
-      venueId = existingVenue.id;
-    } else {
-      const { data: insertedVenue, error: venueInsertError } = await supabase
-        .from("venues")
-        .insert({
-          name: venueName,
-          address_line1: venueAddress,
-          city: venueCity,
-          city_normalized: cityNorm,
-          region: "QC",
-          country: "CA",
-          timezone: "America/Toronto",
-        })
-        .select("id")
-        .single();
-
-      if (venueInsertError) {
-        return NextResponse.json(
-          { ok: false, error: `Venue insert failed: ${venueInsertError.message}` },
-          { status: 500 }
-        );
-      }
-
-      venueId = insertedVenue.id;
     }
   }
 
