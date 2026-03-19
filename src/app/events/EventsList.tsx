@@ -553,7 +553,7 @@ export function EventsList() {
       ) : filtered.length === 0 ? (
         <p>No events found.</p>
       ) : (
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+        <div className="events-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
           {filtered.map((e) => (
             <Link
               key={e.id}
