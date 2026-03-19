@@ -14,7 +14,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,venues(name,address_line1,city)"
+      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,profiles!creator_id(display_name,avatar_url),venues(name,address_line1,city)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -174,6 +174,8 @@ export default async function EventPage({
   if (!event) notFound();
 
   const venue = Array.isArray(event.venues) ? event.venues[0] : event.venues;
+  const creatorRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
+  const creator = creatorRaw as { display_name: string | null; avatar_url: string | null } | null;
   const [related, rsvpCounts, attendees] = await Promise.all([
     fetchRelated(id, event.category_primary),
     fetchRsvpCounts(id),
@@ -236,6 +238,46 @@ export default async function EventPage({
             <span style={{ opacity: 0.45, fontSize: 12 }}>
               via {SOURCE_LABELS[event.source] ?? event.source}
             </span>
+          )}
+
+          {creator && (
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 2 }}>
+              {creator.avatar_url ? (
+                <img
+                  src={creator.avatar_url}
+                  alt={creator.display_name ?? ""}
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    flex: "0 0 auto",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: "50%",
+                    background: getAvatarColor(creator.display_name),
+                    flex: "0 0 auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    color: "#fff",
+                    userSelect: "none",
+                  }}
+                >
+                  {getInitials(creator.display_name)}
+                </div>
+              )}
+              <span style={{ opacity: 0.6, fontSize: 13 }}>
+                Hosted by {creator.display_name ?? "a member"}
+              </span>
+            </div>
           )}
         </div>
 
