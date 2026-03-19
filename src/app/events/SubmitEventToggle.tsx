@@ -6,6 +6,10 @@ import { SubmitEventForm } from "./SubmitEventForm";
 export function SubmitEventToggle() {
   const [open, setOpen] = useState(false);
 
+  function requestSignIn() {
+    window.dispatchEvent(new CustomEvent("outsy:open-signin"));
+  }
+
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div>
@@ -25,7 +29,7 @@ export function SubmitEventToggle() {
         </button>
       </div>
 
-      {open && <SubmitEventForm />}
+      {open && <SubmitEventForm onSignInRequest={requestSignIn} />}
     </div>
   );
 }

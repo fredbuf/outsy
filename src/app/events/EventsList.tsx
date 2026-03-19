@@ -8,7 +8,8 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 const PAGE_SIZE = 50;
 
 type Category = "music" | "nightlife" | "art";
-type SourceType = "ticketmaster" | "manual" | "eventbrite";
+type SourceType = "ticketmaster" | "manual" | "eventbrite" | "venue_newcitygas" | "venue_sat";
+
 
 type EventRow = {
   id: string;
@@ -21,9 +22,11 @@ type EventRow = {
   max_price: number | null;
   image_url: string | null;
   source_url: string | null;
+  venues: { name: string; city: string | null } | null;
 };
 
 type SuggestionItem = { id: string; title: string };
+type VenueItem = { id: string; name: string };
 type DateWindow = "all" | "today" | "this_week" | "weekend";
 
 // ─── Timezone helpers ────────────────────────────────────────────────────────
@@ -154,7 +157,8 @@ function buildPageQuery(
   pageIndex: number,
   fromDate: string,
   toDate: string,
-  searchQuery: string
+  searchQuery: string,
+  venueId: string
 ) {
   const rangeFrom = pageIndex * PAGE_SIZE;
   const rangeTo = rangeFrom + PAGE_SIZE - 1;
@@ -162,12 +166,13 @@ function buildPageQuery(
   let q = supabase
     .from("events")
     .select(
-      "id,title,description,start_at,category_primary,source,min_price,max_price,image_url,source_url"
+      "id,title,description,start_at,category_primary,source,min_price,max_price,image_url,source_url,venues(name,city)"
     )
     .eq("city_normalized", "montreal")
     .eq("status", "scheduled")
     .eq("is_approved", true)
-    .eq("is_rejected", false);
+    .eq("is_rejected", false)
+    .eq("visibility", "public");
 
   if (searchQuery) {
     const escaped = escapeIlike(searchQuery.trim());
@@ -183,6 +188,10 @@ function buildPageQuery(
 
   if (toDate) {
     q = q.lte("start_at", montrealDayEnd(toDate));
+  }
+
+  if (venueId) {
+    q = q.eq("venue_id", venueId);
   }
 
   return q.order("start_at", { ascending: true }).range(rangeFrom, rangeTo);
@@ -222,19 +231,28 @@ function isInDateWindow(iso: string, window: DateWindow) {
   return d >= startWeekend && d < endWeekend;
 }
 
-function cardPriceLabel(event: EventRow): string | null {
-  if (event.min_price === 0) return "Free";
-  if (event.min_price !== null) {
-    const c = "CAD";
-    if (event.max_price !== null && event.max_price !== event.min_price)
-      return `${c} ${event.min_price} – ${event.max_price}`;
-    return `${c} ${event.min_price}`;
-  }
-  if (event.source_url) return "🎟 Tickets available";
-  return null;
+
+function cardIcon(event: EventRow): string {
+  if (event.min_price === 0) return "🌐";
+  if (event.min_price !== null || event.source_url) return "🎟";
+  return "🌐";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
+
+async function fetchGoingCounts(ids: string[]): Promise<Record<string, number>> {
+  if (ids.length === 0) return {};
+  const { data } = await supabaseBrowser()
+    .from("rsvps")
+    .select("event_id")
+    .eq("response", "going")
+    .in("event_id", ids);
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as { event_id: string }[]) {
+    counts[row.event_id] = (counts[row.event_id] ?? 0) + 1;
+  }
+  return counts;
+}
 
 export function EventsList() {
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -243,6 +261,7 @@ export function EventsList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [goingCounts, setGoingCounts] = useState<Record<string, number>>({});
 
   // Typed query (immediate, controls the input).
   const [query, setQuery] = useState("");
@@ -254,6 +273,8 @@ export function EventsList() {
   const [dateWindow, setDateWindow] = useState<DateWindow>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [venueId, setVenueId] = useState("");
+  const [venues, setVenues] = useState<VenueItem[]>([]);
 
   // Small pool of event titles used to compute "did you mean?" suggestions.
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
@@ -267,6 +288,19 @@ export function EventsList() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  // Fetch venue list once on mount for the venue dropdown.
+  useEffect(() => {
+    const run = async () => {
+      const { data } = await supabaseBrowser()
+        .from("venues")
+        .select("id,name")
+        .order("name", { ascending: true })
+        .limit(300);
+      setVenues((data ?? []) as VenueItem[]);
+    };
+    run();
+  }, []);
+
   // Fetch a lightweight title pool once on mount for suggestion computation.
   // No setState synchronously in the effect body — the set happens after await.
   useEffect(() => {
@@ -278,6 +312,7 @@ export function EventsList() {
         .eq("status", "scheduled")
         .eq("is_approved", true)
         .eq("is_rejected", false)
+        .eq("visibility", "public")
         .gte("start_at", new Date().toISOString())
         .order("start_at", { ascending: true })
         .limit(200);
@@ -302,7 +337,8 @@ export function EventsList() {
         0,
         fromDate,
         toDate,
-        debouncedQuery
+        debouncedQuery,
+        venueId
       );
       if (gen !== genRef.current) return;
       if (error) {
@@ -311,14 +347,15 @@ export function EventsList() {
         setLoading(false);
         return;
       }
-      const rows = (data ?? []) as EventRow[];
+      const rows = (data ?? []) as unknown as EventRow[];
       setEvents(rows);
       if (rows.length < PAGE_SIZE) setExhausted(true);
       setLoading(false);
+      fetchGoingCounts(rows.map((r) => r.id)).then(setGoingCounts);
     };
 
     run();
-  }, [fromDate, toDate, debouncedQuery]);
+  }, [fromDate, toDate, debouncedQuery, venueId]);
 
   async function handleLoadMore() {
     setLoadingMore(true);
@@ -327,10 +364,11 @@ export function EventsList() {
       nextPage,
       fromDate,
       toDate,
-      debouncedQuery
+      debouncedQuery,
+      venueId
     );
     if (error) console.error(error);
-    const rows = (data ?? []) as EventRow[];
+    const rows = (data ?? []) as unknown as EventRow[];
     setEvents((prev) => {
       const seen = new Set(prev.map((e) => e.id));
       return [...prev, ...rows.filter((r) => !seen.has(r.id))];
@@ -338,6 +376,9 @@ export function EventsList() {
     if (rows.length < PAGE_SIZE) setExhausted(true);
     setNextPage((p) => p + 1);
     setLoadingMore(false);
+    fetchGoingCounts(rows.map((r) => r.id)).then((newCounts) =>
+      setGoingCounts((prev) => ({ ...prev, ...newCounts }))
+    );
   }
 
   // Text search is now server-side — category/source/date are client-side.
@@ -404,6 +445,19 @@ export function EventsList() {
             <option value="all">All sources</option>
             <option value="ticketmaster">Ticketmaster</option>
             <option value="manual">Community</option>
+          </select>
+
+          <select
+            value={venueId}
+            onChange={(e) => setVenueId(e.target.value)}
+            style={{ padding: "8px 10px", borderRadius: 8 }}
+          >
+            <option value="">All venues</option>
+            {venues.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
           </select>
 
           <select
@@ -499,60 +553,86 @@ export function EventsList() {
       ) : filtered.length === 0 ? (
         <p>No events found.</p>
       ) : (
-        filtered.map((e) => (
-          <Link
-            key={e.id}
-            href={`/events/${e.id}`}
-            style={{ textDecoration: "none", color: "inherit", display: "block" }}
-          >
-          <article
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: 14,
-              padding: 14,
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
-            {e.image_url ? (
-              <img
-                src={e.image_url}
-                alt=""
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+          {filtered.map((e) => (
+            <Link
+              key={e.id}
+              href={`/events/${e.id}`}
+              style={{ textDecoration: "none", color: "inherit", display: "block" }}
+            >
+              <article
                 style={{
-                  width: 88,
-                  height: 88,
-                  objectFit: "cover",
-                  borderRadius: 12,
-                  flex: "0 0 auto",
+                  border: "1px solid var(--border)",
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: 12,
-                  background: "var(--surface-subtle)",
-                  flex: "0 0 auto",
-                }}
-              />
-            )}
+              >
+                {/* Image — 70% of card height via padding trick */}
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    paddingBottom: "70%",
+                    background: "var(--surface-subtle)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {e.image_url && (
+                    <img
+                      src={e.image_url}
+                      alt=""
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  )}
+                </div>
 
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, opacity: 0.7 }}>{formatDate(e.start_at)}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2, lineHeight: 1.2 }}>
-                {e.title}
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-                {e.category_primary} • {e.source === "manual" ? "community" : e.source}
-                {cardPriceLabel(e) ? ` · ${cardPriceLabel(e)}` : ""}
-              </div>
-            </div>
-
-          </article>
-          </Link>
-        ))
+                {/* Info area — bottom 30% */}
+                <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
+                  {/* Row 1: date + icon */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, opacity: 0.65 }}>{formatDate(e.start_at)}</span>
+                    <span style={{ fontSize: 13, lineHeight: 1 }}>{cardIcon(e)}</span>
+                  </div>
+                  {/* Row 2: title */}
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      lineHeight: 1.25,
+                      overflow: "hidden",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    {e.title}
+                  </div>
+                  {/* Row 3: venue or capitalized category fallback */}
+                  <div style={{ fontSize: 11, opacity: 0.55, marginTop: 1 }}>
+                    {e.venues?.name
+                      ? e.venues.city
+                        ? `${e.venues.name}, ${e.venues.city}`
+                        : e.venues.name
+                      : e.category_primary.charAt(0).toUpperCase() + e.category_primary.slice(1)}
+                  </div>
+                  {(goingCounts[e.id] ?? 0) > 0 && (
+                    <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1 }}>
+                      {goingCounts[e.id]} going
+                    </div>
+                  )}
+                </div>
+              </article>
+            </Link>
+          ))}
+        </div>
       )}
 
       {/* Load more */}

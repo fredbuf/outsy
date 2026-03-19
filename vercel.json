@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/ingest-eventbrite?maxPages=2",
       "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-venue-newcitygas",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-venue-sat?maxEvents=60",
+      "schedule": "30 12 * * *"
     }
   ]
 }

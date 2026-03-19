@@ -809,7 +809,9 @@ export async function ingestEventbriteMontreal(
               source: "eventbrite",
               source_event_id: card.sourceEventId,
               source_url: card.sourceUrl,
-              venue_id: venueId,
+              // Only include venue_id when we found one — omitting it on conflict
+              // preserves the existing venue_id rather than nullifying it.
+              ...(venueId !== null ? { venue_id: venueId } : {}),
               city_normalized: "montreal",
               is_approved: true,
             },

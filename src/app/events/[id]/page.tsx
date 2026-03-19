@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
+import { CopyInviteLink } from "./CopyInviteLink";
+import { RsvpPanel } from "./RsvpPanel";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -12,7 +14,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,venues(name,address_line1,city)"
+      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,venues(name,address_line1,city)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -29,12 +31,66 @@ async function fetchRelated(id: string, category: string) {
     .eq("is_approved", true)
     .eq("is_rejected", false)
     .eq("status", "scheduled")
+    .eq("visibility", "public")
     .eq("category_primary", category)
     .neq("id", id)
     .gte("start_at", new Date().toISOString())
     .order("start_at", { ascending: true })
     .limit(4);
   return data ?? [];
+}
+
+async function fetchRsvpCounts(eventId: string) {
+  const { data } = await supabaseServer()
+    .from("rsvps")
+    .select("response")
+    .eq("event_id", eventId);
+
+  const counts = { going: 0, maybe: 0, cant_go: 0 };
+  for (const row of data ?? []) {
+    if (row.response === "going") counts.going++;
+    else if (row.response === "maybe") counts.maybe++;
+    else if (row.response === "cant_go") counts.cant_go++;
+  }
+  return counts;
+}
+
+type Attendee = { display_name: string | null; avatar_url: string | null };
+
+async function fetchAttendees(eventId: string): Promise<Attendee[]> {
+  const { data } = await supabaseServer()
+    .from("rsvps")
+    .select("profiles(display_name, avatar_url)")
+    .eq("event_id", eventId)
+    .eq("response", "going")
+    .order("updated_at", { ascending: false })
+    .limit(5);
+
+  return (data ?? [])
+    .map((r) => {
+      const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+      return p as Attendee | null;
+    })
+    .filter((p): p is Attendee => p !== null);
+}
+
+const AVATAR_COLORS = [
+  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+];
+
+function getInitials(name: string | null): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name: string | null): string {
+  if (!name) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
 export async function generateMetadata({
@@ -58,16 +114,29 @@ export async function generateMetadata({
   };
 }
 
-function formatDateLong(iso: string): string {
-  return new Date(iso).toLocaleString("en-CA", {
+const SOURCE_LABELS: Record<string, string> = {
+  ticketmaster:     "Ticketmaster",
+  eventbrite:       "Eventbrite",
+  manual:           "Community",
+  venue_newcitygas: "New City Gas",
+  venue_sat:        "SAT Montréal",
+};
+
+function formatDateCompact(iso: string): string {
+  const d = new Date(iso);
+  const datePart = d.toLocaleString("en-US", {
     timeZone: "America/Toronto",
-    weekday: "long",
-    month: "long",
+    weekday: "short",
+    month: "short",
     day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   });
+  const timePart = d.toLocaleString("en-US", {
+    timeZone: "America/Toronto",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${datePart} · ${timePart}`;
 }
 
 function formatDateShort(iso: string): string {
@@ -105,7 +174,11 @@ export default async function EventPage({
   if (!event) notFound();
 
   const venue = Array.isArray(event.venues) ? event.venues[0] : event.venues;
-  const related = await fetchRelated(id, event.category_primary);
+  const [related, rsvpCounts, attendees] = await Promise.all([
+    fetchRelated(id, event.category_primary),
+    fetchRsvpCounts(id),
+    fetchAttendees(id),
+  ]);
 
   return (
     <main
@@ -137,63 +210,157 @@ export default async function EventPage({
         />
       )}
 
-      <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "grid", gap: 12 }}>
         <h1 style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.2 }}>
           {event.title}
         </h1>
 
-        <div
-          style={{
-            display: "grid",
-            gap: 4,
-            fontSize: 14,
-            opacity: 0.75,
-          }}
-        >
-          <span>{formatDateLong(event.start_at)}</span>
+        <div style={{ display: "grid", gap: 5, fontSize: 14 }}>
+          <span style={{ opacity: 0.85 }}>{formatDateCompact(event.start_at)}</span>
 
           {venue?.name && (
-            <span>
+            <span style={{ opacity: 0.75 }}>
               {venue.name}
               {venue.city ? `, ${venue.city}` : ""}
             </span>
           )}
 
-          <span style={{ textTransform: "capitalize" }}>
+          <span style={{ opacity: 0.75, textTransform: "capitalize" }}>
             {event.category_primary}
             {formatPrice(event.min_price, event.max_price, event.currency)
               ? ` · ${formatPrice(event.min_price, event.max_price, event.currency)}`
               : ""}
           </span>
+
+          {event.source && (
+            <span style={{ opacity: 0.45, fontSize: 12 }}>
+              via {SOURCE_LABELS[event.source] ?? event.source}
+            </span>
+          )}
         </div>
+
+        {event.visibility === "private" && <CopyInviteLink />}
+
+        {event.source_url && (
+          <a
+            href={event.source_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-block",
+              alignSelf: "start",
+              marginTop: 4,
+              padding: "12px 28px",
+              borderRadius: 12,
+              background: "var(--btn-bg)",
+              border: "1px solid var(--border-strong)",
+              fontWeight: 700,
+              fontSize: 15,
+              textDecoration: "none",
+              textAlign: "center",
+            }}
+          >
+            Get tickets →
+          </a>
+        )}
       </div>
 
       {event.description && (
-        <p style={{ lineHeight: 1.7, opacity: 0.85, whiteSpace: "pre-wrap" }}>
-          {event.description}
-        </p>
+        <div style={{ display: "grid", gap: 8 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, opacity: 0.6 }}>
+            About this event
+          </h2>
+          <p
+            style={{
+              fontSize: 14,
+              lineHeight: 1.75,
+              opacity: 0.85,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {event.description}
+          </p>
+        </div>
       )}
 
-      {event.source_url && (
-        <a
-          href={event.source_url}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "inline-block",
-            padding: "12px 28px",
-            borderRadius: 12,
-            background: "var(--btn-bg)",
-            border: "1px solid var(--border-strong)",
-            fontWeight: 700,
-            fontSize: 15,
-            textDecoration: "none",
-            textAlign: "center",
-          }}
-        >
-          Get tickets →
-        </a>
+      {rsvpCounts.going > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Avatar stack */}
+          <div style={{ display: "flex", marginRight: 2 }}>
+            {attendees.map((a, i) => (
+              a.avatar_url ? (
+                <img
+                  key={i}
+                  src={a.avatar_url}
+                  alt={a.display_name ?? ""}
+                  title={a.display_name ?? undefined}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "2px solid var(--background)",
+                    marginLeft: i === 0 ? 0 : -8,
+                    zIndex: attendees.length - i,
+                    position: "relative",
+                  }}
+                />
+              ) : (
+                <div
+                  key={i}
+                  title={a.display_name ?? undefined}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: "50%",
+                    background: getAvatarColor(a.display_name),
+                    border: "2px solid var(--background)",
+                    marginLeft: i === 0 ? 0 : -8,
+                    zIndex: attendees.length - i,
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#fff",
+                    userSelect: "none",
+                  }}
+                >
+                  {getInitials(a.display_name)}
+                </div>
+              )
+            ))}
+            {rsvpCounts.going > attendees.length && (
+              <div
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  background: "var(--surface-subtle)",
+                  border: "2px solid var(--background)",
+                  marginLeft: -8,
+                  zIndex: 0,
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  opacity: 0.75,
+                }}
+              >
+                +{rsvpCounts.going - attendees.length}
+              </div>
+            )}
+          </div>
+          <span style={{ fontSize: 13, opacity: 0.7 }}>
+            {rsvpCounts.going} going
+          </span>
+        </div>
       )}
+
+      <RsvpPanel eventId={id} initialCounts={rsvpCounts} visibility={event.visibility as "public" | "private"} />
 
       {related.length > 0 && (
         <section style={{ display: "grid", gap: 12, paddingTop: 8 }}>

@@ -39,6 +39,16 @@ function parseCategory(value: string): Category {
 }
 
 export async function POST(req: Request) {
+  // Auth check
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "Sign in to submit events." }, { status: 401 });
+  }
+  const { data: { user: authUser }, error: authError } = await supabaseServer().auth.getUser(token);
+  if (authError || !authUser) {
+    return NextResponse.json({ ok: false, error: "Invalid session. Please sign in again." }, { status: 401 });
+  }
+
   const ipHeader = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const ip = ipHeader.split(",")[0].trim() || "unknown";
   const now = Date.now();
@@ -116,34 +126,12 @@ export async function POST(req: Request) {
   }
 
   const category = parseCategory(String(payload.category ?? "music"));
+  const visibility =
+    payload.visibility === "private" ? "private" : "public";
   const sourceUrl = sanitizeUrl(typeof payload.sourceUrl === "string" ? payload.sourceUrl : null);
   if (typeof payload.sourceUrl === "string" && payload.sourceUrl.length > URL_MAX) {
     return NextResponse.json(
       { ok: false, error: `Ticket/info link must be ${URL_MAX} characters or fewer.` },
-      { status: 400 }
-    );
-  }
-
-  const minPrice =
-    payload.minPrice === "" || payload.minPrice === null || payload.minPrice === undefined
-      ? null
-      : Number(payload.minPrice);
-  const maxPrice =
-    payload.maxPrice === "" || payload.maxPrice === null || payload.maxPrice === undefined
-      ? null
-      : Number(payload.maxPrice);
-
-  if (minPrice !== null && (!Number.isFinite(minPrice) || minPrice < 0)) {
-    return NextResponse.json({ ok: false, error: "Invalid minimum price." }, { status: 400 });
-  }
-
-  if (maxPrice !== null && (!Number.isFinite(maxPrice) || maxPrice < 0)) {
-    return NextResponse.json({ ok: false, error: "Invalid maximum price." }, { status: 400 });
-  }
-
-  if (minPrice !== null && maxPrice !== null && maxPrice < minPrice) {
-    return NextResponse.json(
-      { ok: false, error: "Maximum price must be greater than or equal to minimum price." },
       { status: 400 }
     );
   }
@@ -172,9 +160,17 @@ export async function POST(req: Request) {
 
   const supabase = supabaseServer();
 
-  let venueId: string | null = null;
+  // If the client already resolved a venue from autocomplete, use its ID directly.
+  // Otherwise fall back to upsert-by-name.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const preselectedVenueId =
+    typeof payload.venueId === "string" && UUID_RE.test(payload.venueId)
+      ? payload.venueId
+      : null;
 
-  if (venueName) {
+  let venueId: string | null = preselectedVenueId;
+
+  if (!venueId && venueName) {
     try {
       const result = await upsertVenue(supabase, {
         name: venueName,
@@ -207,19 +203,21 @@ export async function POST(req: Request) {
       status: "scheduled",
       category_primary: category,
       tags: ["community-submission"],
-      min_price: minPrice,
-      max_price: maxPrice,
-      currency: "CAD",
       age_restriction: null,
-      image_url: null,
+      image_url:
+        typeof payload.imageUrl === "string" && payload.imageUrl.startsWith("https://")
+          ? payload.imageUrl
+          : null,
       source: "manual",
       source_event_id: sourceEventId,
       source_url: sourceUrl,
       venue_id: venueId,
       city_normalized: "montreal",
-      is_approved: false,
+      visibility,
+      is_approved: visibility === "private",
+      creator_id: authUser.id,
     })
-    .select("id,title,start_at")
+    .select("id")
     .single();
 
   if (error) {
@@ -229,5 +227,5 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, event: data });
+  return NextResponse.json({ ok: true, eventId: data.id });
 }
