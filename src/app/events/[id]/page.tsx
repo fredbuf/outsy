@@ -288,6 +288,7 @@ export default async function EventPage({
             href={event.source_url}
             target="_blank"
             rel="noreferrer"
+            className="cta-full-mobile"
             style={{
               display: "inline-block",
               alignSelf: "start",

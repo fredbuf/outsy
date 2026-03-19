@@ -42,6 +42,52 @@ export async function findDuplicateEvent(
   return !!data;
 }
 
+// Common named HTML entities → their UTF-8 characters.
+// Covers the most frequent entities found in Ticketmaster and SAT JSON-LD descriptions.
+const HTML_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  nbsp: "\u00A0", shy: "\u00AD",
+  // French / accented
+  agrave: "à", Agrave: "À", aacute: "á", Aacute: "Á", acirc: "â", Acirc: "Â",
+  atilde: "ã", Atilde: "Ã", auml: "ä", Auml: "Ä", aring: "å", Aring: "Å",
+  aelig: "æ", AElig: "Æ",
+  ccedil: "ç", Ccedil: "Ç",
+  egrave: "è", Egrave: "È", eacute: "é", Eacute: "É", ecirc: "ê", Ecirc: "Ê", euml: "ë", Euml: "Ë",
+  igrave: "ì", Igrave: "Ì", iacute: "í", Iacute: "Í", icirc: "î", Icirc: "Î", iuml: "ï", Iuml: "Ï",
+  ograve: "ò", Ograve: "Ò", oacute: "ó", Oacute: "Ó", ocirc: "ô", Ocirc: "Ô",
+  otilde: "õ", Otilde: "Õ", ouml: "ö", Ouml: "Ö",
+  ugrave: "ù", Ugrave: "Ù", uacute: "ú", Uacute: "Ú", ucirc: "û", Ucirc: "Û", uuml: "ü", Uuml: "Ü",
+  ntilde: "ñ", Ntilde: "Ñ",
+  // Punctuation
+  lsquo: "\u2018", rsquo: "\u2019", sbquo: "\u201A",
+  ldquo: "\u201C", rdquo: "\u201D", bdquo: "\u201E",
+  laquo: "\u00AB", raquo: "\u00BB",
+  ndash: "\u2013", mdash: "\u2014",
+  hellip: "\u2026", middot: "\u00B7", bull: "\u2022",
+  trade: "\u2122", reg: "\u00AE", copy: "\u00A9",
+};
+
+/**
+ * Decodes HTML entities in a string and strips HTML tags.
+ * Safe to use on untrusted content — no DOM is involved.
+ * Applied to externally-sourced description fields before storing to DB.
+ */
+export function decodeHtmlEntities(s: string | null): string | null {
+  if (!s) return s;
+  return s
+    // Strip HTML tags
+    .replace(/<[^>]*>/g, " ")
+    // Decimal numeric: &#39; &#233;
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    // Hex numeric: &#x27; &#xE9;
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    // Named: &rsquo; &eacute;
+    .replace(/&([a-zA-Z]+);/g, (match, name) => HTML_ENTITIES[name] ?? match)
+    // Collapse multiple spaces introduced by tag stripping
+    .replace(/[ \t]+/g, " ")
+    .trim() || null;
+}
+
 export function normalizeText(s: string): string {
   return (s || "")
     .normalize("NFD")

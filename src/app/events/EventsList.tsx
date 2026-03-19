@@ -425,7 +425,7 @@ export function EventsList() {
         />
 
         {/* Row 1: category / source / date preset / price */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="filter-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as Category | "all")}
@@ -476,7 +476,7 @@ export function EventsList() {
             <option value="weekend">Weekend</option>
           </select>
 
-          <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 14 }}>
+          <span className="filter-count" style={{ marginLeft: "auto", opacity: 0.7, fontSize: 14 }}>
             {loading
               ? "Loading…"
               : `${filtered.length} event${filtered.length !== 1 ? "s" : ""}${!exhausted ? "+" : ""}`}
@@ -484,7 +484,7 @@ export function EventsList() {
         </div>
 
         {/* Row 2: custom date range */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="date-range-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <label style={{ fontSize: 13, opacity: 0.7 }}>From</label>
           <input
             type="date"

@@ -296,7 +296,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
           style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
         />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <label style={{ display: "grid", gap: 4 }}>
             <span style={{ fontSize: 12, opacity: 0.8 }}>Start</span>
             <input
@@ -319,7 +319,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
           </label>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <select
             value={form.category}
             onChange={(e) =>
@@ -341,7 +341,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
         </div>
 
         {/* Venue row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
           <div ref={venueWrapperRef} style={{ position: "relative" }}>
             <input
               placeholder="Venue name"

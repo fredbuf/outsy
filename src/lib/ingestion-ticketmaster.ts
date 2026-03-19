@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase-server";
-import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
+import { normalizeText, upsertVenue, decodeHtmlEntities } from "@/lib/ingestion-shared";
 
 type Category = "music" | "nightlife" | "art";
 type TicketmasterImage = { url?: string; width?: number };
@@ -311,7 +311,7 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
         const payload = {
           title: tm?.name ?? "Untitled",
           title_normalized: normalizeText(tm?.name ?? "Untitled"),
-          description: tm?.info ?? tm?.pleaseNote ?? null,
+          description: decodeHtmlEntities(tm?.info ?? tm?.pleaseNote ?? null),
           start_at: startAt,
           end_at: tm?.dates?.end?.dateTime ?? null,
           timezone: "America/Toronto",

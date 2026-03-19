@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase-server";
-import { normalizeText, upsertVenue, findDuplicateEvent } from "@/lib/ingestion-shared";
+import { normalizeText, upsertVenue, findDuplicateEvent, decodeHtmlEntities } from "@/lib/ingestion-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -449,7 +449,7 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
       const payload = {
         title,
         title_normalized: normalizeText(title),
-        description: typeof ld.description === "string" ? ld.description : null,
+        description: typeof ld.description === "string" ? decodeHtmlEntities(ld.description) : null,
         start_at: startAt,
         end_at: endAt,
         timezone: "America/Toronto",

@@ -65,6 +65,7 @@ export function Header() {
   return (
     <>
       <header
+        className="site-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -88,7 +89,7 @@ export function Header() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {user ? (
               <>
-                <span style={{ fontSize: 13, opacity: 0.75 }}>{displayName}</span>
+                <span className="header-display-name" style={{ fontSize: 13, opacity: 0.75 }}>{displayName}</span>
                 <button
                   onClick={handleSignOut}
                   style={{
