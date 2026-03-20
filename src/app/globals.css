@@ -70,12 +70,9 @@ body {
     padding: 10px 14px !important;
   }
 
-  /* Prevent long display names from overflowing the header */
-  .header-display-name {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  /* Hide redundant "Events" nav link on mobile — logo already links there */
+  .nav-hide-mobile {
+    display: none !important;
   }
 
   /* Filter row: stack selects vertically, each full width */

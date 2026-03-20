@@ -56,12 +56,6 @@ export function Header() {
     setShowPanel(false);
   }
 
-  const displayName =
-    user?.user_metadata?.full_name ??
-    user?.user_metadata?.name ??
-    user?.email?.split("@")[0] ??
-    "Account";
-
   return (
     <>
       <header
@@ -85,14 +79,37 @@ export function Header() {
           Outsy
         </Link>
 
-        {!loading && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {user ? (
+        <nav style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <Link
+            href="/events"
+            className="nav-hide-mobile"
+            style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none" }}
+          >
+            Events
+          </Link>
+
+          {!loading && user && (
+            <Link
+              href="/events#submit"
+              style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none" }}
+            >
+              Create
+            </Link>
+          )}
+
+          {!loading && (
+            user ? (
               <>
-                <span className="header-display-name" style={{ fontSize: 13, opacity: 0.75 }}>{displayName}</span>
+                <Link
+                  href="/profile"
+                  style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none" }}
+                >
+                  Profile
+                </Link>
                 <button
                   onClick={handleSignOut}
                   style={{
+                    marginLeft: 4,
                     padding: "6px 14px",
                     borderRadius: 8,
                     border: "1px solid var(--border-strong)",
@@ -113,6 +130,7 @@ export function Header() {
                   setPanelError(null);
                 }}
                 style={{
+                  marginLeft: 4,
                   padding: "6px 14px",
                   borderRadius: 8,
                   border: "1px solid var(--border-strong)",
@@ -124,9 +142,9 @@ export function Header() {
               >
                 Sign in
               </button>
-            )}
-          </div>
-        )}
+            )
+          )}
+        </nav>
       </header>
 
       {/* Sign-in overlay */}

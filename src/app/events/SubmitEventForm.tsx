@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { FormEvent, useEffect, useRef, useMemo, useState } from "react";
@@ -40,7 +41,32 @@ const initialForm: FormState = {
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 5 * 1024 * 1024;
 
-export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => void }) {
+const AVATAR_COLORS = [
+  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+];
+
+function getInitials(name: string | null): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name: string | null): string {
+  if (!name) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+export function SubmitEventForm({
+  onSignInRequest,
+  onClose,
+}: {
+  onSignInRequest?: () => void;
+  onClose?: () => void;
+}) {
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
   const [form, setForm] = useState<FormState>(initialForm);
@@ -60,7 +86,6 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Revoke object URL when preview changes or component unmounts
   useEffect(() => {
     return () => {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -87,7 +112,6 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
     setImagePreview(URL.createObjectURL(file));
   }
 
-  // Close venue dropdown on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (venueWrapperRef.current && !venueWrapperRef.current.contains(e.target as Node)) {
@@ -144,7 +168,6 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
     const isPrivate = form.visibility === "private";
 
     try {
-      // Upload image first if one was selected
       let imageUrl: string | null = null;
       const authHeader: Record<string, string> = session?.access_token
         ? { Authorization: `Bearer ${session.access_token}` }
@@ -182,6 +205,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
       }
 
       if (isPrivate) {
+        onClose?.();
         router.push(`/events/${json.eventId}`);
       } else {
         setPublicSubmitted(true);
@@ -193,20 +217,28 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
     }
   }
 
+  const displayName =
+    user?.user_metadata?.full_name ??
+    user?.user_metadata?.name ??
+    user?.email?.split("@")[0] ??
+    "You";
+
+  const inputStyle: React.CSSProperties = {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border-strong)",
+    fontSize: 14,
+    background: "transparent",
+    color: "inherit",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
   // Auth guard
   if (!authLoading && !user) {
     return (
-      <section
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: 14,
-          padding: 24,
-          display: "grid",
-          gap: 12,
-        }}
-      >
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>Submit an event</h2>
-        <p style={{ opacity: 0.7 }}>You need to be signed in to submit events.</p>
+      <div style={{ padding: "20px 20px 24px", display: "grid", gap: 12 }}>
+        <p style={{ opacity: 0.7, fontSize: 14 }}>Sign in to create and share events.</p>
         <button
           type="button"
           onClick={onSignInRequest}
@@ -214,8 +246,9 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
             alignSelf: "start",
             padding: "10px 20px",
             borderRadius: 10,
-            border: "1px solid var(--border-strong)",
-            background: "var(--btn-bg)",
+            border: "none",
+            background: "var(--foreground)",
+            color: "var(--background)",
             cursor: "pointer",
             fontWeight: 600,
             fontSize: 14,
@@ -223,124 +256,248 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
         >
           Sign in
         </button>
-      </section>
+      </div>
     );
   }
 
   if (publicSubmitted) {
     return (
-      <section
-        style={{
-          border: "1px solid var(--border)",
-          borderRadius: 14,
-          padding: 24,
-          display: "grid",
-          gap: 12,
-        }}
-      >
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>Event submitted for review</h2>
-        <p style={{ opacity: 0.7 }}>
+      <div style={{ padding: "20px 20px 24px", display: "grid", gap: 14 }}>
+        <h3 style={{ fontSize: 17, fontWeight: 700 }}>Event submitted for review</h3>
+        <p style={{ opacity: 0.7, fontSize: 14, lineHeight: 1.6 }}>
           Your event will appear in the public feed once approved.
         </p>
-        <button
-          type="button"
-          onClick={() => {
-            setPublicSubmitted(false);
-            setForm(initialForm);
-            setVenueId(null);
-          }}
-          style={{
-            alignSelf: "start",
-            padding: "10px 16px",
-            borderRadius: 10,
-            border: "1px solid var(--border-strong)",
-            background: "transparent",
-            cursor: "pointer",
-            fontWeight: 600,
-            fontSize: 14,
-          }}
-        >
-          Submit another event
-        </button>
-      </section>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: "10px 20px",
+              borderRadius: 10,
+              border: "none",
+              background: "var(--foreground)",
+              color: "var(--background)",
+              cursor: "pointer",
+              fontWeight: 600,
+              fontSize: 14,
+            }}
+          >
+            Done
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPublicSubmitted(false);
+              setForm(initialForm);
+              setVenueId(null);
+              setImageFile(null);
+              setImagePreview(null);
+            }}
+            style={{
+              padding: "10px 16px",
+              borderRadius: 10,
+              border: "1px solid var(--border-strong)",
+              background: "transparent",
+              cursor: "pointer",
+              fontSize: 14,
+              color: "inherit",
+            }}
+          >
+            Submit another
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <section
-      style={{
-        border: "1px solid var(--border)",
-        borderRadius: 14,
-        padding: 16,
-        display: "grid",
-        gap: 12,
-      }}
-    >
-      <h2 style={{ fontSize: 20, fontWeight: 700 }}>Submit an event</h2>
-      <p style={{ opacity: 0.7, marginTop: -4 }}>Add a Montréal event manually.</p>
+    <div style={{ padding: "16px 20px 24px" }}>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
 
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
+        {/* 1. Visibility toggle — FIRST */}
+        <div style={{ display: "grid", gap: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              borderRadius: 10,
+              border: "1px solid var(--border-strong)",
+              overflow: "hidden",
+            }}
+          >
+            {(["public", "private"] as const).map((v, i) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, visibility: v }))}
+                style={{
+                  flex: 1,
+                  padding: "10px 12px",
+                  border: "none",
+                  borderLeft: i > 0 ? "1px solid var(--border-strong)" : "none",
+                  background: form.visibility === v ? "var(--btn-bg)" : "transparent",
+                  fontWeight: form.visibility === v ? 700 : 400,
+                  cursor: "pointer",
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 7,
+                  color: "inherit",
+                }}
+              >
+                {v === "public" ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                )}
+                {v === "public" ? "Public event" : "Private event"}
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: 12, opacity: 0.5 }}>
+            {form.visibility === "public"
+              ? "Shown in the public feed after review."
+              : "Accessible only by direct link — not shown in the public feed."}
+          </span>
+        </div>
+
+        {/* 2. Hosted by */}
+        {user && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "9px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+              background: "var(--surface-subtle)",
+            }}
+          >
+            <span style={{ fontSize: 12, opacity: 0.5, flexShrink: 0 }}>Hosted by</span>
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: "50%",
+                background: getAvatarColor(displayName),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#fff",
+                flexShrink: 0,
+                userSelect: "none",
+              }}
+            >
+              {getInitials(displayName)}
+            </div>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {displayName}
+            </span>
+            <button
+              type="button"
+              disabled
+              title="Coming soon"
+              style={{
+                padding: "4px 10px",
+                borderRadius: 7,
+                border: "1px solid var(--border-strong)",
+                background: "transparent",
+                cursor: "not-allowed",
+                fontSize: 12,
+                opacity: 0.4,
+                flexShrink: 0,
+                color: "inherit",
+              }}
+            >
+              + Cohost
+            </button>
+          </div>
+        )}
+
+        {/* 3. Title */}
         <input
           required
           placeholder="Event title"
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+          style={{ ...inputStyle, fontSize: 16, fontWeight: 500 }}
         />
 
+        {/* 4. Description */}
         <textarea
-          placeholder="Description"
+          placeholder="Description (optional)"
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           rows={3}
-          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+          style={{ ...inputStyle, resize: "vertical" }}
         />
 
+        {/* 5. Dates */}
         <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Start</span>
+            <span style={{ fontSize: 12, opacity: 0.6 }}>Start</span>
             <input
               required
               type="datetime-local"
               value={form.startAt}
               onChange={(e) => setForm((f) => ({ ...f, startAt: e.target.value }))}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+              style={inputStyle}
             />
           </label>
-
           <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>End (optional)</span>
+            <span style={{ fontSize: 12, opacity: 0.6 }}>
+              End <span style={{ opacity: 0.6 }}>(optional)</span>
+            </span>
             <input
               type="datetime-local"
               value={form.endAt}
               onChange={(e) => setForm((f) => ({ ...f, endAt: e.target.value }))}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+              style={inputStyle}
             />
           </label>
         </div>
 
+        {/* 6. Category + event link */}
         <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <select
             value={form.category}
             onChange={(e) =>
               setForm((f) => ({ ...f, category: e.target.value as FormState["category"] }))
             }
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+            style={inputStyle}
           >
             <option value="music">Music</option>
             <option value="nightlife">Nightlife</option>
             <option value="art">Art</option>
           </select>
-
           <input
-            placeholder="Event Link (tickets, info, or RSVP)"
+            placeholder="Tickets / info link"
             value={form.sourceUrl}
             onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+            style={inputStyle}
           />
         </div>
 
-        {/* Venue row */}
+        {/* 7. Venue */}
         <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
           <div ref={venueWrapperRef} style={{ position: "relative" }}>
             <input
@@ -350,10 +507,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
               autoComplete="off"
               style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "10px 12px",
-                borderRadius: 10,
+                ...inputStyle,
                 border: venueId ? "1px solid #16a34a" : "1px solid var(--border-strong)",
               }}
             />
@@ -368,7 +522,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
                   margin: "4px 0 0",
                   padding: 0,
                   listStyle: "none",
-                  background: "var(--surface, #fff)",
+                  background: "var(--background)",
                   border: "1px solid var(--border-strong)",
                   borderRadius: 10,
                   boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
@@ -386,8 +540,7 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
                       fontSize: 14,
                     }}
                     onMouseEnter={(e) =>
-                      ((e.currentTarget as HTMLLIElement).style.background =
-                        "var(--surface-subtle, #f5f5f5)")
+                      ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")
                     }
                     onMouseLeave={(e) =>
                       ((e.currentTarget as HTMLLIElement).style.background = "")
@@ -404,23 +557,22 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
               </ul>
             )}
           </div>
-
           <input
-            placeholder="Venue address"
+            placeholder="Address"
             value={form.venueAddress}
             onChange={(e) => setForm((f) => ({ ...f, venueAddress: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+            style={inputStyle}
           />
           <input
             placeholder="City"
             value={form.venueCity}
             onChange={(e) => setForm((f) => ({ ...f, venueCity: e.target.value }))}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+            style={inputStyle}
           />
         </div>
 
-        {/* Cover image */}
-        <div style={{ display: "grid", gap: 8 }}>
+        {/* 8. Cover image */}
+        <div>
           <input
             ref={fileInputRef}
             type="file"
@@ -428,16 +580,14 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
             style={{ display: "none" }}
             onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
           />
-
           {imagePreview ? (
-            <div style={{ position: "relative", display: "inline-block" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+            <div style={{ position: "relative" }}>
               <img
                 src={imagePreview}
                 alt="Cover preview"
                 style={{
                   width: "100%",
-                  maxHeight: 200,
+                  maxHeight: 180,
                   objectFit: "cover",
                   borderRadius: 10,
                   border: "1px solid var(--border-strong)",
@@ -472,14 +622,16 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
               type="button"
               onClick={() => fileInputRef.current?.click()}
               style={{
+                width: "100%",
                 padding: "10px 12px",
                 borderRadius: 10,
                 border: "1px dashed var(--border-strong)",
                 background: "transparent",
                 cursor: "pointer",
                 textAlign: "left",
-                opacity: 0.7,
+                opacity: 0.6,
                 fontSize: 14,
+                color: "inherit",
               }}
             >
               + Add cover image (JPG, PNG, WebP · max 5 MB)
@@ -487,62 +639,32 @@ export function SubmitEventForm({ onSignInRequest }: { onSignInRequest?: () => v
           )}
         </div>
 
-        {/* Visibility segmented control */}
-        <div style={{ display: "grid", gap: 6 }}>
-          <div
-            style={{
-              display: "flex",
-              borderRadius: 10,
-              border: "1px solid var(--border-strong)",
-              overflow: "hidden",
-            }}
-          >
-            {(["public", "private"] as const).map((v, i) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, visibility: v }))}
-                style={{
-                  flex: 1,
-                  padding: "10px 12px",
-                  border: "none",
-                  borderLeft: i > 0 ? "1px solid var(--border-strong)" : "none",
-                  background:
-                    form.visibility === v ? "var(--btn-bg)" : "transparent",
-                  fontWeight: form.visibility === v ? 700 : 400,
-                  cursor: "pointer",
-                  fontSize: 14,
-                  textTransform: "capitalize",
-                }}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <span style={{ fontSize: 12, opacity: 0.5 }}>
-            {form.visibility === "public"
-              ? "Shown in the public feed after moderation."
-              : "Not shown in the public feed — accessible only by direct link."}
-          </span>
-        </div>
+        {error && <p style={{ color: "#dc2626", fontSize: 13, margin: 0 }}>{error}</p>}
 
+        {/* 9. Submit */}
         <button
           type="submit"
           disabled={submitting || !canSubmit}
           style={{
-            padding: "10px 14px",
+            padding: "12px 14px",
             borderRadius: 10,
-            border: "1px solid var(--border-strong)",
+            border: "none",
             fontWeight: 700,
-            background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--btn-bg)",
+            fontSize: 15,
+            background:
+              submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
+            color:
+              submitting || !canSubmit ? "inherit" : "var(--background)",
             cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
           }}
         >
-          {submitting ? "Submitting..." : "Submit event"}
+          {submitting
+            ? "Creating…"
+            : form.visibility === "private"
+            ? "Create private event"
+            : "Submit for review"}
         </button>
       </form>
-
-      {error ? <p style={{ color: "#dc2626" }}>{error}</p> : null}
-    </section>
+    </div>
   );
 }

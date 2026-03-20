@@ -14,7 +14,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,profiles!creator_id(display_name,avatar_url),venues(name,address_line1,city)"
+      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -175,7 +175,7 @@ export default async function EventPage({
 
   const venue = Array.isArray(event.venues) ? event.venues[0] : event.venues;
   const creatorRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
-  const creator = creatorRaw as { display_name: string | null; avatar_url: string | null } | null;
+  const creator = creatorRaw as { display_name: string | null; avatar_url: string | null; username: string | null } | null;
   const [related, rsvpCounts, attendees] = await Promise.all([
     fetchRelated(id, event.category_primary),
     fetchRsvpCounts(id),
@@ -274,9 +274,18 @@ export default async function EventPage({
                   {getInitials(creator.display_name)}
                 </div>
               )}
-              <span style={{ opacity: 0.6, fontSize: 13 }}>
-                Hosted by {creator.display_name ?? "a member"}
-              </span>
+              {creator.username ? (
+                <Link
+                  href={`/u/${creator.username}`}
+                  style={{ opacity: 0.6, fontSize: 13, textDecoration: "underline" }}
+                >
+                  Hosted by {creator.display_name ?? `@${creator.username}`}
+                </Link>
+              ) : (
+                <span style={{ opacity: 0.6, fontSize: 13 }}>
+                  Hosted by {creator.display_name ?? "a member"}
+                </span>
+              )}
             </div>
           )}
         </div>
