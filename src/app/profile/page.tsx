@@ -264,6 +264,7 @@ export default function ProfilePage() {
         padding: "24px 16px 48px",
         display: "grid",
         gap: 28,
+        background: "radial-gradient(ellipse 120% 60% at 50% -5%, rgba(124, 58, 237, 0.09) 0%, transparent 65%)",
       }}
     >
       <Link href="/events" style={{ opacity: 0.6, fontSize: 14, textDecoration: "none" }}>

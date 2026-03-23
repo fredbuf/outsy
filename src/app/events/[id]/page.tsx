@@ -318,6 +318,9 @@ export default async function EventPage({
             venueCity: venue?.city ?? "Montréal",
             sourceUrl: event.source_url ?? "",
             visibility: (event.visibility as "public" | "private") ?? "public",
+            address: event.visibility === "private"
+              ? (venue?.address_line1 ?? venue?.name ?? "")
+              : "",
             imageUrl: event.image_url ?? null,
           }}
         />

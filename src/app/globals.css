@@ -47,6 +47,18 @@ body {
 .nav-label { display: inline; }
 .nav-icon  { display: none;   }
 
+/* ── Filters modal: centered on desktop, bottom-sheet on mobile ────────── */
+.filters-overlay {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.filters-sheet {
+  border-radius: 16px;
+  max-height: 85vh;
+  max-width: 480px;
+}
+
 /* ── Chip row: hide scrollbar ──────────────────────────────────────────── */
 .chip-row {
   scrollbar-width: none;
@@ -94,6 +106,18 @@ body {
   /* Force event card grid to single column */
   .events-grid {
     grid-template-columns: 1fr !important;
+  }
+
+  /* Filters modal → bottom sheet */
+  .filters-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+    padding: 0;
+  }
+  .filters-sheet {
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 90vh !important;
+    max-width: 100% !important;
   }
 
   /* "Get tickets" CTA: full width on mobile for easy tapping */

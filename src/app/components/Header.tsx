@@ -1,9 +1,31 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "./AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+
+type HeaderProfile = { avatar_url: string | null; display_name: string | null };
+
+const AVATAR_COLORS = [
+  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+];
+
+function getInitials(name: string | null): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarColor(name: string | null): string {
+  if (!name) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
 
 export function Header() {
   const { user, loading } = useAuth();
@@ -12,6 +34,9 @@ export function Header() {
   const [emailSent, setEmailSent] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<HeaderProfile | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function openPanel() {
@@ -23,6 +48,31 @@ export function Header() {
     window.addEventListener("outsy:open-signin", openPanel);
     return () => window.removeEventListener("outsy:open-signin", openPanel);
   }, []);
+
+  // Fetch avatar + display name when user signs in
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!user) { setProfile(null); return; }
+    const uid = user.id;
+    supabaseBrowser()
+      .from("profiles")
+      .select("avatar_url,display_name")
+      .eq("id", uid)
+      .single()
+      .then(({ data }) => setProfile(data ?? null));
+  }, [user]);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showUserMenu]);
 
   async function handleGoogle() {
     const supabase = supabaseBrowser();
@@ -54,7 +104,11 @@ export function Header() {
     const supabase = supabaseBrowser();
     await supabase.auth.signOut();
     setShowPanel(false);
+    setShowUserMenu(false);
+    setProfile(null);
   }
+
+  const avatarLabel = profile?.display_name ?? user?.email?.split("@")[0] ?? null;
 
   return (
     <>
@@ -105,34 +159,103 @@ export function Header() {
 
           {!loading && (
             user ? (
-              <>
-                <Link
-                  href="/profile"
-                  style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
-                >
-                  <span className="nav-label">Profile</span>
-                  <span className="nav-icon" aria-hidden>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="8" r="4"/>
-                      <path d="M5 21a7 7 0 0 1 14 0"/>
-                    </svg>
-                  </span>
-                </Link>
+              /* ── Avatar + dropdown ─────────────────────────────────────── */
+              <div ref={userMenuRef} style={{ position: "relative", marginLeft: 4 }}>
                 <button
-                  onClick={handleSignOut}
+                  onClick={() => setShowUserMenu((v) => !v)}
+                  aria-label="User menu"
                   style={{
-                    marginLeft: 4,
-                    padding: "6px 14px",
-                    borderRadius: 8,
-                    border: "1px solid var(--border-strong)",
-                    background: "transparent",
+                    padding: 0,
+                    border: "none",
+                    background: "none",
                     cursor: "pointer",
-                    fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  Sign out
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={avatarLabel ?? ""}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: "50%",
+                        objectFit: "cover",
+                        border: "1.5px solid var(--border-strong)",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: "50%",
+                        background: getAvatarColor(avatarLabel),
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#fff",
+                        userSelect: "none",
+                      }}
+                    >
+                      {getInitials(avatarLabel)}
+                    </div>
+                  )}
                 </button>
-              </>
+
+                {showUserMenu && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 8px)",
+                      right: 0,
+                      background: "var(--background)",
+                      border: "1px solid var(--border-strong)",
+                      borderRadius: 12,
+                      padding: 4,
+                      minWidth: 160,
+                      zIndex: 300,
+                      display: "grid",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+                    }}
+                  >
+                    <Link
+                      href="/profile"
+                      onClick={() => setShowUserMenu(false)}
+                      style={{
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        textDecoration: "none",
+                        borderRadius: 8,
+                        display: "block",
+                        color: "inherit",
+                      }}
+                    >
+                      View profile
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      style={{
+                        padding: "10px 14px",
+                        fontSize: 14,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        borderRadius: 8,
+                        color: "inherit",
+                        width: "100%",
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <button
                 onClick={() => {

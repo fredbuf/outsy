@@ -4,6 +4,7 @@
 import { FormEvent, useEffect, useRef, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export type FormState = {
   title: string;
@@ -16,6 +17,7 @@ export type FormState = {
   venueCity: string;
   sourceUrl: string;
   visibility: "public" | "private";
+  address: string; // private events: single location text field
 };
 
 type VenueSuggestion = {
@@ -24,6 +26,8 @@ type VenueSuggestion = {
   city: string | null;
   address_line1: string | null;
 };
+
+type HostProfile = { avatar_url: string | null; display_name: string | null };
 
 const initialForm: FormState = {
   title: "",
@@ -36,6 +40,7 @@ const initialForm: FormState = {
   venueCity: "Montréal",
   sourceUrl: "",
   visibility: "public",
+  address: "",
 };
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -81,7 +86,20 @@ export function SubmitEventForm({
   const [error, setError] = useState<string | null>(null);
   const [publicSubmitted, setPublicSubmitted] = useState(false);
 
-  // Venue autocomplete
+  // Profile (for avatar + display name in "Hosted by")
+  const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.id;
+    supabaseBrowser()
+      .from("profiles")
+      .select("avatar_url,display_name")
+      .eq("id", uid)
+      .single()
+      .then(({ data }) => setHostProfile(data ?? null));
+  }, [user]);
+
+  // Venue autocomplete (public events only)
   const [venueId, setVenueId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<VenueSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -107,7 +125,7 @@ export function SubmitEventForm({
       setImagePreview(null);
       return;
     }
-    setExistingImageUrl(null); // new upload supersedes any existing remote image
+    setExistingImageUrl(null);
     if (!ALLOWED_TYPES.includes(file.type)) {
       setError("Only JPG, PNG, and WebP images are accepted.");
       return;
@@ -196,20 +214,45 @@ export function SubmitEventForm({
         }
         imageUrl = uploadJson.url as string;
       } else if (isEditMode) {
-        imageUrl = existingImageUrl; // keep existing, or null if removed
+        imageUrl = existingImageUrl;
       }
+
+      // Build payload — private events omit category, venue breakdown, and source URL
+      const basePayload = {
+        title: form.title,
+        description: form.description,
+        startAt: form.startAt,
+        endAt: form.endAt,
+        visibility: form.visibility,
+        imageUrl,
+      };
+
+      const payload = isPrivate
+        ? {
+            ...basePayload,
+            category: "music", // not user-selectable for private; API ignores it
+            venueName: form.address.trim() || "",
+            venueAddress: form.address.trim() || "",
+            venueCity: "Montréal",
+            venueId: null,
+            sourceUrl: null,
+          }
+        : {
+            ...basePayload,
+            category: form.category,
+            venueName: form.venueName,
+            venueAddress: form.venueAddress,
+            venueCity: form.venueCity,
+            venueId: venueId ?? null,
+            sourceUrl: form.sourceUrl.trim() || null,
+          };
 
       const apiUrl = isEditMode ? `/api/events/${editEventId}` : "/api/events/submit";
       const method = isEditMode ? "PATCH" : "POST";
       const res = await fetch(apiUrl, {
         method,
         headers: { "content-type": "application/json", ...authHeader },
-        body: JSON.stringify({
-          ...form,
-          sourceUrl: form.sourceUrl.trim() || null,
-          venueId: venueId ?? null,
-          imageUrl,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -232,11 +275,13 @@ export function SubmitEventForm({
     }
   }
 
-  const displayName =
+  const fallbackName =
     user?.user_metadata?.full_name ??
     user?.user_metadata?.name ??
     user?.email?.split("@")[0] ??
     "You";
+  const displayName = hostProfile?.display_name ?? fallbackName;
+  const avatarUrl = hostProfile?.avatar_url ?? null;
 
   const inputStyle: React.CSSProperties = {
     padding: "10px 12px",
@@ -325,11 +370,13 @@ export function SubmitEventForm({
     );
   }
 
+  const isPrivate = form.visibility === "private";
+
   return (
     <div style={{ padding: "16px 20px 24px" }}>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
 
-        {/* 1. Visibility toggle — FIRST */}
+        {/* 1. Visibility toggle */}
         <div style={{ display: "grid", gap: 6 }}>
           <div
             style={{
@@ -376,9 +423,9 @@ export function SubmitEventForm({
             ))}
           </div>
           <span style={{ fontSize: 12, opacity: 0.5 }}>
-            {form.visibility === "public"
-              ? "Shown in the public feed after review."
-              : "Accessible only by direct link — not shown in the public feed."}
+            {isPrivate
+              ? "Accessible only by direct link — not shown in the public feed."
+              : "Shown in the public feed after review."}
           </span>
         </div>
 
@@ -396,24 +443,38 @@ export function SubmitEventForm({
             }}
           >
             <span style={{ fontSize: 12, opacity: 0.5, flexShrink: 0 }}>Hosted by</span>
-            <div
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: "50%",
-                background: getAvatarColor(displayName),
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 10,
-                fontWeight: 700,
-                color: "#fff",
-                flexShrink: 0,
-                userSelect: "none",
-              }}
-            >
-              {getInitials(displayName)}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  background: getAvatarColor(displayName),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#fff",
+                  flexShrink: 0,
+                  userSelect: "none",
+                }}
+              >
+                {getInitials(displayName)}
+              </div>
+            )}
             <span
               style={{
                 fontSize: 14,
@@ -491,100 +552,114 @@ export function SubmitEventForm({
           </label>
         </div>
 
-        {/* 6. Category + event link */}
-        <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <select
-            value={form.category}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, category: e.target.value as FormState["category"] }))
-            }
-            style={inputStyle}
-          >
-            <option value="music">Music</option>
-            <option value="nightlife">Nightlife</option>
-            <option value="art">Art</option>
-          </select>
-          <input
-            placeholder="Tickets / info link"
-            value={form.sourceUrl}
-            onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))}
-            style={inputStyle}
-          />
-        </div>
-
-        {/* 7. Venue */}
-        <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          <div ref={venueWrapperRef} style={{ position: "relative" }}>
+        {/* 6. Public-only: Category + ticket link */}
+        {!isPrivate && (
+          <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <select
+              value={form.category}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, category: e.target.value as FormState["category"] }))
+              }
+              style={inputStyle}
+            >
+              <option value="music">Music</option>
+              <option value="nightlife">Nightlife</option>
+              <option value="art">Art</option>
+            </select>
             <input
-              placeholder="Venue name"
-              value={form.venueName}
-              onChange={(e) => handleVenueNameChange(e.target.value)}
-              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-              autoComplete="off"
-              style={{
-                ...inputStyle,
-                border: venueId ? "1px solid #16a34a" : "1px solid var(--border-strong)",
-              }}
+              placeholder="Tickets / info link"
+              value={form.sourceUrl}
+              onChange={(e) => setForm((f) => ({ ...f, sourceUrl: e.target.value }))}
+              style={inputStyle}
             />
-            {showSuggestions && (
-              <ul
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  right: 0,
-                  zIndex: 50,
-                  margin: "4px 0 0",
-                  padding: 0,
-                  listStyle: "none",
-                  background: "var(--background)",
-                  border: "1px solid var(--border-strong)",
-                  borderRadius: 10,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                  overflow: "hidden",
-                }}
-              >
-                {suggestions.map((v) => (
-                  <li
-                    key={v.id}
-                    onMouseDown={() => selectVenue(v)}
-                    style={{
-                      padding: "9px 12px",
-                      cursor: "pointer",
-                      borderBottom: "1px solid var(--border)",
-                      fontSize: 14,
-                    }}
-                    onMouseEnter={(e) =>
-                      ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")
-                    }
-                    onMouseLeave={(e) =>
-                      ((e.currentTarget as HTMLLIElement).style.background = "")
-                    }
-                  >
-                    <span style={{ fontWeight: 600 }}>{v.name}</span>
-                    {(v.city || v.address_line1) && (
-                      <span style={{ opacity: 0.6, marginLeft: 6 }}>
-                        {[v.address_line1, v.city].filter(Boolean).join(", ")}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
+        )}
+
+        {/* 7a. Public-only: Venue name / Address / City with autocomplete */}
+        {!isPrivate && (
+          <div className="col-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div ref={venueWrapperRef} style={{ position: "relative" }}>
+              <input
+                placeholder="Venue name"
+                value={form.venueName}
+                onChange={(e) => handleVenueNameChange(e.target.value)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                autoComplete="off"
+                style={{
+                  ...inputStyle,
+                  border: venueId ? "1px solid #16a34a" : "1px solid var(--border-strong)",
+                }}
+              />
+              {showSuggestions && (
+                <ul
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    zIndex: 50,
+                    margin: "4px 0 0",
+                    padding: 0,
+                    listStyle: "none",
+                    background: "var(--background)",
+                    border: "1px solid var(--border-strong)",
+                    borderRadius: 10,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                    overflow: "hidden",
+                  }}
+                >
+                  {suggestions.map((v) => (
+                    <li
+                      key={v.id}
+                      onMouseDown={() => selectVenue(v)}
+                      style={{
+                        padding: "9px 12px",
+                        cursor: "pointer",
+                        borderBottom: "1px solid var(--border)",
+                        fontSize: 14,
+                      }}
+                      onMouseEnter={(e) =>
+                        ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")
+                      }
+                      onMouseLeave={(e) =>
+                        ((e.currentTarget as HTMLLIElement).style.background = "")
+                      }
+                    >
+                      <span style={{ fontWeight: 600 }}>{v.name}</span>
+                      {(v.city || v.address_line1) && (
+                        <span style={{ opacity: 0.6, marginLeft: 6 }}>
+                          {[v.address_line1, v.city].filter(Boolean).join(", ")}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <input
+              placeholder="Address"
+              value={form.venueAddress}
+              onChange={(e) => setForm((f) => ({ ...f, venueAddress: e.target.value }))}
+              style={inputStyle}
+            />
+            <input
+              placeholder="City"
+              value={form.venueCity}
+              onChange={(e) => setForm((f) => ({ ...f, venueCity: e.target.value }))}
+              style={inputStyle}
+            />
+          </div>
+        )}
+
+        {/* 7b. Private-only: single Address field */}
+        {isPrivate && (
           <input
-            placeholder="Address"
-            value={form.venueAddress}
-            onChange={(e) => setForm((f) => ({ ...f, venueAddress: e.target.value }))}
+            placeholder="Address (optional)"
+            value={form.address}
+            onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
             style={inputStyle}
           />
-          <input
-            placeholder="City"
-            value={form.venueCity}
-            onChange={(e) => setForm((f) => ({ ...f, venueCity: e.target.value }))}
-            style={inputStyle}
-          />
-        </div>
+        )}
 
         {/* 8. Cover image */}
         <div>
@@ -678,7 +753,7 @@ export function SubmitEventForm({
             ? isEditMode ? "Saving…" : "Creating…"
             : isEditMode
             ? "Save changes"
-            : form.visibility === "private"
+            : isPrivate
             ? "Create private event"
             : "Submit for review"}
         </button>

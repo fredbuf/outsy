@@ -461,7 +461,7 @@ export function EventsList() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search events"
+          placeholder="Search events, venues, artists..."
           style={{
             flex: 1,
             minWidth: 0,
@@ -667,6 +667,7 @@ export function EventsList() {
       {/* Filters modal */}
       {filtersOpen && (
         <div
+          className="filters-overlay"
           onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
           style={{
             position: "fixed",
@@ -674,19 +675,14 @@ export function EventsList() {
             background: "rgba(0,0,0,0.5)",
             zIndex: 200,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
           }}
         >
           <div
+            className="filters-sheet"
             style={{
               background: "var(--background)",
               border: "1px solid var(--border)",
-              borderRadius: 16,
               width: "100%",
-              maxWidth: 480,
-              maxHeight: "85vh",
               overflowY: "auto",
               display: "grid",
               gap: 16,
