@@ -43,6 +43,18 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
 
+/* ── Header nav: text on desktop, icon on mobile ──────────────────────── */
+.nav-label { display: inline; }
+.nav-icon  { display: none;   }
+
+/* ── Chip row: hide scrollbar ──────────────────────────────────────────── */
+.chip-row {
+  scrollbar-width: none;
+}
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Mobile responsiveness (≤ 540 px) ──────────────────────────────────── */
 @media (max-width: 540px) {
   /* Prevent any element from causing horizontal scroll */
@@ -75,36 +87,9 @@ body {
     display: none !important;
   }
 
-  /* Filter row: stack selects vertically, each full width */
-  .filter-row {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
-
-  .filter-row select {
-    width: 100%;
-    padding: 10px 12px !important;
-    border-radius: 8px;
-    border: 1px solid var(--border-strong);
-    font-size: 14px;
-  }
-
-  /* Count badge: natural block flow in column layout */
-  .filter-count {
-    margin-left: 0 !important;
-    font-size: 13px;
-  }
-
-  /* Date range row: stack labels+inputs into two rows */
-  .date-range-row {
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
-
-  .date-range-row input[type="date"] {
-    width: 100%;
-    box-sizing: border-box;
-  }
+  /* Switch nav items to icon-only on mobile */
+  .nav-label { display: none; }
+  .nav-icon  { display: flex; align-items: center; }
 
   /* Force event card grid to single column */
   .events-grid {

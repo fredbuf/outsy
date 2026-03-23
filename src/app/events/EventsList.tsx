@@ -309,7 +309,14 @@ export function EventsList() {
   // Small pool of event titles used to compute "did you mean?" suggestions.
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const hasCustomRange = fromDate !== "" || toDate !== "";
+  const activeFilterCount = [
+    source !== "all",
+    venueId !== "",
+    hasCustomRange || dateWindow !== "all",
+  ].filter(Boolean).length;
   const genRef = useRef(0);
 
   // Debounce: 300 ms after the last keystroke, commit the query for server fetch.
@@ -449,105 +456,66 @@ export function EventsList() {
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "grid", gap: 8 }}>
+      {/* Search + Filters button */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search events"
-          style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)" }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid var(--border-strong)",
+          }}
         />
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(true)}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: `1px solid ${activeFilterCount > 0 ? "var(--border-strong)" : "var(--border)"}`,
+            background: activeFilterCount > 0 ? "var(--btn-bg)" : "transparent",
+            fontWeight: activeFilterCount > 0 ? 700 : 400,
+            cursor: "pointer",
+            fontSize: 13,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            color: "inherit",
+          }}
+        >
+          {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"}
+        </button>
+      </div>
 
-        {/* Row 1: category / source / date preset / price */}
-        <div className="filter-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category | "all")}
-            style={{ padding: "8px 10px", borderRadius: 8 }}
-          >
-            <option value="all">All categories</option>
-            <option value="music">Music</option>
-            <option value="nightlife">Nightlife</option>
-            <option value="art">Art</option>
-          </select>
-
-          <select
-            value={source}
-            onChange={(e) => setSource(e.target.value as SourceType | "all")}
-            style={{ padding: "8px 10px", borderRadius: 8 }}
-          >
-            <option value="all">All sources</option>
-            <option value="ticketmaster">Ticketmaster</option>
-            <option value="manual">Community</option>
-          </select>
-
-          <select
-            value={venueId}
-            onChange={(e) => setVenueId(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 8 }}
-          >
-            <option value="">All venues</option>
-            {venues.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={hasCustomRange ? "all" : dateWindow}
-            disabled={hasCustomRange}
-            onChange={(e) => setDateWindow(e.target.value as DateWindow)}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 8,
-              opacity: hasCustomRange ? 0.4 : 1,
-            }}
-          >
-            <option value="all">Any date</option>
-            <option value="today">Today</option>
-            <option value="this_week">This week</option>
-            <option value="weekend">Weekend</option>
-          </select>
-
-          <span className="filter-count" style={{ marginLeft: "auto", opacity: 0.7, fontSize: 14 }}>
-            {loading
-              ? "Loading…"
-              : `${filtered.length} event${filtered.length !== 1 ? "s" : ""}${!exhausted ? "+" : ""}`}
-          </span>
-        </div>
-
-        {/* Row 2: custom date range */}
-        <div className="date-range-row" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ fontSize: 13, opacity: 0.7 }}>From</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border-strong)" }}
-          />
-          <label style={{ fontSize: 13, opacity: 0.7 }}>To</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border-strong)" }}
-          />
-          {hasCustomRange && (
+      {/* Category chip row */}
+      <div className="chip-row" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+        {(["all", "music", "nightlife", "art"] as const).map((c) => {
+          const active = category === c;
+          return (
             <button
-              onClick={() => { setFromDate(""); setToDate(""); }}
+              key={c}
+              type="button"
+              onClick={() => setCategory(c)}
               style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                border: "1px solid var(--border-strong)",
-                background: "transparent",
-                cursor: "pointer",
+                padding: "6px 16px",
+                borderRadius: 20,
+                border: `1px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`,
+                background: active ? "var(--foreground)" : "transparent",
+                color: active ? "var(--background)" : "inherit",
+                fontWeight: active ? 700 : 400,
                 fontSize: 13,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
               }}
             >
-              Clear dates
+              {c === "all" ? "All" : c.charAt(0).toUpperCase() + c.slice(1)}
             </button>
-          )}
-        </div>
+          );
+        })}
       </div>
 
       {fetchError ? (
@@ -693,6 +661,169 @@ export function EventsList() {
               {loadingMore ? "Loading…" : "Load more"}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Filters modal */}
+      {filtersOpen && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--background)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 480,
+              maxHeight: "85vh",
+              overflowY: "auto",
+              display: "grid",
+              gap: 16,
+              padding: "20px 20px 24px",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700 }}>Filters</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSource("all");
+                      setVenueId("");
+                      setDateWindow("all");
+                      setFromDate("");
+                      setToDate("");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      opacity: 0.6,
+                      textDecoration: "underline",
+                      color: "inherit",
+                    }}
+                  >
+                    Clear all
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  aria-label="Close"
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.35 }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Source */}
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, opacity: 0.6 }}>Source</span>
+              <select
+                value={source}
+                onChange={(e) => setSource(e.target.value as SourceType | "all")}
+                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+              >
+                <option value="all">All sources</option>
+                <option value="ticketmaster">Ticketmaster</option>
+                <option value="manual">Community</option>
+              </select>
+            </label>
+
+            {/* Venue */}
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, opacity: 0.6 }}>Venue</span>
+              <select
+                value={venueId}
+                onChange={(e) => setVenueId(e.target.value)}
+                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+              >
+                <option value="">All venues</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
+            </label>
+
+            {/* Date window */}
+            <label style={{ display: "grid", gap: 4 }}>
+              <span style={{ fontSize: 12, opacity: 0.6 }}>Date</span>
+              <select
+                value={hasCustomRange ? "custom" : dateWindow}
+                onChange={(e) => {
+                  setFromDate("");
+                  setToDate("");
+                  setDateWindow(e.target.value as DateWindow);
+                }}
+                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+              >
+                <option value="all">Any date</option>
+                <option value="today">Today</option>
+                <option value="this_week">This week</option>
+                <option value="weekend">Weekend</option>
+                {hasCustomRange && <option value="custom">Custom range</option>}
+              </select>
+            </label>
+
+            {/* Custom date range */}
+            <div style={{ display: "grid", gap: 8 }}>
+              <span style={{ fontSize: 12, opacity: 0.6 }}>Custom date range</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <label style={{ display: "grid", gap: 3, flex: 1 }}>
+                  <span style={{ fontSize: 11, opacity: 0.5 }}>From</span>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
+                  />
+                </label>
+                <label style={{ display: "grid", gap: 3, flex: 1 }}>
+                  <span style={{ fontSize: 11, opacity: 0.5 }}>To</span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
+                  />
+                </label>
+              </div>
+              {hasCustomRange && (
+                <button
+                  type="button"
+                  onClick={() => { setFromDate(""); setToDate(""); }}
+                  style={{ alignSelf: "start", padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "transparent", cursor: "pointer", fontSize: 13, color: "inherit" }}
+                >
+                  Clear dates
+                </button>
+              )}
+            </div>
+
+            {/* Show results */}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(false)}
+              style={{ padding: "12px", borderRadius: 12, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+            >
+              {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
+            </button>
+          </div>
         </div>
       )}
     </div>

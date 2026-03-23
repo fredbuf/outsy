@@ -91,9 +91,15 @@ export function Header() {
           {!loading && user && (
             <Link
               href="/events#submit"
-              style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none" }}
+              style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
             >
-              Create
+              <span className="nav-label">Create</span>
+              <span className="nav-icon" aria-hidden>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </span>
             </Link>
           )}
 
@@ -102,9 +108,15 @@ export function Header() {
               <>
                 <Link
                   href="/profile"
-                  style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none" }}
+                  style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
                 >
-                  Profile
+                  <span className="nav-label">Profile</span>
+                  <span className="nav-icon" aria-hidden>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="8" r="4"/>
+                      <path d="M5 21a7 7 0 0 1 14 0"/>
+                    </svg>
+                  </span>
                 </Link>
                 <button
                   onClick={handleSignOut}
