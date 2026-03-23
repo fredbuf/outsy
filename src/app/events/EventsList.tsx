@@ -735,7 +735,7 @@ export function EventsList() {
             </div>
 
             {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px 0", display: "grid", gap: 10 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px 0", display: "grid", gap: 10, alignContent: "start" }}>
               {/* Source */}
               <label style={{ display: "grid", gap: 3 }}>
                 <span style={{ fontSize: 11, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Source</span>
