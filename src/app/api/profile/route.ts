@@ -35,7 +35,40 @@ export async function GET(req: Request) {
     .order("start_at", { ascending: false })
     .limit(50);
 
-  return NextResponse.json({ ok: true, profile: profile ?? null, events: events ?? [] });
+  // Fetch events the user has RSVP'd to (going + maybe), upcoming only
+  const now = new Date().toISOString();
+  const { data: rsvpRows } = await supabase
+    .from("rsvps")
+    .select("response,events!event_id(id,title,start_at,category_primary,image_url,visibility,is_approved,status)")
+    .eq("user_id", user.id)
+    .in("response", ["going", "maybe"])
+    .limit(100);
+
+  type RsvpEventRow = {
+    id: string;
+    title: string;
+    start_at: string;
+    category_primary: string;
+    image_url: string | null;
+    visibility: string;
+    is_approved: boolean;
+    status: string;
+  };
+
+  const going: RsvpEventRow[] = [];
+  const interested: RsvpEventRow[] = [];
+
+  for (const row of (rsvpRows ?? []) as { response: string; events: RsvpEventRow | RsvpEventRow[] | null }[]) {
+    const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+    if (!ev || ev.start_at < now) continue;
+    if (row.response === "going") going.push(ev);
+    else if (row.response === "maybe") interested.push(ev);
+  }
+
+  going.sort((a, b) => a.start_at.localeCompare(b.start_at));
+  interested.sort((a, b) => a.start_at.localeCompare(b.start_at));
+
+  return NextResponse.json({ ok: true, profile: profile ?? null, events: events ?? [], going, interested });
 }
 
 // PATCH /api/profile — update display_name and/or username.

@@ -6,6 +6,10 @@ import { useAuth } from "../../components/AuthProvider";
 type RsvpResponse = "going" | "maybe" | "cant_go";
 type RsvpCounts = { going: number; maybe: number; cant_go: number };
 
+// Public events only show Going + Interested (no "Can't go")
+const PUBLIC_OPTIONS: RsvpResponse[] = ["going", "maybe"];
+const PRIVATE_OPTIONS: RsvpResponse[] = ["going", "maybe", "cant_go"];
+
 const LABELS_PRIVATE: Record<RsvpResponse, string> = {
   going: "Going",
   maybe: "Maybe",
@@ -29,6 +33,7 @@ export function RsvpPanel({
 }) {
   const { user, loading: authLoading, session } = useAuth();
   const LABELS = visibility === "private" ? LABELS_PRIVATE : LABELS_PUBLIC;
+  const OPTIONS = visibility === "private" ? PRIVATE_OPTIONS : PUBLIC_OPTIONS;
 
   const [counts, setCounts] = useState<RsvpCounts>(initialCounts);
   const [myResponse, setMyResponse] = useState<RsvpResponse | null>(null);
@@ -56,20 +61,21 @@ export function RsvpPanel({
 
   async function handleClick(r: RsvpResponse) {
     if (!session?.access_token || submitting) return;
+    const isToggleOff = myResponse === r;
     setSubmitting(true);
     setError(null);
     try {
       const res = await fetch(`/api/events/${eventId}/rsvp`, {
-        method: "POST",
+        method: isToggleOff ? "DELETE" : "POST",
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ response: r }),
+        ...(isToggleOff ? {} : { body: JSON.stringify({ response: r }) }),
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? "Failed to save RSVP.");
-      setMyResponse(r);
+      setMyResponse(isToggleOff ? null : r);
       setCounts(json.counts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save RSVP.");
@@ -96,7 +102,7 @@ export function RsvpPanel({
       <h2 style={{ fontSize: 16, fontWeight: 700 }}>RSVP</h2>
 
       <div style={{ display: "flex", gap: 8 }}>
-        {(["going", "maybe", "cant_go"] as const).map((r) => {
+        {OPTIONS.map((r) => {
           const active = myResponse === r;
           return (
             <button
@@ -121,9 +127,13 @@ export function RsvpPanel({
                 alignItems: "center",
                 gap: 3,
                 opacity: busy ? 0.6 : 1,
+                color: "inherit",
               }}
             >
-              <span>{LABELS[r]}</span>
+              <span>
+                {active && "✓ "}
+                {LABELS[r]}
+              </span>
               <span style={{ opacity: 0.55, fontSize: 12 }}>{counts[r]}</span>
             </button>
           );
@@ -151,7 +161,8 @@ export function RsvpPanel({
         </p>
       ) : myResponse ? (
         <p style={{ fontSize: 13, opacity: 0.6 }}>
-          You&apos;re marked as <strong>{LABELS[myResponse]}</strong>. Click another to change.
+          You&apos;re marked as <strong>{LABELS[myResponse]}</strong>.
+          {" "}Tap again to remove, or choose another option.
         </p>
       ) : user && !loadingRsvp ? (
         <p style={{ fontSize: 13, opacity: 0.5 }}>Select a response above.</p>

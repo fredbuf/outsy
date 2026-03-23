@@ -2,31 +2,50 @@
 
 import { useState } from "react";
 
-export function CopyInviteLink() {
-  const [copied, setCopied] = useState(false);
+export function CopyInviteLink({
+  title,
+  visibility,
+}: {
+  title?: string;
+  visibility: "public" | "private";
+}) {
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  async function handleCopy() {
+  async function handleShare() {
+    const url = window.location.href;
+
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: title ?? "Check out this event", url });
+        return;
+      } catch {
+        // user cancelled or unsupported — fall through to clipboard
+      }
+    }
+
+    // Clipboard fallback
     try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(url);
     } catch {
-      // Fallback for browsers that block clipboard without user gesture context
       const input = document.createElement("input");
-      input.value = window.location.href;
+      input.value = url;
       document.body.appendChild(input);
       input.select();
       document.execCommand("copy");
       document.body.removeChild(input);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
+
+    const msg = visibility === "private" ? "Invite link copied!" : "Link copied!";
+    setFeedback(msg);
+    setTimeout(() => setFeedback(null), 2000);
   }
+
+  const label = visibility === "private" ? "Invite friends" : "Share event";
 
   return (
     <button
       type="button"
-      onClick={handleCopy}
+      onClick={handleShare}
       style={{
         alignSelf: "start",
         padding: "10px 20px",
@@ -39,7 +58,7 @@ export function CopyInviteLink() {
         transition: "opacity 0.15s",
       }}
     >
-      {copied ? "Link copied!" : "Copy invite link"}
+      {feedback ?? label}
     </button>
   );
 }

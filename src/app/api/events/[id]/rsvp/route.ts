@@ -108,3 +108,30 @@ export async function POST(
   const counts = await getCounts(supabase, id);
   return NextResponse.json({ ok: true, counts });
 }
+
+// DELETE /api/events/[id]/rsvp — remove the caller's RSVP entirely
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "Sign in to RSVP." }, { status: 401 });
+  }
+  const supabase = supabaseServer();
+  const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !authUser) {
+    return NextResponse.json({ ok: false, error: "Invalid session. Please sign in again." }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  await supabase
+    .from("rsvps")
+    .delete()
+    .eq("event_id", id)
+    .eq("user_id", authUser.id);
+
+  const counts = await getCounts(supabase, id);
+  return NextResponse.json({ ok: true, counts });
+}

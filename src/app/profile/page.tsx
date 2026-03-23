@@ -53,10 +53,84 @@ function formatDate(iso: string): string {
   });
 }
 
+function EventTile({ e }: { e: EventRow }) {
+  return (
+    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+      <article
+        style={{
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 12,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        {e.image_url ? (
+          <img
+            src={e.image_url}
+            alt=""
+            style={{
+              width: 56,
+              height: 56,
+              objectFit: "cover",
+              borderRadius: 8,
+              flex: "0 0 auto",
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 8,
+              background: "var(--surface-subtle)",
+              flex: "0 0 auto",
+            }}
+          />
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 11, opacity: 0.6 }}>{formatDate(e.start_at)}</div>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              marginTop: 2,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+            }}
+          >
+            {e.title}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              opacity: 0.5,
+              marginTop: 3,
+              display: "flex",
+              gap: 6,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ textTransform: "capitalize" }}>{e.category_primary}</span>
+            <span>·</span>
+            <span style={{ textTransform: "capitalize" }}>{e.visibility}</span>
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
+}
+
 export default function ProfilePage() {
   const { user, loading: authLoading, session } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [goingEvents, setGoingEvents] = useState<EventRow[]>([]);
+  const [interestedEvents, setInterestedEvents] = useState<EventRow[]>([]);
   const [fetching, setFetching] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
@@ -81,6 +155,8 @@ export default function ProfilePage() {
         if (json?.ok) {
           setProfile(json.profile);
           setEvents(json.events ?? []);
+          setGoingEvents(json.going ?? []);
+          setInterestedEvents(json.interested ?? []);
           setDisplayName(json.profile?.display_name ?? "");
           setUsername(json.profile?.username ?? "");
         }
@@ -359,6 +435,64 @@ export default function ProfilePage() {
             )}
           </div>
         </form>
+      </section>
+
+      {/* Going */}
+      <section style={{ display: "grid", gap: 12 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Going</h2>
+        {goingEvents.length === 0 ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            <p style={{ fontSize: 14, opacity: 0.55, margin: 0 }}>
+              You&apos;re not going to any upcoming events yet.
+            </p>
+            <Link
+              href="/events"
+              style={{
+                alignSelf: "start",
+                fontSize: 14,
+                fontWeight: 600,
+                opacity: 0.7,
+                textDecoration: "underline",
+              }}
+            >
+              Browse events →
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {goingEvents.map((e) => (
+              <EventTile key={e.id} e={e} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Interested */}
+      <section style={{ display: "grid", gap: 12 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700 }}>Interested</h2>
+        {interestedEvents.length === 0 ? (
+          <div style={{ display: "grid", gap: 8 }}>
+            <p style={{ fontSize: 14, opacity: 0.55, margin: 0 }}>No saved events yet.</p>
+            <Link
+              href="/events"
+              style={{
+                alignSelf: "start",
+                fontSize: 14,
+                fontWeight: 600,
+                opacity: 0.7,
+                textDecoration: "underline",
+              }}
+            >
+              Browse events →
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {interestedEvents.map((e) => (
+              <EventTile key={e.id} e={e} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* User's own events */}

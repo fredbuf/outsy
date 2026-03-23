@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useRef, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 
-type FormState = {
+export type FormState = {
   title: string;
   description: string;
   startAt: string;
@@ -63,13 +63,20 @@ function getAvatarColor(name: string | null): string {
 export function SubmitEventForm({
   onSignInRequest,
   onClose,
+  editEventId,
+  initialValues,
+  initialImageUrl,
 }: {
   onSignInRequest?: () => void;
   onClose?: () => void;
+  editEventId?: string;
+  initialValues?: Partial<FormState>;
+  initialImageUrl?: string | null;
 }) {
+  const isEditMode = Boolean(editEventId);
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>({ ...initialForm, ...initialValues });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publicSubmitted, setPublicSubmitted] = useState(false);
@@ -84,6 +91,7 @@ export function SubmitEventForm({
   // Image upload
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(initialImageUrl ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -99,6 +107,7 @@ export function SubmitEventForm({
       setImagePreview(null);
       return;
     }
+    setExistingImageUrl(null); // new upload supersedes any existing remote image
     if (!ALLOWED_TYPES.includes(file.type)) {
       setError("Only JPG, PNG, and WebP images are accepted.");
       return;
@@ -168,11 +177,11 @@ export function SubmitEventForm({
     const isPrivate = form.visibility === "private";
 
     try {
-      let imageUrl: string | null = null;
       const authHeader: Record<string, string> = session?.access_token
         ? { Authorization: `Bearer ${session.access_token}` }
         : {};
 
+      let imageUrl: string | null = null;
       if (imageFile) {
         const fd = new FormData();
         fd.append("file", imageFile);
@@ -186,10 +195,14 @@ export function SubmitEventForm({
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
         imageUrl = uploadJson.url as string;
+      } else if (isEditMode) {
+        imageUrl = existingImageUrl; // keep existing, or null if removed
       }
 
-      const res = await fetch("/api/events/submit", {
-        method: "POST",
+      const apiUrl = isEditMode ? `/api/events/${editEventId}` : "/api/events/submit";
+      const method = isEditMode ? "PATCH" : "POST";
+      const res = await fetch(apiUrl, {
+        method,
         headers: { "content-type": "application/json", ...authHeader },
         body: JSON.stringify({
           ...form,
@@ -201,17 +214,19 @@ export function SubmitEventForm({
 
       const json = await res.json();
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.error ?? "Could not submit event.");
+        throw new Error(json?.error ?? (isEditMode ? "Could not save event." : "Could not submit event."));
       }
 
-      if (isPrivate) {
+      if (isEditMode) {
+        onClose?.();
+      } else if (isPrivate) {
         onClose?.();
         router.push(`/events/${json.eventId}`);
       } else {
         setPublicSubmitted(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit event.");
+      setError(err instanceof Error ? err.message : isEditMode ? "Could not save event." : "Could not submit event.");
     } finally {
       setSubmitting(false);
     }
@@ -580,10 +595,10 @@ export function SubmitEventForm({
             style={{ display: "none" }}
             onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
           />
-          {imagePreview ? (
+          {(imagePreview ?? existingImageUrl) ? (
             <div style={{ position: "relative" }}>
               <img
-                src={imagePreview}
+                src={imagePreview ?? existingImageUrl!}
                 alt="Cover preview"
                 style={{
                   width: "100%",
@@ -598,6 +613,7 @@ export function SubmitEventForm({
                 type="button"
                 onClick={() => {
                   handleImageChange(null);
+                  setExistingImageUrl(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
                 style={{
@@ -659,7 +675,9 @@ export function SubmitEventForm({
           }}
         >
           {submitting
-            ? "Creating…"
+            ? isEditMode ? "Saving…" : "Creating…"
+            : isEditMode
+            ? "Save changes"
             : form.visibility === "private"
             ? "Create private event"
             : "Submit for review"}

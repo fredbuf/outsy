@@ -240,18 +240,48 @@ function cardIcon(event: EventRow): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-async function fetchGoingCounts(ids: string[]): Promise<Record<string, number>> {
-  if (ids.length === 0) return {};
+type TileRsvpData = {
+  counts: Record<string, number>;
+  names: Record<string, string[]>;
+};
+
+async function fetchTileRsvpData(ids: string[]): Promise<TileRsvpData> {
+  if (ids.length === 0) return { counts: {}, names: {} };
   const { data } = await supabaseBrowser()
     .from("rsvps")
-    .select("event_id")
-    .eq("response", "going")
-    .in("event_id", ids);
+    .select("event_id,profiles(display_name)")
+    .in("event_id", ids)
+    .in("response", ["going", "maybe"])
+    .limit(500);
+
   const counts: Record<string, number> = {};
-  for (const row of (data ?? []) as { event_id: string }[]) {
+  const names: Record<string, string[]> = {};
+
+  for (const row of (data ?? []) as {
+    event_id: string;
+    profiles: { display_name: string | null } | { display_name: string | null }[] | null;
+  }[]) {
     counts[row.event_id] = (counts[row.event_id] ?? 0) + 1;
+    const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    const name = p?.display_name;
+    if (name) {
+      if (!names[row.event_id]) names[row.event_id] = [];
+      // Collect up to 3 first-names for formatting
+      if (names[row.event_id].length < 3) {
+        names[row.event_id].push(name.split(" ")[0]);
+      }
+    }
   }
-  return counts;
+
+  return { counts, names };
+}
+
+function formatRsvpLabel(count: number, names: string[]): string {
+  const shown = names.slice(0, 2);
+  if (shown.length === 0) return `${count} interested`;
+  const rest = count - shown.length;
+  if (rest <= 0) return `${shown.join(", ")} interested`;
+  return `${shown.join(", ")} + ${rest} interested`;
 }
 
 export function EventsList() {
@@ -261,7 +291,7 @@ export function EventsList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [goingCounts, setGoingCounts] = useState<Record<string, number>>({});
+  const [tileRsvp, setTileRsvp] = useState<TileRsvpData>({ counts: {}, names: {} });
 
   // Typed query (immediate, controls the input).
   const [query, setQuery] = useState("");
@@ -351,7 +381,7 @@ export function EventsList() {
       setEvents(rows);
       if (rows.length < PAGE_SIZE) setExhausted(true);
       setLoading(false);
-      fetchGoingCounts(rows.map((r) => r.id)).then(setGoingCounts);
+      fetchTileRsvpData(rows.map((r) => r.id)).then(setTileRsvp);
     };
 
     run();
@@ -376,8 +406,11 @@ export function EventsList() {
     if (rows.length < PAGE_SIZE) setExhausted(true);
     setNextPage((p) => p + 1);
     setLoadingMore(false);
-    fetchGoingCounts(rows.map((r) => r.id)).then((newCounts) =>
-      setGoingCounts((prev) => ({ ...prev, ...newCounts }))
+    fetchTileRsvpData(rows.map((r) => r.id)).then((next) =>
+      setTileRsvp((prev) => ({
+        counts: { ...prev.counts, ...next.counts },
+        names: { ...prev.names, ...next.names },
+      }))
     );
   }
 
@@ -623,9 +656,9 @@ export function EventsList() {
                         : e.venues.name
                       : e.category_primary.charAt(0).toUpperCase() + e.category_primary.slice(1)}
                   </div>
-                  {(goingCounts[e.id] ?? 0) > 0 && (
+                  {(tileRsvp.counts[e.id] ?? 0) > 0 && (
                     <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1 }}>
-                      {goingCounts[e.id]} going
+                      {formatRsvpLabel(tileRsvp.counts[e.id], tileRsvp.names[e.id] ?? [])}
                     </div>
                   )}
                 </div>

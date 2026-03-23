@@ -7,6 +7,8 @@ import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { CopyInviteLink } from "./CopyInviteLink";
 import { RsvpPanel } from "./RsvpPanel";
+import { AttendeeList } from "./AttendeeList";
+import { EventOwnerActions } from "./EventOwnerActions";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -14,7 +16,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city)"
+      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -164,6 +166,15 @@ function formatPrice(
   return null;
 }
 
+function toDatetimeLocal(iso: string | null): string {
+  if (!iso) return "";
+  // Convert to Eastern time for datetime-local input (which treats values as local)
+  const d = new Date(iso);
+  const eastern = new Date(d.toLocaleString("en-US", { timeZone: "America/Toronto" }));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${eastern.getFullYear()}-${pad(eastern.getMonth() + 1)}-${pad(eastern.getDate())}T${pad(eastern.getHours())}:${pad(eastern.getMinutes())}`;
+}
+
 export default async function EventPage({
   params,
 }: {
@@ -290,7 +301,26 @@ export default async function EventPage({
           )}
         </div>
 
-        {event.visibility === "private" && <CopyInviteLink />}
+        <CopyInviteLink title={event.title} visibility={event.visibility as "public" | "private"} />
+
+        <EventOwnerActions
+          eventId={id}
+          creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+          source={event.source}
+          eventData={{
+            title: event.title,
+            description: event.description ?? "",
+            startAt: toDatetimeLocal(event.start_at),
+            endAt: toDatetimeLocal(event.end_at ?? null),
+            category: (event.category_primary as "music" | "nightlife" | "art") ?? "music",
+            venueName: venue?.name ?? "",
+            venueAddress: venue?.address_line1 ?? "",
+            venueCity: venue?.city ?? "Montréal",
+            sourceUrl: event.source_url ?? "",
+            visibility: (event.visibility as "public" | "private") ?? "public",
+            imageUrl: event.image_url ?? null,
+          }}
+        />
 
         {event.source_url && (
           <a
@@ -335,81 +365,13 @@ export default async function EventPage({
         </div>
       )}
 
-      {rsvpCounts.going > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Avatar stack */}
-          <div style={{ display: "flex", marginRight: 2 }}>
-            {attendees.map((a, i) => (
-              a.avatar_url ? (
-                <img
-                  key={i}
-                  src={a.avatar_url}
-                  alt={a.display_name ?? ""}
-                  title={a.display_name ?? undefined}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    border: "2px solid var(--background)",
-                    marginLeft: i === 0 ? 0 : -8,
-                    zIndex: attendees.length - i,
-                    position: "relative",
-                  }}
-                />
-              ) : (
-                <div
-                  key={i}
-                  title={a.display_name ?? undefined}
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background: getAvatarColor(a.display_name),
-                    border: "2px solid var(--background)",
-                    marginLeft: i === 0 ? 0 : -8,
-                    zIndex: attendees.length - i,
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "#fff",
-                    userSelect: "none",
-                  }}
-                >
-                  {getInitials(a.display_name)}
-                </div>
-              )
-            ))}
-            {rsvpCounts.going > attendees.length && (
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  background: "var(--surface-subtle)",
-                  border: "2px solid var(--background)",
-                  marginLeft: -8,
-                  zIndex: 0,
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  opacity: 0.75,
-                }}
-              >
-                +{rsvpCounts.going - attendees.length}
-              </div>
-            )}
-          </div>
-          <span style={{ fontSize: 13, opacity: 0.7 }}>
-            {rsvpCounts.going} going
-          </span>
-        </div>
+      {(rsvpCounts.going > 0 || rsvpCounts.maybe > 0) && (
+        <AttendeeList
+          eventId={id}
+          initialAttendees={attendees}
+          goingCount={rsvpCounts.going}
+          maybeCount={rsvpCounts.maybe}
+        />
       )}
 
       <RsvpPanel eventId={id} initialCounts={rsvpCounts} visibility={event.visibility as "public" | "private"} />
