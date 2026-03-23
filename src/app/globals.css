@@ -47,7 +47,7 @@ body {
 .nav-label { display: inline; }
 .nav-icon  { display: none;   }
 
-/* ── Filters modal: centered on desktop, bottom-sheet on mobile ────────── */
+/* ── Filters modal: centered on desktop, full-screen on mobile ─────────── */
 .filters-overlay {
   align-items: center;
   justify-content: center;
@@ -57,6 +57,16 @@ body {
   border-radius: 16px;
   max-height: 85vh;
   max-width: 480px;
+}
+.filters-sheet-footer {
+  padding: 16px 20px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.date-range-row {
+  display: flex;
+  gap: 8px;
 }
 
 /* ── Chip row: hide scrollbar ──────────────────────────────────────────── */
@@ -108,16 +118,20 @@ body {
     grid-template-columns: 1fr !important;
   }
 
-  /* Filters modal → bottom sheet */
+  /* Filters modal → full-screen on mobile */
   .filters-overlay {
-    align-items: flex-end;
-    justify-content: stretch;
+    align-items: stretch;
     padding: 0;
   }
   .filters-sheet {
-    border-radius: 16px 16px 0 0 !important;
-    max-height: 90vh !important;
+    border-radius: 0 !important;
+    max-height: none !important;
     max-width: 100% !important;
+    flex: 1;
+  }
+  /* Stack date range inputs vertically */
+  .date-range-row {
+    flex-direction: column;
   }
 
   /* "Get tickets" CTA: full width on mobile for easy tapping */

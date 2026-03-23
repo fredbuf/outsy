@@ -683,14 +683,21 @@ export function EventsList() {
               background: "var(--background)",
               border: "1px solid var(--border)",
               width: "100%",
-              overflowY: "auto",
-              display: "grid",
-              gap: 16,
-              padding: "20px 20px 24px",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            {/* Fixed header */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 20px",
+                borderBottom: "1px solid var(--border)",
+                flexShrink: 0,
+              }}
+            >
               <h3 style={{ fontSize: 16, fontWeight: 700 }}>Filters</h3>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 {activeFilterCount > 0 && (
@@ -728,97 +735,102 @@ export function EventsList() {
               </div>
             </div>
 
-            {/* Source */}
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, opacity: 0.6 }}>Source</span>
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value as SourceType | "all")}
-                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
-              >
-                <option value="all">All sources</option>
-                <option value="ticketmaster">Ticketmaster</option>
-                <option value="manual">Community</option>
-              </select>
-            </label>
-
-            {/* Venue */}
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, opacity: 0.6 }}>Venue</span>
-              <select
-                value={venueId}
-                onChange={(e) => setVenueId(e.target.value)}
-                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
-              >
-                <option value="">All venues</option>
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
-            </label>
-
-            {/* Date window */}
-            <label style={{ display: "grid", gap: 4 }}>
-              <span style={{ fontSize: 12, opacity: 0.6 }}>Date</span>
-              <select
-                value={hasCustomRange ? "custom" : dateWindow}
-                onChange={(e) => {
-                  setFromDate("");
-                  setToDate("");
-                  setDateWindow(e.target.value as DateWindow);
-                }}
-                style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
-              >
-                <option value="all">Any date</option>
-                <option value="today">Today</option>
-                <option value="this_week">This week</option>
-                <option value="weekend">Weekend</option>
-                {hasCustomRange && <option value="custom">Custom range</option>}
-              </select>
-            </label>
-
-            {/* Custom date range */}
-            <div style={{ display: "grid", gap: 8 }}>
-              <span style={{ fontSize: 12, opacity: 0.6 }}>Custom date range</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <label style={{ display: "grid", gap: 3, flex: 1 }}>
-                  <span style={{ fontSize: 11, opacity: 0.5 }}>From</span>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
-                  />
-                </label>
-                <label style={{ display: "grid", gap: 3, flex: 1 }}>
-                  <span style={{ fontSize: 11, opacity: 0.5 }}>To</span>
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
-                  />
-                </label>
-              </div>
-              {hasCustomRange && (
-                <button
-                  type="button"
-                  onClick={() => { setFromDate(""); setToDate(""); }}
-                  style={{ alignSelf: "start", padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "transparent", cursor: "pointer", fontSize: 13, color: "inherit" }}
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 0", display: "grid", gap: 16 }}>
+              {/* Source */}
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.6 }}>Source</span>
+                <select
+                  value={source}
+                  onChange={(e) => setSource(e.target.value as SourceType | "all")}
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
                 >
-                  Clear dates
-                </button>
-              )}
+                  <option value="all">All sources</option>
+                  <option value="ticketmaster">Ticketmaster</option>
+                  <option value="manual">Community</option>
+                </select>
+              </label>
+
+              {/* Venue */}
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.6 }}>Venue</span>
+                <select
+                  value={venueId}
+                  onChange={(e) => setVenueId(e.target.value)}
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+                >
+                  <option value="">All venues</option>
+                  {venues.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Date window */}
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 12, opacity: 0.6 }}>Date</span>
+                <select
+                  value={hasCustomRange ? "custom" : dateWindow}
+                  onChange={(e) => {
+                    setFromDate("");
+                    setToDate("");
+                    setDateWindow(e.target.value as DateWindow);
+                  }}
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+                >
+                  <option value="all">Any date</option>
+                  <option value="today">Today</option>
+                  <option value="this_week">This week</option>
+                  <option value="weekend">Weekend</option>
+                  {hasCustomRange && <option value="custom">Custom range</option>}
+                </select>
+              </label>
+
+              {/* Custom date range */}
+              <div style={{ display: "grid", gap: 8, paddingBottom: 16 }}>
+                <span style={{ fontSize: 12, opacity: 0.6 }}>Custom date range</span>
+                <div className="date-range-row">
+                  <label style={{ display: "grid", gap: 3, flex: 1 }}>
+                    <span style={{ fontSize: 11, opacity: 0.5 }}>From</span>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 3, flex: 1 }}>
+                    <span style={{ fontSize: 11, opacity: 0.5 }}>To</span>
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
+                    />
+                  </label>
+                </div>
+                {hasCustomRange && (
+                  <button
+                    type="button"
+                    onClick={() => { setFromDate(""); setToDate(""); }}
+                    style={{ alignSelf: "start", padding: "7px 12px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "transparent", cursor: "pointer", fontSize: 13, color: "inherit" }}
+                  >
+                    Clear dates
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Show results */}
-            <button
-              type="button"
-              onClick={() => setFiltersOpen(false)}
-              style={{ padding: "12px", borderRadius: 12, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
-            >
-              {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
-            </button>
+            {/* Sticky footer CTA */}
+            <div className="filters-sheet-footer">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+              >
+                {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
+              </button>
+            </div>
           </div>
         </div>
       )}
