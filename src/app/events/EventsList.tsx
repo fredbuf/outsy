@@ -199,14 +199,43 @@ function buildPageQuery(
 
 // ─── Client-side filter helpers ───────────────────────────────────────────────
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
+function smartDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const toDateKey = (date: Date) =>
+    date.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+
+  const eventDay = toDateKey(d);
+  const today = toDateKey(now);
+  const tomorrow = toDateKey(new Date(now.getTime() + 86_400_000));
+
+  const rawTime = d.toLocaleString("en-US", {
+    timeZone: "America/Toronto",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  // "8:00 PM" → "8pm", "8:30 PM" → "8:30pm"
+  const timeStr = rawTime.replace(/:00\s/, " ").replace(/\s/, "").toLowerCase();
+
+  if (eventDay === today) return `Today at ${timeStr}`;
+  if (eventDay === tomorrow) return `Tomorrow at ${timeStr}`;
+
+  const diffMs = d.getTime() - now.getTime();
+  if (diffMs > 0 && diffMs < 7 * 86_400_000) {
+    const weekday = d.toLocaleDateString("en-US", {
+      timeZone: "America/Toronto",
+      weekday: "long",
+    });
+    return `${weekday} at ${timeStr}`;
+  }
+
+  const monthDay = d.toLocaleDateString("en-US", {
+    timeZone: "America/Toronto",
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   });
+  return `${monthDay} at ${timeStr}`;
 }
 
 function isInDateWindow(iso: string, window: DateWindow) {
@@ -231,12 +260,6 @@ function isInDateWindow(iso: string, window: DateWindow) {
   return d >= startWeekend && d < endWeekend;
 }
 
-
-function cardIcon(event: EventRow): string {
-  if (event.min_price === 0) return "🌐";
-  if (event.min_price !== null || event.source_url) return "🎟";
-  return "🌐";
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -276,12 +299,32 @@ async function fetchTileRsvpData(ids: string[]): Promise<TileRsvpData> {
   return { counts, names };
 }
 
-function formatRsvpLabel(count: number, names: string[]): string {
-  const shown = names.slice(0, 2);
-  if (shown.length === 0) return `${count} interested`;
-  const rest = count - shown.length;
-  if (rest <= 0) return `${shown.join(", ")} interested`;
-  return `${shown.join(", ")} + ${rest} interested`;
+
+function categoryBg(cat: Category): string {
+  switch (cat) {
+    case "music":     return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
+    case "nightlife": return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
+    case "art":       return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
+    default:          return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
+  }
+}
+
+const AVATAR_COLORS = [
+  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+];
+function getAvatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function StarIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
 }
 
 export function EventsList() {
@@ -310,6 +353,7 @@ export function EventsList() {
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [mountMs] = useState<number>(() => Date.now());
   const [showCustomRange, setShowCustomRange] = useState(false);
 
   const hasCustomRange = fromDate !== "" || toDate !== "";
@@ -455,6 +499,14 @@ export function EventsList() {
 
   const showEmptySearchState = !loading && debouncedQuery.trim() !== "" && events.length === 0;
 
+  const thisWeekEvents = useMemo<EventRow[]>(() => {
+    if (debouncedQuery.trim()) return [];
+    const cutoff = mountMs + 7 * 24 * 60 * 60 * 1000;
+    return filtered
+      .filter((e) => { const t = new Date(e.start_at).getTime(); return t >= mountMs && t <= cutoff; })
+      .slice(0, 20);
+  }, [filtered, debouncedQuery, mountMs]);
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       {/* Search + Filters button */}
@@ -555,86 +607,244 @@ export function EventsList() {
       ) : filtered.length === 0 ? (
         <p>No events found.</p>
       ) : (
-        <div className="events-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-          {filtered.map((e) => (
-            <Link
-              key={e.id}
-              href={`/events/${e.id}`}
-              style={{ textDecoration: "none", color: "inherit", display: "block" }}
-            >
-              <article
+        <>
+          {/* ── This week: horizontal scroll ─────────────────────────────── */}
+          {thisWeekEvents.length > 0 && (
+            <section style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
+                <span style={{ fontSize: 18, opacity: 0.3, lineHeight: 1 }}>›</span>
+              </div>
+              <div
                 style={{
-                  border: "1px solid var(--border)",
-                  borderRadius: 14,
-                  overflow: "hidden",
                   display: "flex",
-                  flexDirection: "column",
+                  gap: 10,
+                  overflowX: "auto",
+                  scrollbarWidth: "none",
+                  paddingBottom: 4,
                 }}
               >
-                {/* Image — 70% of card height via padding trick */}
-                <div
-                  style={{
-                    position: "relative",
-                    width: "100%",
-                    paddingBottom: "70%",
-                    background: "var(--surface-subtle)",
-                    flexShrink: 0,
-                  }}
-                >
-                  {e.image_url && (
-                    <img
-                      src={e.image_url}
-                      alt=""
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
-                  )}
-                </div>
-
-                {/* Info area — bottom 30% */}
-                <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
-                  {/* Row 1: date + icon */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 11, opacity: 0.65 }}>{formatDate(e.start_at)}</span>
-                    <span style={{ fontSize: 13, lineHeight: 1 }}>{cardIcon(e)}</span>
-                  </div>
-                  {/* Row 2: title */}
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      lineHeight: 1.25,
-                      overflow: "hidden",
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                    }}
+                {thisWeekEvents.map((e) => (
+                  <Link
+                    key={e.id}
+                    href={`/events/${e.id}`}
+                    style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
                   >
-                    {e.title}
-                  </div>
-                  {/* Row 3: venue or capitalized category fallback */}
-                  <div style={{ fontSize: 11, opacity: 0.55, marginTop: 1 }}>
-                    {e.venues?.name
-                      ? e.venues.city
-                        ? `${e.venues.name}, ${e.venues.city}`
-                        : e.venues.name
-                      : e.category_primary.charAt(0).toUpperCase() + e.category_primary.slice(1)}
-                  </div>
-                  {(tileRsvp.counts[e.id] ?? 0) > 0 && (
-                    <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1 }}>
-                      {formatRsvpLabel(tileRsvp.counts[e.id], tileRsvp.names[e.id] ?? [])}
+                    <div
+                      style={{
+                        position: "relative",
+                        width: 148,
+                        height: 210,
+                        borderRadius: 12,
+                        overflow: "hidden",
+                        background: categoryBg(e.category_primary),
+                      }}
+                    >
+                      {e.image_url && (
+                        <img
+                          src={e.image_url}
+                          alt=""
+                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      )}
+                      {/* Stronger gradient */}
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)" }} />
+                      {/* Star button */}
+                      <button
+                        type="button"
+                        aria-label="Save event"
+                        onClick={(ev) => ev.preventDefault()}
+                        style={{
+                          position: "absolute", top: 8, right: 8,
+                          width: 28, height: 28, borderRadius: "50%",
+                          border: "none", background: "rgba(0,0,0,0.4)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: "pointer", color: "rgba(255,255,255,0.8)",
+                        }}
+                      >
+                        <StarIcon />
+                      </button>
+                      {/* Text */}
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px" }}>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", marginBottom: 3, fontWeight: 500 }}>
+                          {smartDate(e.start_at)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: "#fff",
+                            lineHeight: 1.25,
+                            overflow: "hidden",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                          }}
+                        >
+                          {e.title}
+                        </div>
+                        {e.venues?.name && (
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </article>
-            </Link>
-          ))}
-        </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── All events ───────────────────────────────────────────────── */}
+          <section style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>All events</h2>
+              {(category !== "all" || source !== "all" || hasCustomRange || dateWindow !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategory("all");
+                    setSource("all");
+                    setDateWindow("all");
+                    setFromDate("");
+                    setToDate("");
+                    setVenueId("");
+                  }}
+                  style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
+                >
+                  See all
+                </button>
+              )}
+            </div>
+            <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+              {filtered.map((e) => {
+                const rsvpCount = tileRsvp.counts[e.id] ?? 0;
+                const rsvpNames = tileRsvp.names[e.id] ?? [];
+                return (
+                  <Link
+                    key={e.id}
+                    href={`/events/${e.id}`}
+                    style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                  >
+                    <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
+                      {/* Image + gradient */}
+                      <div
+                        style={{
+                          position: "relative",
+                          width: "100%",
+                          paddingBottom: "56%",
+                          background: categoryBg(e.category_primary),
+                        }}
+                      >
+                        {e.image_url && (
+                          <img
+                            src={e.image_url}
+                            alt=""
+                            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        )}
+                        {/* Stronger gradient — covers bottom 70% for clear text */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
+                          }}
+                        />
+                        {/* Star button — top-right */}
+                        <button
+                          type="button"
+                          aria-label="Save event"
+                          onClick={(ev) => ev.preventDefault()}
+                          style={{
+                            position: "absolute", top: 8, right: 8,
+                            width: 32, height: 32, borderRadius: "50%",
+                            border: "none", background: "rgba(0,0,0,0.42)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            cursor: "pointer", color: "rgba(255,255,255,0.85)",
+                          }}
+                        >
+                          <StarIcon />
+                        </button>
+                        {/* Text overlay */}
+                        <div
+                          style={{
+                            position: "absolute", bottom: 0, left: 0, right: 0,
+                            padding: "10px 12px 12px",
+                            display: "flex", flexDirection: "column", gap: 3,
+                          }}
+                        >
+                          {/* 1. Date */}
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+                            {smartDate(e.start_at)}
+                          </div>
+                          {/* 2. Title */}
+                          <div
+                            style={{
+                              fontSize: 15,
+                              fontWeight: 700,
+                              color: "#fff",
+                              lineHeight: 1.25,
+                              overflow: "hidden",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                            }}
+                          >
+                            {e.title}
+                          </div>
+                          {/* 3. Venue */}
+                          {e.venues?.name && (
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "rgba(255,255,255,0.55)",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                            </div>
+                          )}
+                          {/* 4. Social proof — avatars + compact count */}
+                          {rsvpCount > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                              <div style={{ display: "flex" }}>
+                                {rsvpNames.slice(0, 2).map((name, i) => (
+                                  <div
+                                    key={i}
+                                    style={{
+                                      width: 16, height: 16, borderRadius: "50%",
+                                      background: getAvatarColor(name),
+                                      border: "1.5px solid rgba(0,0,0,0.55)",
+                                      marginLeft: i > 0 ? -5 : 0,
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                      fontSize: 7, fontWeight: 700, color: "#fff",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {name[0].toUpperCase()}
+                                  </div>
+                                ))}
+                              </div>
+                              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                                {rsvpNames.length > 0
+                                  ? `${rsvpNames[0]}${rsvpCount > 1 ? ` + ${rsvpCount - 1}` : ""}`
+                                  : `${rsvpCount} going`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        </>
       )}
 
       {/* Load more */}
