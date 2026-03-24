@@ -305,18 +305,21 @@ async function fetchTileRsvpData(ids: string[]): Promise<TileRsvpData> {
 }
 
 
-// Returns ISO strings for Monday 00:00 and next-Monday 00:00 in Montreal time.
+// Returns ISO bounds for "today through end of this week (Sunday)" in Montréal time.
+// start = today midnight, end = next-Monday midnight (exclusive).
 // Pure computation — called once in useState initializer, no impurity in render.
 function thisWeekBoundsIso(): { start: string; end: string } {
   const now = new Date();
-  const montrealDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/Toronto" }); // "2026-03-24"
-  const dayName = now.toLocaleDateString("en-US", { timeZone: "America/Toronto", weekday: "short" }); // "Mon"
+  const montrealDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const dayName = now.toLocaleDateString("en-US", { timeZone: "America/Toronto", weekday: "short" });
   const offsets: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
   const daysFromMonday = offsets[dayName] ?? 0;
   const [y, m, d] = montrealDateStr.split("-").map(Number);
-  const mondayStr = new Date(Date.UTC(y, m - 1, d - daysFromMonday)).toISOString().slice(0, 10);
+  // start = today midnight (skip earlier days of the week that have passed)
+  const start = montrealDayStart(montrealDateStr);
+  // end = next Monday midnight (= Sunday 23:59:59 + 1s, exclusive upper bound)
   const nextMondayStr = new Date(Date.UTC(y, m - 1, d - daysFromMonday + 7)).toISOString().slice(0, 10);
-  return { start: montrealDayStart(mondayStr), end: montrealDayStart(nextMondayStr) };
+  return { start, end: montrealDayStart(nextMondayStr) };
 }
 
 function categoryBg(cat: Category): string {
@@ -375,6 +378,7 @@ export function EventsList() {
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [thisWeekOpen, setThisWeekOpen] = useState(false);
   const [weekBounds] = useState(() => thisWeekBoundsIso());
   const [showCustomRange, setShowCustomRange] = useState(false);
 
@@ -688,12 +692,13 @@ export function EventsList() {
             <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
-                <Link
-                  href="/events/this-week"
-                  style={{ fontSize: 13, opacity: 0.55, color: "inherit", textDecoration: "none", fontWeight: 500 }}
+                <button
+                  type="button"
+                  onClick={() => setThisWeekOpen(true)}
+                  style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
                 >
                   See all ›
-                </Link>
+                </button>
               </div>
               <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
                 {thisWeekEvents.map((e) => {
@@ -733,25 +738,18 @@ export function EventsList() {
                               {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
-                          {rsvpCount > 0 && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
-                              <div style={{ display: "flex" }}>
-                                {rsvpAvatars.slice(0, 2).map((avatarUrl, i) =>
-                                  avatarUrl ? (
-                                    <img key={i} src={avatarUrl} alt="" style={{ width: 14, height: 14, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -4 : 0, flexShrink: 0 }} />
-                                  ) : (
-                                    <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: getAvatarColor(rsvpNames[i] ?? ""), border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -4 : 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 6, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                                      {(rsvpNames[i] ?? "?")[0].toUpperCase()}
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
-                                {rsvpNames.length > 0 ? `${rsvpNames[0]}${rsvpCount > 1 ? ` + ${rsvpCount - 1}` : ""}` : `${rsvpCount} going`}
-                              </span>
-                            </div>
-                          )}
                         </div>
+                        {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
+                          <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
+                            {rsvpAvatars[0] ? (
+                              <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
+                            ) : (
+                              <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                                {rsvpNames[0]![0].toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </Link>
                   );
@@ -818,26 +816,18 @@ export function EventsList() {
                               {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
-                          {/* 4. Social proof: avatar image or initials circle + compact name */}
-                          {rsvpCount > 0 && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-                              <div style={{ display: "flex" }}>
-                                {rsvpAvatars.slice(0, 2).map((avatarUrl, i) =>
-                                  avatarUrl ? (
-                                    <img key={i} src={avatarUrl} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -5 : 0, flexShrink: 0 }} />
-                                  ) : (
-                                    <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: getAvatarColor(rsvpNames[i] ?? ""), border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -5 : 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                                      {(rsvpNames[i] ?? "?")[0].toUpperCase()}
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-                                {rsvpNames.length > 0 ? `${rsvpNames[0]}${rsvpCount > 1 ? ` + ${rsvpCount - 1}` : ""}` : `${rsvpCount} going`}
-                              </span>
-                            </div>
-                          )}
                         </div>
+                        {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
+                          <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
+                            {rsvpAvatars[0] ? (
+                              <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
+                            ) : (
+                              <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                                {rsvpNames[0]![0].toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </article>
                   </Link>
@@ -873,6 +863,81 @@ export function EventsList() {
               {loadingMore ? "Loading…" : "Load more"}
             </button>
           )}
+        </div>
+      )}
+
+      {/* ── This week sheet ──────────────────────────────────────────── */}
+      {thisWeekOpen && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setThisWeekOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+        >
+          <div style={{ background: "var(--background)", width: "100%", maxHeight: "90dvh", borderRadius: "16px 16px 0 0", display: "flex", flexDirection: "column" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0, position: "relative" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>This week</h2>
+              <button
+                type="button"
+                onClick={() => setThisWeekOpen(false)}
+                aria-label="Close"
+                style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.4, padding: 4, color: "inherit" }}
+              >
+                ×
+              </button>
+            </div>
+            {/* Cards */}
+            <div style={{ overflowY: "auto", padding: "16px 20px 24px", flex: 1 }}>
+              <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+                {thisWeekAll.map((e) => {
+                  const rsvpCount = tileRsvp.counts[e.id] ?? 0;
+                  const rsvpNames = tileRsvp.names[e.id] ?? [];
+                  const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
+                  const starred = starredIds.has(e.id);
+                  const pending = starPending.has(e.id);
+                  return (
+                    <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                      <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
+                        <div style={{ position: "relative", width: "100%", paddingBottom: "56%", background: categoryBg(e.category_primary) }}>
+                          {e.image_url && (
+                            <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                          )}
+                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                          <button
+                            type="button"
+                            aria-label={starred ? "Remove from saved" : "Save event"}
+                            onClick={(ev) => handleStar(e.id, ev)}
+                            style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
+                          >
+                            <StarIcon filled={starred} />
+                          </button>
+                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
+                            {e.venues?.name && (
+                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                              </div>
+                            )}
+                          </div>
+                          {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
+                            <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
+                              {rsvpAvatars[0] ? (
+                                <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
+                              ) : (
+                                <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                                  {rsvpNames[0]![0].toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
