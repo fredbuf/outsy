@@ -564,20 +564,22 @@ export function EventsList() {
 
   const showEmptySearchState = !loading && debouncedQuery.trim() !== "" && events.length === 0;
 
-  // "This week" = Monday 00:00 → Sunday 23:59 in Montreal time (ISO string compare is safe for UTC).
-  const thisWeekEvents = useMemo<EventRow[]>(() => {
+  // Full set of this week's events — used for exclusion from "All events".
+  // Must NOT be sliced so that events 21+ of the week don't leak into "All events".
+  const thisWeekAll = useMemo<EventRow[]>(() => {
     if (debouncedQuery.trim()) return [];
-    return filtered
-      .filter((e) => e.start_at >= weekBounds.start && e.start_at < weekBounds.end)
-      .slice(0, 20);
+    return filtered.filter((e) => e.start_at >= weekBounds.start && e.start_at < weekBounds.end);
   }, [filtered, debouncedQuery, weekBounds]);
 
-  const thisWeekIds = useMemo(() => new Set(thisWeekEvents.map((e) => e.id)), [thisWeekEvents]);
+  // Subset rendered in the horizontal scroll row (capped for performance).
+  const thisWeekEvents = useMemo(() => thisWeekAll.slice(0, 20), [thisWeekAll]);
 
-  // "All events" excludes anything already shown in "This week".
+  const thisWeekAllIds = useMemo(() => new Set(thisWeekAll.map((e) => e.id)), [thisWeekAll]);
+
+  // "All events" excludes the FULL weekly set, not just the rendered slice.
   const allEventsFiltered = useMemo(
-    () => filtered.filter((e) => !thisWeekIds.has(e.id)),
-    [filtered, thisWeekIds]
+    () => filtered.filter((e) => !thisWeekAllIds.has(e.id)),
+    [filtered, thisWeekAllIds]
   );
 
   return (
@@ -686,12 +688,20 @@ export function EventsList() {
             <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
-                <span style={{ fontSize: 18, opacity: 0.3, lineHeight: 1 }}>›</span>
+                <Link
+                  href="/events/this-week"
+                  style={{ fontSize: 13, opacity: 0.55, color: "inherit", textDecoration: "none", fontWeight: 500 }}
+                >
+                  See all ›
+                </Link>
               </div>
               <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
+                  const rsvpCount = tileRsvp.counts[e.id] ?? 0;
+                  const rsvpNames = tileRsvp.names[e.id] ?? [];
+                  const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
                       <div style={{ position: "relative", width: 200, height: 230, borderRadius: 12, overflow: "hidden", background: categoryBg(e.category_primary) }}>
@@ -715,12 +725,30 @@ export function EventsList() {
                         >
                           <StarIcon filled={starred} />
                         </button>
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px" }}>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", marginBottom: 3, fontWeight: 500 }}>{smartDate(e.start_at)}</div>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px", display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
                           <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
                           {e.venues?.name && (
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                            </div>
+                          )}
+                          {rsvpCount > 0 && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 1 }}>
+                              <div style={{ display: "flex" }}>
+                                {rsvpAvatars.slice(0, 2).map((avatarUrl, i) =>
+                                  avatarUrl ? (
+                                    <img key={i} src={avatarUrl} alt="" style={{ width: 14, height: 14, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -4 : 0, flexShrink: 0 }} />
+                                  ) : (
+                                    <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: getAvatarColor(rsvpNames[i] ?? ""), border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -4 : 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 6, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                                      {(rsvpNames[i] ?? "?")[0].toUpperCase()}
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
+                                {rsvpNames.length > 0 ? `${rsvpNames[0]}${rsvpCount > 1 ? ` + ${rsvpCount - 1}` : ""}` : `${rsvpCount} going`}
+                              </span>
                             </div>
                           )}
                         </div>
