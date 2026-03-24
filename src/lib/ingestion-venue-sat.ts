@@ -43,6 +43,8 @@ export type IngestResult = {
   ingested: number;
   skipped: number;
   skipReasons: SkipReasons;
+  postponedDetected: number;
+  cancelledDetected: number;
   urlsFound: number;
   urlsProcessed: number;
   venuesUpserted: number;
@@ -304,6 +306,8 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
   };
   let firstSkipLogged = false;
   let venuesUpserted = 0;
+  let postponedDetected = 0;
+  let cancelledDetected = 0;
 
   function skip(
     pageUrl: string,
@@ -425,6 +429,26 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
 
       const title = ld.name?.trim() ?? "Untitled";
 
+      // Detect postponed / cancelled events from the title.
+      // SAT appends "(REPORTÉ - Nouvelle date à venir)" or "(ANNULÉ)" to the name
+      // instead of updating the JSON-LD status field.  Normalise to ASCII before
+      // matching so accented variants ("REPORTÉE", "ANNULÉE") are caught too.
+      const titleNfd = title.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+      const satStatus: "scheduled" | "postponed" | "cancelled" =
+        /annul[ée]/.test(titleNfd) || titleNfd.includes("cancelled")
+          ? "cancelled"
+          : /report[ée]/.test(titleNfd) || titleNfd.includes("postponed")
+            ? "postponed"
+            : "scheduled";
+
+      if (satStatus === "postponed") postponedDetected += 1;
+      if (satStatus === "cancelled") cancelledDetected += 1;
+      if (satStatus !== "scheduled") {
+        console.log(
+          `[sat] ${satStatus} detected — slug=${slug} title=${JSON.stringify(title)}`
+        );
+      }
+
       // endDate is set only when it differs from startDate (multi-day events).
       const rawEndDate = ld.endDate;
       const endDateOnly = rawEndDate && rawEndDate !== rawStartDate
@@ -453,7 +477,7 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
         start_at: startAt,
         end_at: endAt,
         timezone: "America/Toronto",
-        status: "scheduled" as const,
+        status: satStatus,
         category_primary: pickCategory(title),
         tags: [] as string[],
         min_price: null,
@@ -500,6 +524,7 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
 
     console.log(
       `[sat] done — ingested=${ingested} parsedRealTime=${parsedRealTime} ` +
+      `postponed=${postponedDetected} cancelled=${cancelledDetected} ` +
       `skippedFallbackMidnight=${skipReasons.fallbackMidnight} ` +
       `skipped=${skipped} urlsFound=${urlsFound} ` +
       `processed=${toProcess.length} skipReasons=${JSON.stringify(skipReasons)}`
@@ -517,6 +542,8 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
       ingested,
       skipped,
       skipReasons,
+      postponedDetected,
+      cancelledDetected,
       urlsFound,
       urlsProcessed: toProcess.length,
       venuesUpserted,

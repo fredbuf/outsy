@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/ingest-ticketmaster?maxPages=8&size=50",
+      "path": "/api/cron/ingest-ticketmaster?maxPages=3&size=100",
       "schedule": "0 10 * * *"
     },
     {

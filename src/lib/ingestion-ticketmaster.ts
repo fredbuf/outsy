@@ -48,6 +48,7 @@ type IngestResult = {
   ingested: number;
   skipped: number;
   venuesUpserted: number;
+  descriptionsNulled: number;
   pagesProcessed: number;
   totalPagesReportedByTicketmaster: number;
   maxPagesUsed: number;
@@ -55,6 +56,51 @@ type IngestResult = {
   runId: string | null;
 };
 
+
+// Ticketmaster's `info` / `pleaseNote` fields often contain legal boilerplate
+// instead of a real event description.  Detect it and return null so we don't
+// surface policy text to users.
+//
+// English and French patterns are both needed — many Québec events have
+// French-language legal text that the English patterns miss.
+const DESCRIPTION_JUNK_PATTERNS = [
+  // English
+  "privacy policy",
+  "terms and conditions",
+  "terms & conditions",
+  "code of conduct",
+  "by continuing to",
+  "ticket terms",
+  "terms of service",
+  "by purchasing",
+  "no refunds",
+  "all sales final",
+  "refund policy",
+  "data protection",
+  // French (diacritics stripped before comparison, so use normalised forms)
+  "en poursuivant",           // "en poursuivant votre navigation…"
+  "politique de confidentialit", // covers "politique de confidentialité"
+  "conditions general",          // covers "conditions générales / généraux" after NFD strip
+  "conditions d'utilisation",
+  "protection des donnees",      // "protection des données" normalised
+  "vos donnees personnelles",    // "vos données personnelles"
+  "charte de confidentialit",    // privacy charter
+  "mentions legales",            // "mentions légales" normalised
+  "politique de cookies",
+  "droits reserves",             // "droits réservés" normalised
+];
+
+function sanitizeTicketmasterDescription(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const decoded = decodeHtmlEntities(raw);
+  if (!decoded) return null;
+  // Normalise to NFD and strip diacritics before pattern matching so that
+  // French patterns like "politique de confidentialit" match accented text
+  // ("confidentialité") without needing accented variants in the list.
+  const searchable = decoded.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const isJunk = DESCRIPTION_JUNK_PATTERNS.some((pat) => searchable.includes(pat));
+  return isJunk ? null : decoded;
+}
 
 function extractBestImageUrl(tm: TicketmasterEvent): string | null {
   const imgs = tm?.images ?? [];
@@ -221,6 +267,15 @@ async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<Ticketmas
   const apiKey = process.env.TICKETMASTER_API_KEY;
   if (!apiKey) throw new Error("Missing TICKETMASTER_API_KEY");
 
+  // 9-month window: 6 months was too short — events like Two Door Cinema Club
+  // at MTELUS on Oct 3 (9 days past the old Sep 24 cutoff) were silently missed.
+  // setMonth handles year rollover correctly.
+  const now = new Date();
+  const nineMonthsLater = new Date(now);
+  nineMonthsLater.setMonth(nineMonthsLater.getMonth() + 9);
+  const startDateTime = now.toISOString().slice(0, 19) + "Z";
+  const endDateTime = nineMonthsLater.toISOString().slice(0, 19) + "Z";
+
   const url = new URL("https://app.ticketmaster.com/discovery/v2/events.json");
   url.searchParams.set("apikey", apiKey);
   url.searchParams.set("locale", "*");
@@ -231,6 +286,8 @@ async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<Ticketmas
   url.searchParams.set("page", String(page));
   url.searchParams.set("sort", "date,asc");
   url.searchParams.set("classificationName", "music,arts");
+  url.searchParams.set("startDateTime", startDateTime);
+  url.searchParams.set("endDateTime", endDateTime);
 
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
@@ -270,6 +327,7 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
   let ingested = 0;
   let skipped = 0;
   let venuesUpserted = 0;
+  let descriptionsNulled = 0;
 
   try {
     while (page < totalPages && page < maxPagesSafe) {
@@ -308,19 +366,32 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
 
         const price = tm?.priceRanges?.[0];
 
+        // Rescheduled events: TM creates a new event ID for the new date.
+        // Keep the old record in the DB but mark it as postponed so it is
+        // hidden from the feed.  On the same run the new event ID will be
+        // ingested as "scheduled".
+        const statusCode = tm?.dates?.status?.code;
+        const status =
+          statusCode === "cancelled"
+            ? "cancelled"
+            : statusCode === "postponed" || statusCode === "rescheduled"
+              ? "postponed"
+              : "scheduled";
+
+        const rawDesc = tm?.info ?? tm?.pleaseNote;
+        const cleanDesc = sanitizeTicketmasterDescription(rawDesc);
+        if (rawDesc && cleanDesc === null) descriptionsNulled += 1;
+
         const payload = {
           title: tm?.name ?? "Untitled",
           title_normalized: normalizeText(tm?.name ?? "Untitled"),
-          description: decodeHtmlEntities(tm?.info ?? tm?.pleaseNote ?? null),
+          // Prefer `info` (real description) over `pleaseNote` (usually legal text).
+          // sanitizeTicketmasterDescription discards known boilerplate patterns.
+          description: cleanDesc,
           start_at: startAt,
           end_at: tm?.dates?.end?.dateTime ?? null,
           timezone: "America/Toronto",
-          status:
-            tm?.dates?.status?.code === "cancelled"
-              ? "cancelled"
-              : tm?.dates?.status?.code === "postponed"
-                ? "postponed"
-                : "scheduled",
+          status,
           category_primary: pickCategory(tm),
           tags: [],
           min_price: price?.min ?? null,
@@ -349,13 +420,14 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
       page += 1;
     }
 
-    await finishRun({ status: "success", ingested_count: ingested, skipped_count: skipped, venues_upserted: venuesUpserted });
+    await finishRun({ status: "success", ingested_count: ingested, skipped_count: skipped, venues_upserted: venuesUpserted, descriptions_nulled: descriptionsNulled });
 
     return {
       ok: true,
       ingested,
       skipped,
       venuesUpserted,
+      descriptionsNulled,
       pagesProcessed: page,
       totalPagesReportedByTicketmaster: totalPages,
       maxPagesUsed: maxPagesSafe,

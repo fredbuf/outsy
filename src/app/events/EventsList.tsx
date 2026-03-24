@@ -151,6 +151,54 @@ function fuzzyScore(query: string, title: string): number {
   return totalDist / matched + (qWords.length - matched) * 5;
 }
 
+// ─── Recurring series helpers ─────────────────────────────────────────────────
+
+// High-confidence separators that split a series name from a guest/edition.
+// Multi-word separators are checked before single-word ones to avoid false splits.
+const SERIES_SEPARATORS = [
+  " w/ ",
+  " avec ",
+  " with ",
+  " feat. ",
+  " ft. ",
+  " featuring ",
+  " présente ",
+  " presents ",
+];
+
+// Returns { series, edition } — edition is null when no known separator is found.
+function splitSeriesTitle(title: string): { series: string; edition: string | null } {
+  const lower = title.toLowerCase();
+  for (const sep of SERIES_SEPARATORS) {
+    const idx = lower.indexOf(sep);
+    if (idx > 0) {
+      const series = title.slice(0, idx).trim();
+      const edition = title.slice(idx + sep.length).trim() || null;
+      return { series, edition };
+    }
+  }
+  return { series: title, edition: null };
+}
+
+// Returns a Set of event IDs that belong to a recognisable recurring series.
+// Criteria: same normalised series-title prefix + same venue name, 2+ occurrences.
+function buildRecurringSet(events: EventRow[]): Set<string> {
+  const groups: Record<string, string[]> = {};
+  for (const e of events) {
+    const { series } = splitSeriesTitle(e.title);
+    // Key = normalised series title + venue anchor (venue name if known, else event id as fallback).
+    const venueAnchor = e.venues?.name ? normalizeStr(e.venues.name) : `id:${e.id}`;
+    const key = normalizeStr(series) + "|" + venueAnchor;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e.id);
+  }
+  const recurring = new Set<string>();
+  for (const ids of Object.values(groups)) {
+    if (ids.length >= 2) ids.forEach((id) => recurring.add(id));
+  }
+  return recurring;
+}
+
 // ─── Supabase query builder ───────────────────────────────────────────────────
 
 function buildPageQuery(
@@ -586,6 +634,14 @@ export function EventsList() {
     [filtered, thisWeekAllIds]
   );
 
+  // Detect recurring series across all visible events (this week + all events).
+  // Any series/venue pair with ≥2 occurrences is flagged so cards can show a
+  // recurring indicator instead of looking like accidental duplicates.
+  const recurringSet = useMemo(
+    () => buildRecurringSet([...thisWeekAll, ...allEventsFiltered]),
+    [thisWeekAll, allEventsFiltered]
+  );
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       {/* Search + Filters button */}
@@ -707,6 +763,8 @@ export function EventsList() {
                   const rsvpCount = tileRsvp.counts[e.id] ?? 0;
                   const rsvpNames = tileRsvp.names[e.id] ?? [];
                   const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
+                  const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
+                  const isRecurring = recurringSet.has(e.id);
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
                       <div style={{ position: "relative", width: 200, height: 230, borderRadius: 12, overflow: "hidden", background: categoryBg(e.category_primary) }}>
@@ -732,10 +790,13 @@ export function EventsList() {
                         </button>
                         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px", display: "flex", flexDirection: "column", gap: 2 }}>
                           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                          {eEdition && (
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
+                          )}
                           {e.venues?.name && (
                             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                              {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
                         </div>
@@ -779,6 +840,8 @@ export function EventsList() {
                 const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
                 const starred = starredIds.has(e.id);
                 const pending = starPending.has(e.id);
+                const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
+                const isRecurring = recurringSet.has(e.id);
                 return (
                   <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
                     <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
@@ -808,12 +871,16 @@ export function EventsList() {
                         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
                           {/* 1. Date */}
                           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
-                          {/* 2. Title */}
-                          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
-                          {/* 3. Venue */}
+                          {/* 2. Series title (or full title when no separator found) */}
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                          {/* 2b. Edition / guest line — only when a separator was detected */}
+                          {eEdition && (
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
+                          )}
+                          {/* 3. Venue — prefixed with ↻ when part of a recurring series */}
                           {e.venues?.name && (
                             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                              {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
                         </div>
@@ -894,6 +961,8 @@ export function EventsList() {
                   const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
+                  const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
+                  const isRecurring = recurringSet.has(e.id);
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
                       <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
@@ -912,10 +981,13 @@ export function EventsList() {
                           </button>
                           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
                             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                            {eEdition && (
+                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
+                            )}
                             {e.venues?.name && (
                               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                                {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                               </div>
                             )}
                           </div>
