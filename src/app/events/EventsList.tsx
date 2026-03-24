@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { useAuth } from "../components/AuthProvider";
 
 const PAGE_SIZE = 50;
 
@@ -266,39 +267,57 @@ function isInDateWindow(iso: string, window: DateWindow) {
 type TileRsvpData = {
   counts: Record<string, number>;
   names: Record<string, string[]>;
+  avatars: Record<string, (string | null)[]>;
 };
 
+const EMPTY_RSVP: TileRsvpData = { counts: {}, names: {}, avatars: {} };
+
 async function fetchTileRsvpData(ids: string[]): Promise<TileRsvpData> {
-  if (ids.length === 0) return { counts: {}, names: {} };
+  if (ids.length === 0) return EMPTY_RSVP;
   const { data } = await supabaseBrowser()
     .from("rsvps")
-    .select("event_id,profiles(display_name)")
+    .select("event_id,profiles(display_name,avatar_url)")
     .in("event_id", ids)
     .in("response", ["going", "maybe"])
     .limit(500);
 
   const counts: Record<string, number> = {};
   const names: Record<string, string[]> = {};
+  const avatars: Record<string, (string | null)[]> = {};
 
   for (const row of (data ?? []) as {
     event_id: string;
-    profiles: { display_name: string | null } | { display_name: string | null }[] | null;
+    profiles: { display_name: string | null; avatar_url: string | null } | { display_name: string | null; avatar_url: string | null }[] | null;
   }[]) {
     counts[row.event_id] = (counts[row.event_id] ?? 0) + 1;
     const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
     const name = p?.display_name;
     if (name) {
-      if (!names[row.event_id]) names[row.event_id] = [];
-      // Collect up to 3 first-names for formatting
-      if (names[row.event_id].length < 3) {
+      if (!names[row.event_id]) { names[row.event_id] = []; avatars[row.event_id] = []; }
+      if (names[row.event_id].length < 2) {
         names[row.event_id].push(name.split(" ")[0]);
+        avatars[row.event_id].push(p?.avatar_url ?? null);
       }
     }
   }
 
-  return { counts, names };
+  return { counts, names, avatars };
 }
 
+
+// Returns ISO strings for Monday 00:00 and next-Monday 00:00 in Montreal time.
+// Pure computation — called once in useState initializer, no impurity in render.
+function thisWeekBoundsIso(): { start: string; end: string } {
+  const now = new Date();
+  const montrealDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/Toronto" }); // "2026-03-24"
+  const dayName = now.toLocaleDateString("en-US", { timeZone: "America/Toronto", weekday: "short" }); // "Mon"
+  const offsets: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+  const daysFromMonday = offsets[dayName] ?? 0;
+  const [y, m, d] = montrealDateStr.split("-").map(Number);
+  const mondayStr = new Date(Date.UTC(y, m - 1, d - daysFromMonday)).toISOString().slice(0, 10);
+  const nextMondayStr = new Date(Date.UTC(y, m - 1, d - daysFromMonday + 7)).toISOString().slice(0, 10);
+  return { start: montrealDayStart(mondayStr), end: montrealDayStart(nextMondayStr) };
+}
 
 function categoryBg(cat: Category): string {
   switch (cat) {
@@ -319,22 +338,25 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-function StarIcon() {
+function StarIcon({ filled }: { filled?: boolean }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   );
 }
 
 export function EventsList() {
+  const { user, session } = useAuth();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [nextPage, setNextPage] = useState(1);
   const [exhausted, setExhausted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [tileRsvp, setTileRsvp] = useState<TileRsvpData>({ counts: {}, names: {} });
+  const [tileRsvp, setTileRsvp] = useState<TileRsvpData>(EMPTY_RSVP);
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [starPending, setStarPending] = useState<Set<string>>(new Set());
 
   // Typed query (immediate, controls the input).
   const [query, setQuery] = useState("");
@@ -353,7 +375,7 @@ export function EventsList() {
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [mountMs] = useState<number>(() => Date.now());
+  const [weekBounds] = useState(() => thisWeekBoundsIso());
   const [showCustomRange, setShowCustomRange] = useState(false);
 
   const hasCustomRange = fromDate !== "" || toDate !== "";
@@ -402,6 +424,48 @@ export function EventsList() {
     };
     run();
   }, []);
+
+  // Load the current user's "maybe" RSVPs to initialise starred state.
+  useEffect(() => {
+    if (!user?.id) { setStarredIds(new Set()); return; }
+    supabaseBrowser()
+      .from("rsvps")
+      .select("event_id")
+      .eq("user_id", user.id)
+      .eq("response", "maybe")
+      .then(({ data }) => {
+        setStarredIds(new Set((data ?? []).map((r: { event_id: string }) => r.event_id)));
+      });
+  }, [user?.id]);
+
+  async function handleStar(eventId: string, ev: React.MouseEvent) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!session?.access_token) {
+      window.dispatchEvent(new CustomEvent("outsy:open-signin"));
+      return;
+    }
+    if (starPending.has(eventId)) return;
+    const wasStarred = starredIds.has(eventId);
+    // Optimistic update
+    setStarredIds((prev) => { const s = new Set(prev); if (wasStarred) { s.delete(eventId); } else { s.add(eventId); } return s; });
+    setStarPending((prev) => new Set(prev).add(eventId));
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp`, {
+        method: wasStarred ? "DELETE" : "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        ...(wasStarred ? {} : { body: JSON.stringify({ response: "maybe" }) }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setStarredIds((prev) => { const s = new Set(prev); if (wasStarred) { s.add(eventId); } else { s.delete(eventId); } return s; });
+      }
+    } catch {
+      setStarredIds((prev) => { const s = new Set(prev); if (wasStarred) { s.add(eventId); } else { s.delete(eventId); } return s; });
+    } finally {
+      setStarPending((prev) => { const s = new Set(prev); s.delete(eventId); return s; });
+    }
+  }
 
   // Reset + fetch page 0 whenever server-side filters change.
   useEffect(() => {
@@ -462,6 +526,7 @@ export function EventsList() {
       setTileRsvp((prev) => ({
         counts: { ...prev.counts, ...next.counts },
         names: { ...prev.names, ...next.names },
+        avatars: { ...prev.avatars, ...next.avatars },
       }))
     );
   }
@@ -499,13 +564,21 @@ export function EventsList() {
 
   const showEmptySearchState = !loading && debouncedQuery.trim() !== "" && events.length === 0;
 
+  // "This week" = Monday 00:00 → Sunday 23:59 in Montreal time (ISO string compare is safe for UTC).
   const thisWeekEvents = useMemo<EventRow[]>(() => {
     if (debouncedQuery.trim()) return [];
-    const cutoff = mountMs + 7 * 24 * 60 * 60 * 1000;
     return filtered
-      .filter((e) => { const t = new Date(e.start_at).getTime(); return t >= mountMs && t <= cutoff; })
+      .filter((e) => e.start_at >= weekBounds.start && e.start_at < weekBounds.end)
       .slice(0, 20);
-  }, [filtered, debouncedQuery, mountMs]);
+  }, [filtered, debouncedQuery, weekBounds]);
+
+  const thisWeekIds = useMemo(() => new Set(thisWeekEvents.map((e) => e.id)), [thisWeekEvents]);
+
+  // "All events" excludes anything already shown in "This week".
+  const allEventsFiltered = useMemo(
+    () => filtered.filter((e) => !thisWeekIds.has(e.id)),
+    [filtered, thisWeekIds]
+  );
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -615,83 +688,46 @@ export function EventsList() {
                 <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
                 <span style={{ fontSize: 18, opacity: 0.3, lineHeight: 1 }}>›</span>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  overflowX: "auto",
-                  scrollbarWidth: "none",
-                  paddingBottom: 4,
-                }}
-              >
-                {thisWeekEvents.map((e) => (
-                  <Link
-                    key={e.id}
-                    href={`/events/${e.id}`}
-                    style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
-                  >
-                    <div
-                      style={{
-                        position: "relative",
-                        width: 148,
-                        height: 210,
-                        borderRadius: 12,
-                        overflow: "hidden",
-                        background: categoryBg(e.category_primary),
-                      }}
-                    >
-                      {e.image_url && (
-                        <img
-                          src={e.image_url}
-                          alt=""
-                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      )}
-                      {/* Stronger gradient */}
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)" }} />
-                      {/* Star button */}
-                      <button
-                        type="button"
-                        aria-label="Save event"
-                        onClick={(ev) => ev.preventDefault()}
-                        style={{
-                          position: "absolute", top: 8, right: 8,
-                          width: 28, height: 28, borderRadius: "50%",
-                          border: "none", background: "rgba(0,0,0,0.4)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          cursor: "pointer", color: "rgba(255,255,255,0.8)",
-                        }}
-                      >
-                        <StarIcon />
-                      </button>
-                      {/* Text */}
-                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px" }}>
-                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", marginBottom: 3, fontWeight: 500 }}>
-                          {smartDate(e.start_at)}
-                        </div>
-                        <div
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
+                {thisWeekEvents.map((e) => {
+                  const starred = starredIds.has(e.id);
+                  const pending = starPending.has(e.id);
+                  return (
+                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
+                      <div style={{ position: "relative", width: 200, height: 230, borderRadius: 12, overflow: "hidden", background: categoryBg(e.category_primary) }}>
+                        {e.image_url && (
+                          <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                        )}
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)" }} />
+                        <button
+                          type="button"
+                          aria-label={starred ? "Remove from saved" : "Save event"}
+                          onClick={(ev) => handleStar(e.id, ev)}
                           style={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: "#fff",
-                            lineHeight: 1.25,
-                            overflow: "hidden",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
+                            position: "absolute", top: 8, right: 8,
+                            width: 30, height: 30, borderRadius: "50%", border: "none",
+                            background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            cursor: pending ? "wait" : "pointer",
+                            color: starred ? "#fff" : "rgba(255,255,255,0.8)",
+                            opacity: pending ? 0.6 : 1,
                           }}
                         >
-                          {e.title}
+                          <StarIcon filled={starred} />
+                        </button>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px" }}>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", marginBottom: 3, fontWeight: 500 }}>{smartDate(e.start_at)}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
+                          {e.venues?.name && (
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                            </div>
+                          )}
                         </div>
-                        {e.venues?.name && (
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             </section>
           )}
@@ -703,14 +739,7 @@ export function EventsList() {
               {(category !== "all" || source !== "all" || hasCustomRange || dateWindow !== "all") && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setCategory("all");
-                    setSource("all");
-                    setDateWindow("all");
-                    setFromDate("");
-                    setToDate("");
-                    setVenueId("");
-                  }}
+                  onClick={() => { setCategory("all"); setSource("all"); setDateWindow("all"); setFromDate(""); setToDate(""); setVenueId(""); }}
                   style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
                 >
                   See all
@@ -718,121 +747,65 @@ export function EventsList() {
               )}
             </div>
             <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-              {filtered.map((e) => {
+              {allEventsFiltered.map((e) => {
                 const rsvpCount = tileRsvp.counts[e.id] ?? 0;
                 const rsvpNames = tileRsvp.names[e.id] ?? [];
+                const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
+                const starred = starredIds.has(e.id);
+                const pending = starPending.has(e.id);
                 return (
-                  <Link
-                    key={e.id}
-                    href={`/events/${e.id}`}
-                    style={{ textDecoration: "none", color: "inherit", display: "block" }}
-                  >
+                  <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
                     <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
-                      {/* Image + gradient */}
-                      <div
-                        style={{
-                          position: "relative",
-                          width: "100%",
-                          paddingBottom: "56%",
-                          background: categoryBg(e.category_primary),
-                        }}
-                      >
+                      <div style={{ position: "relative", width: "100%", paddingBottom: "56%", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
-                          <img
-                            src={e.image_url}
-                            alt=""
-                            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                          />
+                          <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
-                        {/* Stronger gradient — covers bottom 70% for clear text */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
-                          }}
-                        />
-                        {/* Star button — top-right */}
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                        {/* Star button */}
                         <button
                           type="button"
-                          aria-label="Save event"
-                          onClick={(ev) => ev.preventDefault()}
+                          aria-label={starred ? "Remove from saved" : "Save event"}
+                          onClick={(ev) => handleStar(e.id, ev)}
                           style={{
                             position: "absolute", top: 8, right: 8,
-                            width: 32, height: 32, borderRadius: "50%",
-                            border: "none", background: "rgba(0,0,0,0.42)",
+                            width: 32, height: 32, borderRadius: "50%", border: "none",
+                            background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)",
                             display: "flex", alignItems: "center", justifyContent: "center",
-                            cursor: "pointer", color: "rgba(255,255,255,0.85)",
+                            cursor: pending ? "wait" : "pointer",
+                            color: starred ? "#fff" : "rgba(255,255,255,0.85)",
+                            opacity: pending ? 0.6 : 1,
                           }}
                         >
-                          <StarIcon />
+                          <StarIcon filled={starred} />
                         </button>
                         {/* Text overlay */}
-                        <div
-                          style={{
-                            position: "absolute", bottom: 0, left: 0, right: 0,
-                            padding: "10px 12px 12px",
-                            display: "flex", flexDirection: "column", gap: 3,
-                          }}
-                        >
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
                           {/* 1. Date */}
-                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
-                            {smartDate(e.start_at)}
-                          </div>
+                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
                           {/* 2. Title */}
-                          <div
-                            style={{
-                              fontSize: 15,
-                              fontWeight: 700,
-                              color: "#fff",
-                              lineHeight: 1.25,
-                              overflow: "hidden",
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                            }}
-                          >
-                            {e.title}
-                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.title}</div>
                           {/* 3. Venue */}
                           {e.venues?.name && (
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "rgba(255,255,255,0.55)",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
-                          {/* 4. Social proof — avatars + compact count */}
+                          {/* 4. Social proof: avatar image or initials circle + compact name */}
                           {rsvpCount > 0 && (
                             <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
                               <div style={{ display: "flex" }}>
-                                {rsvpNames.slice(0, 2).map((name, i) => (
-                                  <div
-                                    key={i}
-                                    style={{
-                                      width: 16, height: 16, borderRadius: "50%",
-                                      background: getAvatarColor(name),
-                                      border: "1.5px solid rgba(0,0,0,0.55)",
-                                      marginLeft: i > 0 ? -5 : 0,
-                                      display: "flex", alignItems: "center", justifyContent: "center",
-                                      fontSize: 7, fontWeight: 700, color: "#fff",
-                                      flexShrink: 0,
-                                    }}
-                                  >
-                                    {name[0].toUpperCase()}
-                                  </div>
-                                ))}
+                                {rsvpAvatars.slice(0, 2).map((avatarUrl, i) =>
+                                  avatarUrl ? (
+                                    <img key={i} src={avatarUrl} alt="" style={{ width: 16, height: 16, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -5 : 0, flexShrink: 0 }} />
+                                  ) : (
+                                    <div key={i} style={{ width: 16, height: 16, borderRadius: "50%", background: getAvatarColor(rsvpNames[i] ?? ""), border: "1.5px solid rgba(0,0,0,0.55)", marginLeft: i > 0 ? -5 : 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                                      {(rsvpNames[i] ?? "?")[0].toUpperCase()}
+                                    </div>
+                                  )
+                                )}
                               </div>
                               <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-                                {rsvpNames.length > 0
-                                  ? `${rsvpNames[0]}${rsvpCount > 1 ? ` + ${rsvpCount - 1}` : ""}`
-                                  : `${rsvpCount} going`}
+                                {rsvpNames.length > 0 ? `${rsvpNames[0]}${rsvpCount > 1 ? ` + ${rsvpCount - 1}` : ""}` : `${rsvpCount} going`}
                               </span>
                             </div>
                           )}
