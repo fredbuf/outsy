@@ -6,10 +6,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { CopyInviteLink } from "./CopyInviteLink";
-import { RsvpPanel } from "./RsvpPanel";
 import { AttendeeList } from "./AttendeeList";
 import { EventOwnerActions } from "./EventOwnerActions";
-import { StarButton } from "./StarButton";
+import { ActionBar } from "./ActionBar";
+import { ExpandableDescription } from "./ExpandableDescription";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -261,8 +261,39 @@ export default async function EventPage({
         padding: "24px 16px 56px",
         display: "grid",
         gap: 28,
+        position: "relative",
       }}
     >
+      {/* Page background wash — blurred hero image at low opacity */}
+      {event.image_url && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: -1,
+            overflow: "hidden",
+            pointerEvents: "none",
+          }}
+        >
+          <img
+            src={event.image_url}
+            alt=""
+            style={{
+              position: "absolute",
+              top: 0,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "100%",
+              height: 520,
+              objectFit: "cover",
+              filter: "blur(60px) saturate(1.4)",
+              opacity: 0.09,
+              transformOrigin: "top center",
+            }}
+          />
+        </div>
+      )}
       {/* Back */}
       <Link
         href="/events"
@@ -433,9 +464,16 @@ export default async function EventPage({
         )}
       </div>
 
-      {/* Action bar: Save · Share · Owner actions */}
+      {/* Main action bar: Going | Interested | Tickets */}
+      <ActionBar
+        eventId={id}
+        initialCounts={rsvpCounts}
+        sourceUrl={event.source_url ?? null}
+        visibility={event.visibility as "public" | "private"}
+      />
+
+      {/* Secondary row: Share · Owner actions */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <StarButton eventId={id} />
         <CopyInviteLink
           title={event.title}
           visibility={event.visibility as "public" | "private"}
@@ -463,35 +501,6 @@ export default async function EventPage({
         />
       </div>
 
-      {/* Primary CTA */}
-      {event.source_url && (
-        <a
-          href={event.source_url}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "block",
-            padding: "15px 24px",
-            borderRadius: 14,
-            background: "var(--btn-bg)",
-            border: "1px solid var(--border-strong)",
-            fontWeight: 700,
-            fontSize: 16,
-            textDecoration: "none",
-            textAlign: "center",
-          }}
-        >
-          Get tickets →
-        </a>
-      )}
-
-      {/* RSVP */}
-      <RsvpPanel
-        eventId={id}
-        initialCounts={rsvpCounts}
-        visibility={event.visibility as "public" | "private"}
-      />
-
       {/* Social proof */}
       {(rsvpCounts.going > 0 || rsvpCounts.maybe > 0) && (
         <AttendeeList
@@ -508,16 +517,7 @@ export default async function EventPage({
           <h2 style={{ fontSize: 15, fontWeight: 600, opacity: 0.55 }}>
             About this event
           </h2>
-          <p
-            style={{
-              fontSize: 15,
-              lineHeight: 1.75,
-              opacity: 0.85,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {event.description}
-          </p>
+          <ExpandableDescription text={event.description} />
         </div>
       )}
 
