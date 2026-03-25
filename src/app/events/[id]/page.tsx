@@ -9,6 +9,7 @@ import { CopyInviteLink } from "./CopyInviteLink";
 import { RsvpPanel } from "./RsvpPanel";
 import { AttendeeList } from "./AttendeeList";
 import { EventOwnerActions } from "./EventOwnerActions";
+import { StarButton } from "./StarButton";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -16,12 +17,12 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city)"
+      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city)"
     )
     .eq("id", id)
     .eq("is_approved", true)
     .eq("is_rejected", false)
-    .eq("status", "scheduled")
+    .in("status", ["scheduled", "announced"])
     .maybeSingle();
   return data;
 });
@@ -29,7 +30,7 @@ const fetchEvent = cache(async (id: string) => {
 async function fetchRelated(id: string, category: string) {
   const { data } = await supabaseServer()
     .from("events")
-    .select("id,title,start_at,category_primary,min_price,max_price,currency,image_url,source_url")
+    .select("id,title,start_at,category_primary,min_price,max_price,currency,image_url,source_url,venues(name,city)")
     .eq("is_approved", true)
     .eq("is_rejected", false)
     .eq("status", "scheduled")
@@ -38,7 +39,7 @@ async function fetchRelated(id: string, category: string) {
     .neq("id", id)
     .gte("start_at", new Date().toISOString())
     .order("start_at", { ascending: true })
-    .limit(4);
+    .limit(6);
   return data ?? [];
 }
 
@@ -136,13 +137,14 @@ const SOURCE_LABELS: Record<string, string> = {
   venue_sat:        "SAT Montréal",
 };
 
-function formatDateCompact(iso: string): string {
+function formatDateFull(iso: string): string {
   const d = new Date(iso);
   const datePart = d.toLocaleString("en-US", {
     timeZone: "America/Toronto",
-    weekday: "short",
-    month: "short",
+    weekday: "long",
+    month: "long",
     day: "numeric",
+    year: "numeric",
   });
   const timePart = d.toLocaleString("en-US", {
     timeZone: "America/Toronto",
@@ -150,18 +152,62 @@ function formatDateCompact(iso: string): string {
     minute: "2-digit",
     hour12: true,
   });
-  return `${datePart} · ${timePart}`;
+  // Hide time when it's midnight (TM events with no explicit time)
+  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  return isUnknownTime ? datePart : `${datePart} · ${timePart}`;
 }
 
-function formatDateShort(iso: string): string {
-  return new Date(iso).toLocaleString("en-CA", {
+// Matches feed card smartDate — compact, context-aware label
+function smartDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const toKey = (dt: Date) => dt.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const eventDay = toKey(d);
+  const today = toKey(now);
+  const tomorrow = toKey(new Date(now.getTime() + 86_400_000));
+  const rawTime = d.toLocaleString("en-US", {
     timeZone: "America/Toronto",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
+  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  const timeStr = isUnknownTime ? "" : " at " + rawTime.replace(/:00\s/, " ").replace(/\s/, "").toLowerCase();
+  if (eventDay === today) return `Today${timeStr}`;
+  if (eventDay === tomorrow) return `Tomorrow${timeStr}`;
+  const diffMs = d.getTime() - now.getTime();
+  if (diffMs > 0 && diffMs < 7 * 86_400_000) {
+    const weekday = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", weekday: "long" });
+    return `${weekday}${timeStr}`;
+  }
+  const monthDay = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" });
+  return `${monthDay}${timeStr}`;
+}
+
+// Matches feed card categoryBg gradient palette
+function categoryBg(cat: string): string {
+  switch (cat) {
+    case "concerts":     case "music":  return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
+    case "nightlife":                   return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
+    case "arts_culture": case "art":    return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
+    case "comedy":                      return "linear-gradient(150deg, #1a1a00 0%, #3d3000 100%)";
+    case "sports":                      return "linear-gradient(150deg, #001a0d 0%, #00381a 100%)";
+    case "family":                      return "linear-gradient(150deg, #001233 0%, #00296b 100%)";
+    default:                            return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
+  }
+}
+
+// Split "Series Name - Edition" into two display lines
+function splitSeriesTitle(title: string): { series: string; edition: string | null } {
+  const seps = [" - ", " – ", " | ", " : ", " with ", " feat. ", " ft. ", " featuring "];
+  const lower = title.toLowerCase();
+  for (const sep of seps) {
+    const idx = lower.indexOf(sep);
+    if (idx > 0) {
+      return { series: title.slice(0, idx).trim(), edition: title.slice(idx + sep.length).trim() || null };
+    }
+  }
+  return { series: title, edition: null };
 }
 
 function formatPrice(
@@ -180,7 +226,6 @@ function formatPrice(
 
 function toDatetimeLocal(iso: string | null): string {
   if (!iso) return "";
-  // Convert to Eastern time for datetime-local input (which treats values as local)
   const d = new Date(iso);
   const eastern = new Date(d.toLocaleString("en-US", { timeZone: "America/Toronto" }));
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -205,116 +250,196 @@ export default async function EventPage({
     fetchAttendees(id),
   ]);
 
+  const price = formatPrice(event.min_price, event.max_price, event.currency);
+  const isAnnounced = (event as { status?: string }).status === "announced";
+
   return (
     <main
       style={{
         maxWidth: 720,
         margin: "0 auto",
-        padding: "24px 16px 48px",
+        padding: "24px 16px 56px",
         display: "grid",
-        gap: 24,
+        gap: 28,
       }}
     >
+      {/* Back */}
       <Link
         href="/events"
-        style={{ opacity: 0.6, fontSize: 14, textDecoration: "none" }}
+        style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}
       >
         ← Back to events
       </Link>
 
+      {/* Hero image with gradient overlay */}
       {event.image_url && (
-        <img
-          src={event.image_url}
-          alt={event.title}
-          style={{
-            width: "100%",
-            maxHeight: 380,
-            objectFit: "cover",
-            borderRadius: 16,
-          }}
-        />
+        <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
+          <img
+            src={event.image_url}
+            alt={event.title}
+            style={{
+              width: "100%",
+              maxHeight: 400,
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: "55%",
+              background: "linear-gradient(to top, rgba(0,0,0,0.52), transparent)",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
       )}
 
-      <div style={{ display: "grid", gap: 12 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.2 }}>
-          {event.title}
-        </h1>
-
-        <div style={{ display: "grid", gap: 5, fontSize: 14 }}>
-          <span style={{ opacity: 0.85 }}>{formatDateCompact(event.start_at)}</span>
-
-          {venue?.name && (
-            <span style={{ opacity: 0.75 }}>
-              {venue.name}
-              {venue.city ? `, ${venue.city}` : ""}
-            </span>
-          )}
-
-          <span style={{ opacity: 0.75 }}>
+      {/* Title + metadata block */}
+      <div style={{ display: "grid", gap: 14 }}>
+        {/* Category + price + announced badge */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              opacity: 0.5,
+              textTransform: "uppercase",
+              letterSpacing: "0.07em",
+            }}
+          >
             {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-            {formatPrice(event.min_price, event.max_price, event.currency)
-              ? ` · ${formatPrice(event.min_price, event.max_price, event.currency)}`
-              : ""}
           </span>
-
-          {event.source && (
-            <span style={{ opacity: 0.45, fontSize: 12 }}>
-              via {SOURCE_LABELS[event.source] ?? event.source}
-            </span>
+          {price && (
+            <span style={{ fontSize: 11, opacity: 0.4 }}>· {price}</span>
           )}
-
-          {creator && (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 2 }}>
-              {creator.avatar_url ? (
-                <img
-                  src={creator.avatar_url}
-                  alt={creator.display_name ?? ""}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    flex: "0 0 auto",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: "50%",
-                    background: getAvatarColor(creator.display_name),
-                    flex: "0 0 auto",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 9,
-                    fontWeight: 700,
-                    color: "#fff",
-                    userSelect: "none",
-                  }}
-                >
-                  {getInitials(creator.display_name)}
-                </div>
-              )}
-              {creator.username ? (
-                <Link
-                  href={`/u/${creator.username}`}
-                  style={{ opacity: 0.6, fontSize: 13, textDecoration: "underline" }}
-                >
-                  Hosted by {creator.display_name ?? `@${creator.username}`}
-                </Link>
-              ) : (
-                <span style={{ opacity: 0.6, fontSize: 13 }}>
-                  Hosted by {creator.display_name ?? "a member"}
-                </span>
-              )}
-            </div>
+          {isAnnounced && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: 20,
+                border: "1px solid var(--border-strong)",
+                opacity: 0.7,
+              }}
+            >
+              Tickets soon
+            </span>
           )}
         </div>
 
-        <CopyInviteLink title={event.title} visibility={event.visibility as "public" | "private"} />
+        {/* Title */}
+        <h1
+          style={{
+            fontSize: 30,
+            fontWeight: 800,
+            lineHeight: 1.15,
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {event.title}
+        </h1>
 
+        {/* Venue */}
+        {venue?.name && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              fontSize: 15,
+            }}
+          >
+            <span style={{ opacity: 0.4, flexShrink: 0, marginTop: 1 }}>📍</span>
+            <span style={{ opacity: 0.8 }}>
+              {venue.name}
+              {venue.city ? `, ${venue.city}` : ""}
+            </span>
+          </div>
+        )}
+
+        {/* Date */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 8,
+            fontSize: 15,
+          }}
+        >
+          <span style={{ opacity: 0.4, flexShrink: 0, marginTop: 1 }}>🗓</span>
+          <span style={{ opacity: 0.8 }}>{formatDateFull(event.start_at)}</span>
+        </div>
+
+        {/* Host */}
+        {creator && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {creator.avatar_url ? (
+              <img
+                src={creator.avatar_url}
+                alt={creator.display_name ?? ""}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: getAvatarColor(creator.display_name),
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  color: "#fff",
+                  userSelect: "none",
+                }}
+              >
+                {getInitials(creator.display_name)}
+              </div>
+            )}
+            {creator.username ? (
+              <Link
+                href={`/u/${creator.username}`}
+                style={{ opacity: 0.65, fontSize: 14, textDecoration: "underline" }}
+              >
+                Hosted by {creator.display_name ?? `@${creator.username}`}
+              </Link>
+            ) : (
+              <span style={{ opacity: 0.65, fontSize: 14 }}>
+                Hosted by {creator.display_name ?? "a member"}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Source attribution */}
+        {event.source && (
+          <span style={{ opacity: 0.35, fontSize: 11 }}>
+            via {SOURCE_LABELS[event.source] ?? event.source}
+          </span>
+        )}
+      </div>
+
+      {/* Action bar: Save · Share · Owner actions */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <StarButton eventId={id} />
+        <CopyInviteLink
+          title={event.title}
+          visibility={event.visibility as "public" | "private"}
+        />
         <EventOwnerActions
           eventId={id}
           creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
@@ -336,40 +461,56 @@ export default async function EventPage({
             imageUrl: event.image_url ?? null,
           }}
         />
-
-        {event.source_url && (
-          <a
-            href={event.source_url}
-            target="_blank"
-            rel="noreferrer"
-            className="cta-full-mobile"
-            style={{
-              display: "inline-block",
-              alignSelf: "start",
-              marginTop: 4,
-              padding: "12px 28px",
-              borderRadius: 12,
-              background: "var(--btn-bg)",
-              border: "1px solid var(--border-strong)",
-              fontWeight: 700,
-              fontSize: 15,
-              textDecoration: "none",
-              textAlign: "center",
-            }}
-          >
-            Get tickets →
-          </a>
-        )}
       </div>
 
+      {/* Primary CTA */}
+      {event.source_url && (
+        <a
+          href={event.source_url}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "block",
+            padding: "15px 24px",
+            borderRadius: 14,
+            background: "var(--btn-bg)",
+            border: "1px solid var(--border-strong)",
+            fontWeight: 700,
+            fontSize: 16,
+            textDecoration: "none",
+            textAlign: "center",
+          }}
+        >
+          Get tickets →
+        </a>
+      )}
+
+      {/* RSVP */}
+      <RsvpPanel
+        eventId={id}
+        initialCounts={rsvpCounts}
+        visibility={event.visibility as "public" | "private"}
+      />
+
+      {/* Social proof */}
+      {(rsvpCounts.going > 0 || rsvpCounts.maybe > 0) && (
+        <AttendeeList
+          eventId={id}
+          initialAttendees={attendees}
+          goingCount={rsvpCounts.going}
+          maybeCount={rsvpCounts.maybe}
+        />
+      )}
+
+      {/* Description */}
       {event.description && (
         <div style={{ display: "grid", gap: 8 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, opacity: 0.6 }}>
+          <h2 style={{ fontSize: 15, fontWeight: 600, opacity: 0.55 }}>
             About this event
           </h2>
           <p
             style={{
-              fontSize: 14,
+              fontSize: 15,
               lineHeight: 1.75,
               opacity: 0.85,
               whiteSpace: "pre-wrap",
@@ -380,74 +521,118 @@ export default async function EventPage({
         </div>
       )}
 
-      {(rsvpCounts.going > 0 || rsvpCounts.maybe > 0) && (
-        <AttendeeList
-          eventId={id}
-          initialAttendees={attendees}
-          goingCount={rsvpCounts.going}
-          maybeCount={rsvpCounts.maybe}
-        />
-      )}
-
-      <RsvpPanel eventId={id} initialCounts={rsvpCounts} visibility={event.visibility as "public" | "private"} />
-
+      {/* Related events — horizontal scroll, feed-card style */}
       {related.length > 0 && (
-        <section style={{ display: "grid", gap: 12, paddingTop: 8 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700 }}>More events like this</h2>
-          <div style={{ display: "grid", gap: 10 }}>
+        <section style={{ display: "grid", gap: 10, paddingTop: 4 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700 }}>More events like this</h2>
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              paddingBottom: 4,
+            }}
+          >
             {related.map((r) => {
-              const price = formatPrice(r.min_price, r.max_price, r.currency);
-              const priceLabel = price ?? (r.source_url ? "🎟 Tickets available" : null);
+              const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
+              const { series, edition } = splitSeriesTitle(r.title);
               return (
                 <Link
                   key={r.id}
                   href={`/events/${r.id}`}
-                  style={{ textDecoration: "none", color: "inherit" }}
+                  style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
                 >
-                  <article
+                  <div
                     style={{
-                      border: "1px solid var(--border)",
-                      borderRadius: 14,
-                      padding: 14,
-                      display: "flex",
-                      gap: 12,
-                      alignItems: "center",
+                      position: "relative",
+                      width: 190,
+                      height: 220,
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      background: categoryBg(r.category_primary),
                     }}
                   >
-                    {r.image_url ? (
+                    {r.image_url && (
                       <img
                         src={r.image_url}
                         alt=""
                         style={{
-                          width: 72,
-                          height: 72,
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
                           objectFit: "cover",
-                          borderRadius: 10,
-                          flex: "0 0 auto",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 72,
-                          height: 72,
-                          borderRadius: 10,
-                          background: "var(--surface-subtle)",
-                          flex: "0 0 auto",
                         }}
                       />
                     )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>{formatDateShort(r.start_at)}</div>
-                      <div style={{ fontSize: 15, fontWeight: 700, marginTop: 2, lineHeight: 1.2 }}>
-                        {r.title}
+                    {/* Gradient overlay */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background:
+                          "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
+                      }}
+                    />
+                    {/* Text overlay */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: "8px 10px 11px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+                        {smartDate(r.start_at)}
                       </div>
-                      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                        {CATEGORY_LABELS[r.category_primary] ?? r.category_primary}
-                        {priceLabel ? ` · ${priceLabel}` : ""}
+                      <div
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#fff",
+                          lineHeight: 1.25,
+                          overflow: "hidden",
+                          display: "-webkit-box",
+                          WebkitLineClamp: edition ? 1 : 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {series}
                       </div>
+                      {edition && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "rgba(255,255,255,0.65)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {edition}
+                        </div>
+                      )}
+                      {rVenue?.name && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "rgba(255,255,255,0.5)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
+                        </div>
+                      )}
                     </div>
-                  </article>
+                  </div>
                 </Link>
               );
             })}

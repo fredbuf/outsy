@@ -115,17 +115,17 @@ export function RsvpPanel({
               }}
               style={{
                 flex: 1,
-                padding: "10px 8px",
-                borderRadius: 10,
+                padding: "14px 8px",
+                borderRadius: 12,
                 border: `1px solid ${active ? "var(--border-strong)" : "var(--border)"}`,
                 background: active ? "var(--btn-bg)" : "transparent",
-                fontWeight: active ? 700 : 400,
+                fontWeight: active ? 700 : 500,
                 cursor: busy ? "wait" : "pointer",
-                fontSize: 13,
+                fontSize: 15,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 3,
+                gap: 4,
                 opacity: busy ? 0.6 : 1,
                 color: "inherit",
               }}
@@ -134,7 +134,7 @@ export function RsvpPanel({
                 {active && "✓ "}
                 {LABELS[r]}
               </span>
-              <span style={{ opacity: 0.55, fontSize: 12 }}>{counts[r]}</span>
+              <span style={{ opacity: 0.5, fontSize: 12 }}>{counts[r]}</span>
             </button>
           );
         })}
