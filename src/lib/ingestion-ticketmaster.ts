@@ -287,7 +287,7 @@ async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<Ticketmas
   url.searchParams.set("size", String(size));
   url.searchParams.set("page", String(page));
   url.searchParams.set("sort", "date,asc");
-  url.searchParams.set("classificationName", "music,arts");
+  url.searchParams.set("classificationName", "music,arts,sports");
   url.searchParams.set("startDateTime", startDateTime);
   url.searchParams.set("endDateTime", endDateTime);
 
