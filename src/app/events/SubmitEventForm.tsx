@@ -11,7 +11,7 @@ export type FormState = {
   description: string;
   startAt: string;
   endAt: string;
-  category: "music" | "nightlife" | "art";
+  category: "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
   venueName: string;
   venueAddress: string;
   venueCity: string;
@@ -34,7 +34,7 @@ const initialForm: FormState = {
   description: "",
   startAt: "",
   endAt: "",
-  category: "music",
+  category: "concerts",
   venueName: "",
   venueAddress: "",
   venueCity: "Montréal",
@@ -230,7 +230,7 @@ export function SubmitEventForm({
       const payload = isPrivate
         ? {
             ...basePayload,
-            category: "music", // not user-selectable for private; API ignores it
+            category: "concerts", // not user-selectable for private; API ignores it
             venueName: form.address.trim() || "",
             venueAddress: form.address.trim() || "",
             venueCity: "Montréal",
@@ -562,9 +562,12 @@ export function SubmitEventForm({
               }
               style={inputStyle}
             >
-              <option value="music">Music</option>
+              <option value="concerts">Concerts</option>
               <option value="nightlife">Nightlife</option>
-              <option value="art">Art</option>
+              <option value="arts_culture">Arts &amp; Culture</option>
+              <option value="comedy">Comedy</option>
+              <option value="sports">Sports</option>
+              <option value="family">Family</option>
             </select>
             <input
               placeholder="Tickets / info link"

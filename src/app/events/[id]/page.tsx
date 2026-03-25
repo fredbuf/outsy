@@ -116,6 +116,18 @@ export async function generateMetadata({
   };
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  concerts:     "Concerts",
+  nightlife:    "Nightlife",
+  arts_culture: "Arts & Culture",
+  comedy:       "Comedy",
+  sports:       "Sports",
+  family:       "Family",
+  // legacy values still in DB until re-ingestion
+  music:        "Concerts",
+  art:          "Arts & Culture",
+};
+
 const SOURCE_LABELS: Record<string, string> = {
   ticketmaster:     "Ticketmaster",
   eventbrite:       "Eventbrite",
@@ -238,8 +250,8 @@ export default async function EventPage({
             </span>
           )}
 
-          <span style={{ opacity: 0.75, textTransform: "capitalize" }}>
-            {event.category_primary}
+          <span style={{ opacity: 0.75 }}>
+            {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
             {formatPrice(event.min_price, event.max_price, event.currency)
               ? ` · ${formatPrice(event.min_price, event.max_price, event.currency)}`
               : ""}
@@ -312,7 +324,7 @@ export default async function EventPage({
             description: event.description ?? "",
             startAt: toDatetimeLocal(event.start_at),
             endAt: toDatetimeLocal(event.end_at ?? null),
-            category: (event.category_primary as "music" | "nightlife" | "art") ?? "music",
+            category: (event.category_primary as "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family") ?? "concerts",
             venueName: venue?.name ?? "",
             venueAddress: venue?.address_line1 ?? "",
             venueCity: venue?.city ?? "Montréal",
@@ -431,7 +443,7 @@ export default async function EventPage({
                         {r.title}
                       </div>
                       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                        {r.category_primary}
+                        {CATEGORY_LABELS[r.category_primary] ?? r.category_primary}
                         {priceLabel ? ` · ${priceLabel}` : ""}
                       </div>
                     </div>

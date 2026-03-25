@@ -2,7 +2,7 @@ import "server-only";
 import { supabaseServer } from "@/lib/supabase-server";
 import { normalizeText, upsertVenue, decodeHtmlEntities } from "@/lib/ingestion-shared";
 
-type Category = "music" | "nightlife" | "art";
+type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 type TicketmasterImage = { url?: string; width?: number };
 type TicketmasterVenue = {
   name?: string;
@@ -25,6 +25,10 @@ type TicketmasterEvent = {
     end?: { dateTime?: string };
     status?: { code?: string };
   };
+  sales?: {
+    public?: { startDateTime?: string; endDateTime?: string };
+    presales?: Array<{ startDateTime?: string; endDateTime?: string; name?: string }>;
+  };
   priceRanges?: Array<{ min?: number; max?: number; currency?: string }>;
   classifications?: Array<{
     segment?: { name?: string };
@@ -41,6 +45,7 @@ type TicketmasterPageResponse = {
 type IngestOptions = {
   maxPages: number;
   size: number;
+  startPage?: number;
 };
 
 type IngestResult = {
@@ -49,7 +54,10 @@ type IngestResult = {
   skipped: number;
   venuesUpserted: number;
   descriptionsNulled: number;
+  announcedCount: number;
   pagesProcessed: number;
+  startPageUsed: number;
+  endPageReached: number;
   totalPagesReportedByTicketmaster: number;
   maxPagesUsed: number;
   sizeUsed: number;
@@ -240,27 +248,21 @@ function nightlifeScore(tm: TicketmasterEvent): number {
 
 function pickCategory(tm: TicketmasterEvent): Category {
   const { segment, genre, subGenre, title } = getTicketmasterText(tm);
-  const segmentLower = normalizeText(segment);
+  const seg = normalizeText(segment);
   const g = normalizeText(`${genre} ${subGenre}`);
   const t = normalizeText(title);
 
+  // Deterministic order: most specific segment first.
+  if (seg.includes("sports")) return "sports";
+  if (seg.includes("family") || hasAny(title, ["family", "kids", "children", "enfants"])) return "family";
+  if (g.includes("comedy") || g.includes("stand up") || hasAny(title, ["comedy", "stand up", "stand-up"])) return "comedy";
   if (
-    segmentLower.includes("arts") ||
-    segmentLower.includes("theatre") ||
-    segmentLower.includes("theater") ||
-    segmentLower.includes("art") ||
-    g.includes("classical") ||
-    g.includes("opera") ||
-    t.includes("exposition") ||
-    t.includes("gallery")
-  ) {
-    return "art";
-  }
-
-  const score = nightlifeScore(tm);
-  if (score >= 5) return "nightlife";
-
-  return "music";
+    seg.includes("arts") || seg.includes("theatre") || seg.includes("theater") || seg.includes("art") ||
+    g.includes("classical") || g.includes("opera") || g.includes("ballet") || g.includes("circus") ||
+    t.includes("exposition") || t.includes("gallery") || t.includes("theatre") || t.includes("theater")
+  ) return "arts_culture";
+  if (nightlifeScore(tm) >= 5) return "nightlife";
+  return "concerts";
 }
 
 async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<TicketmasterPageResponse> {
@@ -303,6 +305,12 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
     Number.isFinite(options.size) && options.size > 0 && options.size <= 200
       ? Math.floor(options.size)
       : 50;
+  const startPageSafe =
+    options.startPage !== undefined &&
+    Number.isFinite(options.startPage) &&
+    options.startPage >= 0
+      ? Math.floor(options.startPage)
+      : 0;
 
   const supabase = supabaseServer();
 
@@ -322,15 +330,16 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
       .eq("id", runId);
   }
 
-  let page = 0;
+  let page = startPageSafe;
   let totalPages = 1;
   let ingested = 0;
   let skipped = 0;
   let venuesUpserted = 0;
   let descriptionsNulled = 0;
+  let announcedCount = 0;
 
   try {
-    while (page < totalPages && page < maxPagesSafe) {
+    while (page < totalPages && page < startPageSafe + maxPagesSafe) {
       const json = await fetchTicketmasterMontreal(page, sizeSafe);
       const events = json?._embedded?.events ?? [];
       totalPages = json?.page?.totalPages ?? 0;
@@ -370,13 +379,42 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
         // Keep the old record in the DB but mark it as postponed so it is
         // hidden from the feed.  On the same run the new event ID will be
         // ingested as "scheduled".
+        //
+        // "announced": public ticket sale hasn't started yet.
+        // We detect this purely from sales.public.startDateTime > now,
+        // regardless of dates.status.code.  TM's "offsale" code is unreliable
+        // for this purpose — it also covers sold-out events (sale_start in
+        // the past) and some onsale events are pre-sale with a future
+        // sale_start.  The sale start timestamp is the authoritative signal.
+        //
+        // These events surface in the feed with a "Tickets soon" label.
         const statusCode = tm?.dates?.status?.code;
+        const publicSaleStart = tm?.sales?.public?.startDateTime;
+        const ingestNow = new Date();
+        const ticketsNotYetOnSale =
+          !!publicSaleStart && new Date(publicSaleStart) > ingestNow;
         const status =
           statusCode === "cancelled"
             ? "cancelled"
             : statusCode === "postponed" || statusCode === "rescheduled"
               ? "postponed"
-              : "scheduled";
+              : ticketsNotYetOnSale
+                ? "announced"
+                : "scheduled";
+        // Log every event where we evaluated sale timing so the full decision
+        // chain is visible — not just the ones that resolved to "announced".
+        if (publicSaleStart) {
+          const saleStartMs = new Date(publicSaleStart).getTime();
+          const future = saleStartMs > ingestNow.getTime();
+          console.log(
+            `[tm:sale] "${tm.name}" id=${sourceEventId}` +
+            ` statusCode=${statusCode ?? "n/a"}` +
+            ` publicSaleStart=${publicSaleStart}` +
+            ` futureNow=${future}` +
+            ` → ${status}`
+          );
+        }
+        if (status === "announced") announcedCount += 1;
 
         const rawDesc = tm?.info ?? tm?.pleaseNote;
         const cleanDesc = sanitizeTicketmasterDescription(rawDesc);
@@ -420,7 +458,7 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
       page += 1;
     }
 
-    await finishRun({ status: "success", ingested_count: ingested, skipped_count: skipped, venues_upserted: venuesUpserted, descriptions_nulled: descriptionsNulled });
+    await finishRun({ status: "success", ingested_count: ingested, skipped_count: skipped, venues_upserted: venuesUpserted, descriptions_nulled: descriptionsNulled, announced_count: announcedCount });
 
     return {
       ok: true,
@@ -428,7 +466,10 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
       skipped,
       venuesUpserted,
       descriptionsNulled,
-      pagesProcessed: page,
+      announcedCount,
+      pagesProcessed: page - startPageSafe,
+      startPageUsed: startPageSafe,
+      endPageReached: page - 1,
       totalPagesReportedByTicketmaster: totalPages,
       maxPagesUsed: maxPagesSafe,
       sizeUsed: sizeSafe,

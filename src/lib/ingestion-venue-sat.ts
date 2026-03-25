@@ -24,7 +24,7 @@ type SatJsonLd = {
   audience?: { audienceType?: string };
 };
 
-type Category = "music" | "nightlife" | "art";
+type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 
 export type SkipReasons = {
   pastEvent: number;
@@ -127,14 +127,14 @@ function firstOffer(offers: SatOffer | SatOffer[] | undefined): SatOffer | null 
 
 /**
  * Derives a category from the event title.
- * Defaults to "art" unless clear nightlife signals are present.
+ * Defaults to "arts_culture" unless clear nightlife signals are present.
  */
 function pickCategory(title: string): Category {
   const n = normalizeText(title);
   if (/\b(all night|club sat|dj|techno|house|electronic|rave|dance party)\b/.test(n)) {
     return "nightlife";
   }
-  return "art";
+  return "arts_culture";
 }
 
 // ─── Fetch helpers ────────────────────────────────────────────────────────────

@@ -61,12 +61,12 @@ function extractIdFromUrl(url: string): string | null {
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-type Category = "music" | "nightlife" | "art";
+type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 
 const CATEGORIES: { slug: string; category: Category }[] = [
-  { slug: "music--events",          category: "music"     },
-  { slug: "nightlife--events",      category: "nightlife" },
-  { slug: "performing-arts--events", category: "art"      },
+  { slug: "music--events",           category: "concerts"     },
+  { slug: "nightlife--events",       category: "nightlife"    },
+  { slug: "performing-arts--events", category: "arts_culture" },
 ];
 
 function listingUrl(slug: string, page: number): string {

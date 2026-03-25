@@ -8,7 +8,7 @@ import { useAuth } from "../components/AuthProvider";
 
 const PAGE_SIZE = 50;
 
-type Category = "music" | "nightlife" | "art";
+type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 type SourceType = "ticketmaster" | "manual" | "eventbrite" | "venue_newcitygas" | "venue_sat";
 
 
@@ -370,12 +370,25 @@ function thisWeekBoundsIso(): { start: string; end: string } {
   return { start, end: montrealDayStart(nextMondayStr) };
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  all:          "All",
+  concerts:     "Concerts",
+  nightlife:    "Nightlife",
+  arts_culture: "Arts & Culture",
+  comedy:       "Comedy",
+  sports:       "Sports",
+  family:       "Family",
+};
+
 function categoryBg(cat: Category): string {
   switch (cat) {
-    case "music":     return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
-    case "nightlife": return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
-    case "art":       return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
-    default:          return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
+    case "concerts":     return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
+    case "nightlife":    return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
+    case "arts_culture": return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
+    case "comedy":       return "linear-gradient(150deg, #1a1a00 0%, #3d3000 100%)";
+    case "sports":       return "linear-gradient(150deg, #001a0d 0%, #00381a 100%)";
+    case "family":       return "linear-gradient(150deg, #001233 0%, #00296b 100%)";
+    default:             return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
   }
 }
 
@@ -680,7 +693,7 @@ export function EventsList() {
 
       {/* Category chip row */}
       <div className="chip-row" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
-        {(["all", "music", "nightlife", "art"] as const).map((c) => {
+        {(["all", "concerts", "nightlife", "arts_culture", "comedy", "sports", "family"] as const).map((c) => {
           const active = category === c;
           return (
             <button
@@ -700,7 +713,7 @@ export function EventsList() {
                 flexShrink: 0,
               }}
             >
-              {c === "all" ? "All" : c.charAt(0).toUpperCase() + c.slice(1)}
+              {CATEGORY_LABELS[c]}
             </button>
           );
         })}

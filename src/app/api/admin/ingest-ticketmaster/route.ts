@@ -21,9 +21,11 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const maxPages = Number(url.searchParams.get("maxPages") ?? "1");
   const size = Number(url.searchParams.get("size") ?? "50");
+  const startPageParam = url.searchParams.get("startPage");
+  const startPage = startPageParam !== null ? Number(startPageParam) : undefined;
 
   try {
-    const result = await ingestTicketmasterMontreal({ maxPages, size });
+    const result = await ingestTicketmasterMontreal({ maxPages, size, startPage });
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

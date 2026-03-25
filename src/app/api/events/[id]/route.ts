@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
 
-type Category = "music" | "nightlife" | "art";
+type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 const TITLE_MAX = 140;
 const DESCRIPTION_MAX = 2000;
 const VENUE_NAME_MAX = 120;
@@ -31,8 +31,11 @@ function sanitizeUrl(value?: string | null): string | null {
 }
 
 function parseCategory(value: string): Category {
-  if (value === "nightlife" || value === "art") return value;
-  return "music";
+  const valid: Category[] = ["concerts", "nightlife", "arts_culture", "comedy", "sports", "family"];
+  if ((valid as string[]).includes(value)) return value as Category;
+  if (value === "music") return "concerts";
+  if (value === "art") return "arts_culture";
+  return "concerts";
 }
 
 async function resolveAuth(req: Request) {

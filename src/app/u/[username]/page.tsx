@@ -208,8 +208,8 @@ export default async function UserProfilePage({
                     >
                       {e.title}
                     </div>
-                    <div style={{ fontSize: 11, opacity: 0.5, marginTop: 3, textTransform: "capitalize" }}>
-                      {e.category_primary}
+                    <div style={{ fontSize: 11, opacity: 0.5, marginTop: 3 }}>
+                      {({ concerts: "Concerts", nightlife: "Nightlife", arts_culture: "Arts & Culture", comedy: "Comedy", sports: "Sports", family: "Family", music: "Concerts", art: "Arts & Culture" } as Record<string, string>)[e.category_primary] ?? e.category_primary}
                     </div>
                   </div>
                 </article>
