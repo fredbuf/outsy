@@ -86,7 +86,7 @@ export function ActionBar({
   const isPublic = visibility === "public";
   const hasTickets = isPublic && !!sourceUrl;
 
-  function rsvpButtonStyle(response: RsvpResponse) {
+  function segmentStyle(response: RsvpResponse) {
     const active = myResponse === response;
     return {
       flex: 1,
@@ -94,56 +94,84 @@ export function ActionBar({
       flexDirection: "column" as const,
       alignItems: "center" as const,
       gap: 4,
-      padding: "13px 6px",
-      borderRadius: 14,
-      border: active ? "1px solid var(--border-strong)" : "1px solid transparent",
-      background: active ? "var(--btn-bg)" : "transparent",
-      fontWeight: active ? 700 : 400,
+      padding: "10px 6px",
+      borderRadius: 11,
+      border: "none",
+      background: active ? "var(--background)" : "transparent",
+      fontWeight: active ? 600 : 400,
       fontSize: 13,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
       color: (response === "maybe" && active ? "#f59e0b" : "inherit") as string,
-      transition: "background 0.15s, border-color 0.15s",
+      transition: "background 0.15s",
+      boxShadow: active ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
     };
   }
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div style={{ display: "flex", gap: 8 }}>
-        {/* Going */}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
-          style={rsvpButtonStyle("going")}
-        >
-          <CheckIcon />
-          <span>
-            Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
-          </span>
-        </button>
+        {/* Segmented control: Going + Interested (+ Can't go for private) */}
+        <div style={{
+          flex: 1,
+          display: "flex",
+          background: "var(--btn-bg)",
+          borderRadius: 14,
+          padding: 3,
+          gap: 2,
+        }}>
+          {/* Going */}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
+            style={segmentStyle("going")}
+          >
+            <CheckIcon />
+            <span>
+              Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
+            </span>
+          </button>
 
-        {/* Interested — also the "save" / star action */}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
-          style={rsvpButtonStyle("maybe")}
-        >
-          <StarIcon filled={myResponse === "maybe"} />
-          <span>
-            Interested{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
-          </span>
-        </button>
+          {/* Interested */}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
+            style={segmentStyle("maybe")}
+          >
+            <StarIcon filled={myResponse === "maybe"} />
+            <span>
+              Interested{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
+            </span>
+          </button>
+
+          {/* Can't go — private events only, inside segment */}
+          {!isPublic && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
+              style={segmentStyle("cant_go")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              <span>
+                Can&apos;t go{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}
+              </span>
+            </button>
+          )}
+        </div>
 
         {/* Tickets — high-contrast, visually dominant on public events */}
-        {hasTickets ? (
+        {hasTickets && (
           <a
             href={sourceUrl!}
             target="_blank"
             rel="noreferrer"
             style={{
-              flex: 1.3,
+              flex: 0.8,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -163,21 +191,7 @@ export function ActionBar({
             </svg>
             <span>Tickets</span>
           </a>
-        ) : !isPublic ? (
-          /* Private events: show Can't go instead */
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
-            style={rsvpButtonStyle("cant_go")}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-            <span>Can&apos;t go</span>
-            {counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}
-          </button>
-        ) : null}
+        )}
       </div>
 
       {/* Sign-in nudge — only shown to logged-out users */}

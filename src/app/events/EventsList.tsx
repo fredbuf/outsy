@@ -804,7 +804,7 @@ export function EventsList() {
                   See all ›
                 </button>
               </div>
-              <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
+              <div style={{ display: "flex", gap: 14, overflowX: "auto", scrollbarWidth: "none", margin: "0 -24px", padding: "0 24px 4px", scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -814,8 +814,8 @@ export function EventsList() {
                   const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                   const isRecurring = recurringSet.has(e.id);
                   return (
-                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-                      <div style={{ position: "relative", width: 200, height: 230, borderRadius: 12, overflow: "hidden", background: categoryBg(e.category_primary) }}>
+                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start" }}>
+                      <div style={{ position: "relative", width: "clamp(200px, calc(80vw - 32px), 340px)", height: 230, borderRadius: 12, overflow: "hidden", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
