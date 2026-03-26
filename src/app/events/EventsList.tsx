@@ -815,7 +815,7 @@ export function EventsList() {
                   const isRecurring = recurringSet.has(e.id);
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start" }}>
-                      <div style={{ position: "relative", width: "clamp(200px, calc(80vw - 32px), 340px)", height: 230, borderRadius: 12, overflow: "hidden", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: "clamp(200px, calc(80vw - 32px), 340px)", height: 230, borderRadius: 16, overflow: "hidden", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
