@@ -5,11 +5,11 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
-import { CopyInviteLink } from "./CopyInviteLink";
 import { AttendeeList } from "./AttendeeList";
 import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
+import { ShareButton } from "./ShareButton";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -127,14 +127,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   // legacy values still in DB until re-ingestion
   music:        "Concerts",
   art:          "Arts & Culture",
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  ticketmaster:     "Ticketmaster",
-  eventbrite:       "Eventbrite",
-  manual:           "Community",
-  venue_newcitygas: "New City Gas",
-  venue_sat:        "SAT Montréal",
 };
 
 function formatDateFull(iso: string): string {
@@ -294,13 +286,31 @@ export default async function EventPage({
           />
         </div>
       )}
-      {/* Back */}
-      <Link
-        href="/events"
-        style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}
-      >
-        ← Back to events
-      </Link>
+      {/* Nav row: back (left) + share (right) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Link
+          href="/events"
+          aria-label="Back to events"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            border: "1px solid var(--border-strong)",
+            textDecoration: "none",
+            color: "inherit",
+            opacity: 0.7,
+            flexShrink: 0,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </Link>
+        <ShareButton title={event.title} />
+      </div>
 
       {/* Hero image with gradient overlay */}
       {event.image_url && (
@@ -456,12 +466,6 @@ export default async function EventPage({
           </div>
         )}
 
-        {/* Source attribution */}
-        {event.source && (
-          <span style={{ opacity: 0.35, fontSize: 11 }}>
-            via {SOURCE_LABELS[event.source] ?? event.source}
-          </span>
-        )}
       </div>
 
       {/* Main action bar: Going | Interested | Tickets */}
@@ -472,13 +476,8 @@ export default async function EventPage({
         visibility={event.visibility as "public" | "private"}
       />
 
-      {/* Secondary row: Share · Owner actions */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <CopyInviteLink
-          title={event.title}
-          visibility={event.visibility as "public" | "private"}
-        />
-        <EventOwnerActions
+      {/* Owner actions (edit/delete — only visible to creator) */}
+      <EventOwnerActions
           eventId={id}
           creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
           source={event.source}
@@ -499,7 +498,6 @@ export default async function EventPage({
             imageUrl: event.image_url ?? null,
           }}
         />
-      </div>
 
       {/* Social proof */}
       {(rsvpCounts.going > 0 || rsvpCounts.maybe > 0) && (

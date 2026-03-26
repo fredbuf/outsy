@@ -7,8 +7,11 @@
 -- Safe to re-run (CREATE POLICY IF NOT EXISTS).
 
 -- ── events ────────────────────────────────────────────────────────────────
--- Allow authenticated users to read public, approved, scheduled events.
+-- Allow authenticated users to read public, approved, scheduled+announced events.
 -- (Mirrors whatever anon policy exists.)
+-- NOTE: if you need to re-run this after running rls_allow_announced_events.sql,
+-- that migration already handles the correct state — this CREATE IF NOT EXISTS
+-- will no-op because the policy already exists.
 CREATE POLICY IF NOT EXISTS "events: authenticated public read"
   ON events
   FOR SELECT
@@ -16,7 +19,7 @@ CREATE POLICY IF NOT EXISTS "events: authenticated public read"
   USING (
     is_approved  = true
     AND is_rejected = false
-    AND status      = 'scheduled'
+    AND status      IN ('scheduled', 'announced')
     AND visibility  = 'public'
   );
 

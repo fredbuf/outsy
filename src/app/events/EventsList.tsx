@@ -450,6 +450,7 @@ export function EventsList() {
     hasCustomRange || dateWindow !== "all",
   ].filter(Boolean).length;
   const genRef = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Debounce: 300 ms after the last keystroke, commit the query for server fetch.
   useEffect(() => {
@@ -659,18 +660,52 @@ export function EventsList() {
     <div style={{ display: "grid", gap: 16 }}>
       {/* Search + Filters button */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search events, venues, artists..."
-          style={{
-            flex: 1,
-            minWidth: 0,
-            padding: "10px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--border-strong)",
-          }}
-        />
+        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search events, venues, artists..."
+            style={{
+              width: "100%",
+              padding: query ? "10px 36px 10px 12px" : "10px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--border-strong)",
+              boxSizing: "border-box",
+            }}
+          />
+          {query && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onMouseDown={(e) => {
+                e.preventDefault(); // keep focus on input
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "inherit",
+                opacity: 0.45,
+                padding: 0,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
