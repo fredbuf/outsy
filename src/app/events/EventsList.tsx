@@ -804,10 +804,10 @@ export function EventsList() {
                   See all ›
                 </button>
               </div>
-              {/* outer: bleeds to viewport edges */}
-              <div style={{ marginInline: "-24px" }}>
-              {/* inner: scroll track — left-padding aligns first card with page rhythm */}
-              <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", paddingLeft: 24, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+              {/* outer: bleeds to viewport edges — margin matches page-main padding via CSS class */}
+              <div className="carousel-bleed">
+              {/* inner: scroll track — min-width:0 prevents flex min-content from propagating to page layout */}
+              <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingLeft: 24, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -895,8 +895,8 @@ export function EventsList() {
                 const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                 const isRecurring = recurringSet.has(e.id);
                 return (
-                  <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                    <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
+                  <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
+                    <article style={{ borderRadius: 14, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
                       <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
@@ -1016,8 +1016,8 @@ export function EventsList() {
                   const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                   const isRecurring = recurringSet.has(e.id);
                   return (
-                    <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                      <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
+                    <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
+                      <article style={{ borderRadius: 14, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
                         <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                           {e.image_url && (
                             <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />

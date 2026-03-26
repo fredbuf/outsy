@@ -77,10 +77,16 @@ body {
   display: none;
 }
 
+/* ── Carousel bleed: negative margin matches page-main padding per breakpoint ── */
+.carousel-bleed {
+  margin-inline: -24px; /* matches page-main padding: 24px (desktop) */
+  min-width: 0;         /* prevents flex min-content from expanding grid ancestors */
+}
+
 /* ── Mobile responsiveness (≤ 540 px) ──────────────────────────────────── */
 @media (max-width: 540px) {
-  /* Prevent any element from causing horizontal scroll */
-  body {
+  /* Prevent horizontal scroll at both html and body level (Safari requires both) */
+  html, body {
     overflow-x: hidden;
   }
 
@@ -112,6 +118,11 @@ body {
   /* Switch nav items to icon-only on mobile */
   .nav-label { display: none; }
   .nav-icon  { display: flex; align-items: center; }
+
+  /* Carousel bleed: match reduced mobile padding (12px) */
+  .carousel-bleed {
+    margin-inline: -12px;
+  }
 
   /* Force event card grid to single column */
   .events-grid {
