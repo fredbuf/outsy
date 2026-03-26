@@ -804,7 +804,10 @@ export function EventsList() {
                   See all ›
                 </button>
               </div>
-              <div style={{ display: "flex", gap: 14, overflowX: "auto", scrollbarWidth: "none", margin: "0 -24px", padding: "0 24px 4px", scrollSnapType: "x mandatory" }}>
+              {/* outer: bleeds to viewport edges */}
+              <div style={{ marginInline: "-24px" }}>
+              {/* inner: scroll track — left-padding aligns first card with page rhythm */}
+              <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", paddingLeft: 24, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -814,8 +817,8 @@ export function EventsList() {
                   const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                   const isRecurring = recurringSet.has(e.id);
                   return (
-                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start" }}>
-                      <div style={{ position: "relative", width: "clamp(200px, calc(80vw - 32px), 340px)", height: 230, borderRadius: 16, overflow: "hidden", background: categoryBg(e.category_primary) }}>
+                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
+                      <div style={{ position: "relative", width: "min(82vw, 320px)", height: 230, borderRadius: 24, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
@@ -864,6 +867,7 @@ export function EventsList() {
                   );
                 })}
               </div>
+              </div>{/* end outer bleed wrapper */}
             </section>
           )}
 
