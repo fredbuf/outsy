@@ -657,7 +657,7 @@ export function EventsList() {
   );
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 16, outline: "3px solid blue" }}>{/* DEBUG: blue = page content wrapper */}
       {/* Search + Filters button */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
@@ -793,7 +793,7 @@ export function EventsList() {
         <>
           {/* ── This week: horizontal scroll ─────────────────────────────── */}
           {thisWeekEvents.length > 0 && (
-            <section style={{ display: "grid", gap: 10 }}>
+            <section style={{ display: "grid", gap: 10, outline: "3px solid red", background: "rgba(255,0,0,0.05)" }}>{/* DEBUG: red = section/bleed wrapper */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
                 <button
@@ -805,7 +805,8 @@ export function EventsList() {
                 </button>
               </div>
               {/* carousel: bleeds + aligns via CSS classes; min-width:0 prevents flex min-content overflow */}
-              <div className="carousel-bleed carousel-track" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+              {/* DEBUG: green outline = carousel track. paddingLeft forced to 48px inline to test if this element controls alignment */}
+              <div className="carousel-bleed carousel-track" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingLeft: 48, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory", outline: "3px solid green", background: "rgba(0,200,0,0.08)" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -815,7 +816,7 @@ export function EventsList() {
                   const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                   const isRecurring = recurringSet.has(e.id);
                   return (
-                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
+                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block", outline: "3px solid gold" }}>{/* DEBUG: yellow = first card link */}
                       <div style={{ position: "relative", width: "min(82vw, 320px)", height: 230, borderRadius: 24, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
