@@ -282,6 +282,28 @@ export default async function EventPage({
           <ShareButton title={event.title} />
         </div>
 
+        {/* Hero image */}
+        {event.image_url && (
+          <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", marginBottom: 24 }}>
+            <img
+              src={event.image_url}
+              alt={event.title}
+              style={{ width: "100%", maxHeight: 300, objectFit: "cover", display: "block" }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: "40%",
+                background: "linear-gradient(to top, rgba(0,0,0,0.45), transparent)",
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+        )}
+
         {/* Title */}
         <h1
           style={{
@@ -295,39 +317,60 @@ export default async function EventPage({
           {event.title}
         </h1>
 
-        {/* Time + date + address */}
-        <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{formatDateFull(event.start_at)}</div>
-              {event.end_at && (
-                <div style={{ fontSize: 13, opacity: 0.5, marginTop: 2 }}>
-                  Until {new Date(event.end_at).toLocaleString("en-US", {
-                    timeZone: "America/Toronto",
-                    hour: "numeric",
-                    minute: "2-digit",
-                    hour12: true,
-                  })}
+        {/* Date / time / address */}
+        {(() => {
+          const d = new Date(event.start_at);
+          const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+          const dateLine = d.toLocaleString("en-US", {
+            timeZone: "America/Toronto",
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          });
+          const timeLine = isUnknownTime ? null : d.toLocaleString("en-US", {
+            timeZone: "America/Toronto",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+          const endTime = event.end_at
+            ? new Date(event.end_at).toLocaleString("en-US", {
+                timeZone: "America/Toronto",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : null;
+          return (
+            <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>{dateLine}</div>
+                  {timeLine && (
+                    <div style={{ fontSize: 14, opacity: 0.65, marginTop: 2 }}>
+                      {timeLine}{endTime ? ` – ${endTime}` : ""}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {address && (
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <div style={{ fontSize: 15, fontWeight: 500 }}>{address}</div>
                 </div>
               )}
             </div>
-          </div>
-          {address && (
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <div style={{ fontSize: 15, fontWeight: 500 }}>{address}</div>
-            </div>
-          )}
-        </div>
+          );
+        })()}
 
         {/* Hosted by */}
         {creator && (

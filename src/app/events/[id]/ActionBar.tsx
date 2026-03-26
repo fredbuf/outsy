@@ -22,6 +22,15 @@ function StarIcon({ filled }: { filled?: boolean }) {
   );
 }
 
+function ClockIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 export function ActionBar({
   eventId,
   initialCounts,
@@ -140,7 +149,7 @@ export function ActionBar({
             onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
             style={segmentStyle("maybe")}
           >
-            <StarIcon filled={myResponse === "maybe"} />
+            {isPublic ? <StarIcon filled={myResponse === "maybe"} /> : <ClockIcon />}
             <span>
               {isPublic ? "Interested" : "Maybe"}{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
             </span>
