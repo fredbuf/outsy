@@ -804,10 +804,8 @@ export function EventsList() {
                   See all ›
                 </button>
               </div>
-              {/* outer: bleeds to viewport edges — margin matches page-main padding via CSS class */}
-              <div className="carousel-bleed">
-              {/* inner: scroll track — paddingLeft via CSS class to track page-main padding per breakpoint */}
-              <div className="carousel-track" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+              {/* carousel: bleeds + aligns via CSS classes; min-width:0 prevents flex min-content overflow */}
+              <div className="carousel-bleed carousel-track" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -867,7 +865,6 @@ export function EventsList() {
                   );
                 })}
               </div>
-              </div>{/* end outer bleed wrapper */}
             </section>
           )}
 
