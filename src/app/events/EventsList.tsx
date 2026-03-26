@@ -793,20 +793,18 @@ export function EventsList() {
         <>
           {/* ── This week: horizontal scroll ─────────────────────────────── */}
           {thisWeekEvents.length > 0 && (
-            <section>
-              {/* bleed wrapper covers both header + track so they share the same left origin */}
-              <div className="carousel-bleed" style={{ display: "grid", gap: 10 }}>
-                <div className="carousel-track" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
-                  <button
-                    type="button"
-                    onClick={() => setThisWeekOpen(true)}
-                    style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
-                  >
-                    See all ›
-                  </button>
-                </div>
-                <div className="carousel-track" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+            <section style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
+                <button
+                  type="button"
+                  onClick={() => setThisWeekOpen(true)}
+                  style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
+                >
+                  See all ›
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -865,8 +863,7 @@ export function EventsList() {
                     </Link>
                   );
                 })}
-                </div>{/* end carousel-track */}
-              </div>{/* end carousel-bleed */}
+              </div>
             </section>
           )}
 
