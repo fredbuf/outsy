@@ -885,7 +885,7 @@ export function EventsList() {
                 </button>
               )}
             </div>
-            <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+            <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
               {allEventsFiltered.map((e) => {
                 const rsvpCount = tileRsvp.counts[e.id] ?? 0;
                 const rsvpNames = tileRsvp.names[e.id] ?? [];
@@ -897,7 +897,7 @@ export function EventsList() {
                 return (
                   <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
                     <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
-                      <div style={{ position: "relative", width: "100%", paddingBottom: "56%", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
@@ -1006,7 +1006,7 @@ export function EventsList() {
             </div>
             {/* Cards */}
             <div style={{ overflowY: "auto", padding: "16px 20px 24px", flex: 1 }}>
-              <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+              <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
                 {thisWeekAll.map((e) => {
                   const rsvpCount = tileRsvp.counts[e.id] ?? 0;
                   const rsvpNames = tileRsvp.names[e.id] ?? [];
@@ -1018,7 +1018,7 @@ export function EventsList() {
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
                       <article style={{ borderRadius: 14, overflow: "hidden", position: "relative" }}>
-                        <div style={{ position: "relative", width: "100%", paddingBottom: "56%", background: categoryBg(e.category_primary) }}>
+                        <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                           {e.image_url && (
                             <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                           )}
