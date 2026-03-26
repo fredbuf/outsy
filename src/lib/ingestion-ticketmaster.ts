@@ -72,7 +72,7 @@ type IngestResult = {
 // English and French patterns are both needed — many Québec events have
 // French-language legal text that the English patterns miss.
 const DESCRIPTION_JUNK_PATTERNS = [
-  // English
+  // ── English: legal / policy ───────────────────────────────────────────────
   "privacy policy",
   "terms and conditions",
   "terms & conditions",
@@ -85,8 +85,16 @@ const DESCRIPTION_JUNK_PATTERNS = [
   "all sales final",
   "refund policy",
   "data protection",
-  // French (diacritics stripped before comparison, so use normalised forms)
-  "en poursuivant",           // "en poursuivant votre navigation…"
+  // ── English: resale / transfer ────────────────────────────────────────────
+  "resale",
+  "face value exchange",
+  "ticket exchange",
+  "non transferable tickets",
+  "tickets are non transferable",
+  "resale prohibited",
+  "ticket resale",
+  // ── French: legal / policy (diacritics stripped before comparison) ────────
+  "en poursuivant",              // "en poursuivant votre navigation…"
   "politique de confidentialit", // covers "politique de confidentialité"
   "conditions general",          // covers "conditions générales / généraux" after NFD strip
   "conditions d'utilisation",
@@ -96,9 +104,20 @@ const DESCRIPTION_JUNK_PATTERNS = [
   "mentions legales",            // "mentions légales" normalised
   "politique de cookies",
   "droits reserves",             // "droits réservés" normalised
+  // ── French: resale / transfer ─────────────────────────────────────────────
+  "revente",                     // covers "revente", "revendable", "revendu"
+  "valeur nominale",             // "à valeur nominale" / "echange a valeur nominale"
+  "echange a valeur nominale",   // explicit phrase (normalised)
+  "billets non transferables",   // "billets non transférables" normalised
+  "revente interdite",
+  "politique de revente",
+  "billet non revendable",
 ];
 
-function sanitizeTicketmasterDescription(raw: string | null | undefined): string | null {
+function sanitizeTicketmasterDescription(
+  raw: string | null | undefined,
+  title?: string,
+): string | null {
   if (!raw) return null;
   const decoded = decodeHtmlEntities(raw);
   if (!decoded) return null;
@@ -106,8 +125,12 @@ function sanitizeTicketmasterDescription(raw: string | null | undefined): string
   // French patterns like "politique de confidentialit" match accented text
   // ("confidentialité") without needing accented variants in the list.
   const searchable = decoded.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-  const isJunk = DESCRIPTION_JUNK_PATTERNS.some((pat) => searchable.includes(pat));
-  return isJunk ? null : decoded;
+  const matched = DESCRIPTION_JUNK_PATTERNS.find((pat) => searchable.includes(pat));
+  if (matched) {
+    console.log("[tm:desc]", title ?? "(unknown)", "nulled due to resale/policy — matched:", matched);
+    return null;
+  }
+  return decoded;
 }
 
 function extractBestImageUrl(tm: TicketmasterEvent): string | null {
@@ -417,7 +440,7 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
         if (status === "announced") announcedCount += 1;
 
         const rawDesc = tm?.info ?? tm?.pleaseNote;
-        const cleanDesc = sanitizeTicketmasterDescription(rawDesc);
+        const cleanDesc = sanitizeTicketmasterDescription(rawDesc, tm?.name);
         if (rawDesc && cleanDesc === null) descriptionsNulled += 1;
 
         const payload = {

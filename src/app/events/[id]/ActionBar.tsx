@@ -96,9 +96,9 @@ export function ActionBar({
       gap: 4,
       padding: "13px 6px",
       borderRadius: 14,
-      border: `1px solid ${active ? "var(--border-strong)" : "var(--border)"}`,
+      border: active ? "1px solid var(--border-strong)" : "1px solid transparent",
       background: active ? "var(--btn-bg)" : "transparent",
-      fontWeight: active ? 700 : 500,
+      fontWeight: active ? 700 : 400,
       fontSize: 13,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
@@ -118,8 +118,9 @@ export function ActionBar({
           style={rsvpButtonStyle("going")}
         >
           <CheckIcon />
-          <span>Going</span>
-          <span style={{ opacity: 0.5, fontSize: 11 }}>{counts.going}</span>
+          <span>
+            Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
+          </span>
         </button>
 
         {/* Interested — also the "save" / star action */}
@@ -130,8 +131,9 @@ export function ActionBar({
           style={rsvpButtonStyle("maybe")}
         >
           <StarIcon filled={myResponse === "maybe"} />
-          <span>Interested</span>
-          <span style={{ opacity: 0.5, fontSize: 11 }}>{counts.maybe}</span>
+          <span>
+            Interested{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
+          </span>
         </button>
 
         {/* Tickets — high-contrast, visually dominant on public events */}
@@ -173,13 +175,13 @@ export function ActionBar({
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
             <span>Can&apos;t go</span>
-            <span style={{ opacity: 0.5, fontSize: 11 }}>{counts.cant_go}</span>
+            {counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}
           </button>
         ) : null}
       </div>
 
-      {/* Contextual hint */}
-      {!authLoading && !user ? (
+      {/* Sign-in nudge — only shown to logged-out users */}
+      {!authLoading && !user && (
         <p style={{ fontSize: 12, opacity: 0.45, textAlign: "center", margin: 0 }}>
           <button
             type="button"
@@ -198,11 +200,7 @@ export function ActionBar({
           </button>
           {" "}to mark your attendance
         </p>
-      ) : myResponse ? (
-        <p style={{ fontSize: 12, opacity: 0.4, textAlign: "center", margin: 0 }}>
-          Tap again to remove
-        </p>
-      ) : null}
+      )}
     </div>
   );
 }
