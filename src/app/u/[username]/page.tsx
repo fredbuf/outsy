@@ -22,7 +22,7 @@ async function fetchHostedEvents(creatorId: string) {
     .eq("creator_id", creatorId)
     .eq("is_approved", true)
     .eq("is_rejected", false)
-    .eq("status", "scheduled")
+    .in("status", ["scheduled", "announced"])
     .eq("visibility", "public")
     .gte("start_at", new Date().toISOString())
     .order("start_at", { ascending: true })

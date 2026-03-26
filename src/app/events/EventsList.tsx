@@ -218,7 +218,7 @@ function buildPageQuery(
       "id,title,description,start_at,category_primary,source,min_price,max_price,image_url,source_url,venues(name,city)"
     )
     .eq("city_normalized", "montreal")
-    .eq("status", "scheduled")
+    .in("status", ["scheduled", "announced"])
     .eq("is_approved", true)
     .eq("is_rejected", false)
     .eq("visibility", "public");
@@ -478,7 +478,7 @@ export function EventsList() {
         .from("events")
         .select("id,title")
         .eq("city_normalized", "montreal")
-        .eq("status", "scheduled")
+        .in("status", ["scheduled", "announced"])
         .eq("is_approved", true)
         .eq("is_rejected", false)
         .eq("visibility", "public")

@@ -33,7 +33,7 @@ async function fetchRelated(id: string, category: string) {
     .select("id,title,start_at,category_primary,min_price,max_price,currency,image_url,source_url,venues(name,city)")
     .eq("is_approved", true)
     .eq("is_rejected", false)
-    .eq("status", "scheduled")
+    .in("status", ["scheduled", "announced"])
     .eq("visibility", "public")
     .eq("category_primary", category)
     .neq("id", id)
