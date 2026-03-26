@@ -10,6 +10,7 @@ import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton } from "./ShareButton";
+import { CopyInviteLink } from "./CopyInviteLink";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -241,6 +242,218 @@ export default async function EventPage({
     fetchRsvpCounts(id),
     fetchAttendees(id),
   ]);
+
+  /* ── Private event: social layout ──────────────────────────────────────── */
+  if (event.visibility === "private") {
+    const address = [venue?.address_line1, venue?.city].filter(Boolean).join(", ");
+    return (
+      <main
+        style={{
+          maxWidth: 560,
+          margin: "0 auto",
+          padding: "20px 16px 64px",
+          display: "grid",
+          gap: 0,
+        }}
+      >
+        {/* Nav row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <Link
+            href="/events"
+            aria-label="Back to events"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              border: "1px solid var(--border-strong)",
+              textDecoration: "none",
+              color: "inherit",
+              opacity: 0.7,
+              flexShrink: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </Link>
+          <ShareButton title={event.title} />
+        </div>
+
+        {/* Title */}
+        <h1
+          style={{
+            fontSize: 32,
+            fontWeight: 800,
+            lineHeight: 1.1,
+            letterSpacing: "-0.02em",
+            marginBottom: 20,
+          }}
+        >
+          {event.title}
+        </h1>
+
+        {/* Time + date + address */}
+        <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{formatDateFull(event.start_at)}</div>
+              {event.end_at && (
+                <div style={{ fontSize: 13, opacity: 0.5, marginTop: 2 }}>
+                  Until {new Date(event.end_at).toLocaleString("en-US", {
+                    timeZone: "America/Toronto",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+          {address && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <div style={{ fontSize: 15, fontWeight: 500 }}>{address}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Hosted by */}
+        {creator && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "14px 16px",
+              borderRadius: 14,
+              background: "var(--surface-subtle)",
+              marginBottom: 24,
+            }}
+          >
+            {creator.avatar_url ? (
+              <img
+                src={creator.avatar_url}
+                alt={creator.display_name ?? ""}
+                style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: getAvatarColor(creator.display_name),
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#fff",
+                  userSelect: "none",
+                }}
+              >
+                {getInitials(creator.display_name)}
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>
+                Hosted by
+              </div>
+              {creator.username ? (
+                <Link
+                  href={`/u/${creator.username}`}
+                  style={{ fontSize: 15, fontWeight: 600, textDecoration: "none", color: "inherit" }}
+                >
+                  {creator.display_name ?? `@${creator.username}`}
+                </Link>
+              ) : (
+                <div style={{ fontSize: 15, fontWeight: 600 }}>
+                  {creator.display_name ?? "a member"}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* RSVP */}
+        <div style={{ marginBottom: 24 }}>
+          <ActionBar
+            eventId={id}
+            initialCounts={rsvpCounts}
+            sourceUrl={null}
+            visibility="private"
+          />
+        </div>
+
+        {/* Guest list */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "14px 16px",
+            borderRadius: 14,
+            border: "1px solid var(--border)",
+            marginBottom: 24,
+          }}
+        >
+          {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
+            <AttendeeList
+              eventId={id}
+              initialAttendees={attendees}
+              goingCount={rsvpCounts.going}
+              maybeCount={rsvpCounts.maybe}
+            />
+          ) : (
+            <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
+          )}
+          <CopyInviteLink title={event.title} visibility="private" />
+        </div>
+
+        {/* Description */}
+        {event.description && (
+          <div style={{ marginBottom: 24 }}>
+            <ExpandableDescription text={event.description} />
+          </div>
+        )}
+
+        {/* Owner actions */}
+        <EventOwnerActions
+          eventId={id}
+          creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+          source={event.source}
+          eventData={{
+            title: event.title,
+            description: event.description ?? "",
+            startAt: toDatetimeLocal(event.start_at),
+            endAt: toDatetimeLocal(event.end_at ?? null),
+            category: (event.category_primary as "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family") ?? "concerts",
+            venueName: venue?.name ?? "",
+            venueAddress: venue?.address_line1 ?? "",
+            venueCity: venue?.city ?? "Montréal",
+            sourceUrl: "",
+            visibility: "private",
+            address: venue?.address_line1 ?? venue?.name ?? "",
+            imageUrl: event.image_url ?? null,
+          }}
+        />
+      </main>
+    );
+  }
 
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";

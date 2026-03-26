@@ -133,7 +133,7 @@ export function ActionBar({
             </span>
           </button>
 
-          {/* Interested */}
+          {/* Interested / Maybe */}
           <button
             type="button"
             disabled={busy}
@@ -142,11 +142,11 @@ export function ActionBar({
           >
             <StarIcon filled={myResponse === "maybe"} />
             <span>
-              Interested{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
+              {isPublic ? "Interested" : "Maybe"}{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
             </span>
           </button>
 
-          {/* Can't go — private events only, inside segment */}
+          {/* Not going — private events only, inside segment */}
           {!isPublic && (
             <button
               type="button"
@@ -158,7 +158,7 @@ export function ActionBar({
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
               <span>
-                Can&apos;t go{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}
+                Not going{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}
               </span>
             </button>
           )}
