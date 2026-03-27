@@ -117,14 +117,14 @@ export function EventOwnerActions({
             onClick={() => setMenuOpen((v) => !v)}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
-              width: 36, height: 36, borderRadius: "50%",
+              width: 40, height: 40, borderRadius: "50%",
               background: "rgba(0,0,0,0.38)",
               border: "1px solid rgba(255,255,255,0.2)",
               cursor: "pointer", color: "#fff",
             }}
           >
             {/* Vertical ellipsis */}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="5" r="1.6" />
               <circle cx="12" cy="12" r="1.6" />
               <circle cx="12" cy="19" r="1.6" />

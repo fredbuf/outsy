@@ -8,8 +8,26 @@ type Counts = { going: number; maybe: number; cant_go: number };
 
 function CheckIcon() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+function XIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
@@ -158,29 +176,32 @@ export function ActionBar({
             </>
           ) : (
             <>
-              {/* Private: Going / Can't go / Maybe — text only, no icons */}
+              {/* Private: Going / Can't go / Maybe — icon left of label */}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
-                style={segmentStyle("going")}
+                style={{ ...segmentStyle("going"), flexDirection: "row", gap: 5 }}
               >
+                <CheckIcon />
                 <span>Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}</span>
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
-                style={segmentStyle("cant_go")}
+                style={{ ...segmentStyle("cant_go"), flexDirection: "row", gap: 5 }}
               >
+                <XIcon />
                 <span>Can&apos;t go{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}</span>
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
-                style={segmentStyle("maybe")}
+                style={{ ...segmentStyle("maybe"), flexDirection: "row", gap: 5 }}
               >
+                <ClockIcon />
                 <span>Maybe{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}</span>
               </button>
             </>
