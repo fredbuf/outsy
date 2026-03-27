@@ -371,28 +371,24 @@ export default async function EventPage({
             <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Layer 3 — warm atmospheric gradient (dark purple-brown, not pure black)
-              Top scrim protects nav buttons. Center is clear. Bottom ramp
-              dissolves the sharp image edge into the blurred wash below. */}
+          {/* Layer 3 — minimal vignette: light top scrim for nav, clear through
+              most of the image, soft bottom ramp only where text lives.
+              Text shadows carry readability; the overlay stays out of the way. */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(14,9,22,0.55) 0%, transparent 16%, transparent 32%, rgba(14,9,22,0.38) 50%, rgba(14,9,22,0.80) 66%, rgba(14,9,22,0.95) 80%, rgba(14,9,22,0.99) 100%)",
+              background: "linear-gradient(to bottom, rgba(14,9,22,0.20) 0%, transparent 14%, transparent 52%, rgba(14,9,22,0.28) 68%, rgba(14,9,22,0.60) 82%, rgba(14,9,22,0.80) 95%, rgba(14,9,22,0.86) 100%)",
             }}
           />
 
-          {/* Seam eraser — absolute child positioned at top:100% so it starts exactly
-              at the hero's bottom edge and bleeds 44px into the content zone below.
-              Fades from the hero's bottom tone to fully transparent, hiding the hard
-              edge between the hero and the content div. pointer-events:none means
-              the RSVP buttons underneath remain fully interactive. */}
+          {/* Seam eraser */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", top: "100%", left: 0, right: 0,
               height: 44, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(14,9,22,0.90), transparent)",
+              background: "linear-gradient(to bottom, rgba(14,9,22,0.80), transparent)",
             }}
           />
 
@@ -427,11 +423,13 @@ export default async function EventPage({
             />
           </div>
 
-          {/* Hero text — absolute bottom, centred */}
+          {/* Hero text — absolute bottom, centred. Padding reduced so text sits
+              closer to the image edge (premium feel). Text shadows carry
+              readability now that the overlay is lighter. */}
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "0 24px 32px",
+              padding: "0 24px 12px",
               textAlign: "center",
             }}
           >
@@ -439,18 +437,18 @@ export default async function EventPage({
               style={{
                 color: "#fff", fontSize: 30, fontWeight: 800,
                 lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 10,
-                textShadow: "0 2px 12px rgba(0,0,0,0.55)",
+                textShadow: "0 2px 20px rgba(0,0,0,0.80), 0 1px 6px rgba(0,0,0,0.55)",
               }}
             >
               {event.title}
             </h1>
             {/* Date · time — one line, no icon */}
-            <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0, textShadow: "0 1px 4px rgba(0,0,0,0.45)" }}>
+            <div style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0, textShadow: "0 1px 8px rgba(0,0,0,0.75)" }}>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </div>
             {/* Address — own line, lighter */}
             {address && (
-              <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, textShadow: "0 1px 4px rgba(0,0,0,0.45)" }}>
+              <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, textShadow: "0 1px 6px rgba(0,0,0,0.70)" }}>
                 {address}
               </div>
             )}
