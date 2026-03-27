@@ -959,7 +959,7 @@ export function CreateEventPage() {
                       width: "100%", boxSizing: "border-box",
                       padding: "11px 14px", borderRadius: 12,
                       border: "1px solid var(--border)", background: "var(--surface-subtle)",
-                      color: "inherit", fontSize: 15, fontFamily: "inherit",
+                      color: "inherit", fontSize: 16, fontFamily: "inherit",
                     }}
                   />
                 ) : (
@@ -975,7 +975,7 @@ export function CreateEventPage() {
                         width: "100%", boxSizing: "border-box",
                         padding: "11px 14px", borderRadius: 12,
                         border: "1px solid var(--border)", background: "var(--surface-subtle)",
-                        color: "inherit", fontSize: 15, fontFamily: "inherit",
+                        color: "inherit", fontSize: 16, fontFamily: "inherit",
                       }}
                     />
                     {showSuggestions && (
