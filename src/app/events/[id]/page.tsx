@@ -419,7 +419,9 @@ export default async function EventPage({
              then the page background takes over with no hard line.         */}
         <div
           style={{
-            background: "linear-gradient(to bottom, #0d0d0d 0%, transparent 80px), var(--surface-subtle)",
+            background: "linear-gradient(to bottom, rgba(10,9,8,0.9) 0%, rgba(10,9,8,0.7) 25%, rgba(10,9,8,0.4) 50%, rgba(10,9,8,0.15) 75%, transparent 100%), var(--surface-subtle)",
+            backgroundSize: "100% 160px, 100%",
+            backgroundRepeat: "no-repeat",
           }}
         >
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
