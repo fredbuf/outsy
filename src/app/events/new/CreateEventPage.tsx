@@ -397,274 +397,196 @@ export function CreateEventPage() {
     );
   }
 
+  // ── Shared glass styles for on-canvas controls ──────────────────
+  const glassCircle: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: 36, height: 36, borderRadius: "50%",
+    background: "rgba(0,0,0,0.30)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    color: "#fff", cursor: "pointer", flexShrink: 0, textDecoration: "none",
+  };
+  const glassPill: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 5,
+    padding: "6px 13px", borderRadius: 20,
+    background: "rgba(0,0,0,0.30)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer",
+  };
+
   return (
     <>
+      <style>{`
+        .cep-title::placeholder { color: rgba(255,255,255,0.30); }
+        .cep-location::placeholder { color: rgba(255,255,255,0.32); }
+      `}</style>
+
       <form onSubmit={handleSubmit}>
 
-        {/* ── Visibility toggle — above cover ─────────────────────── */}
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 16px 0" }}>
-          <div
-            style={{
-              display: "flex",
-              background: "var(--btn-bg)",
-              borderRadius: 12,
-              padding: 3,
-              gap: 2,
-            }}
-          >
-            {(["private", "public"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setVisibility(v)}
-                style={{
-                  flex: 1,
-                  padding: "7px 10px",
-                  borderRadius: 9,
-                  border: "none",
-                  background: visibility === v ? "var(--background)" : "transparent",
-                  fontWeight: visibility === v ? 600 : 400,
-                  cursor: "pointer",
-                  fontSize: 13,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 6,
-                  color: "inherit",
-                  boxShadow: visibility === v ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
-                  transition: "background 0.15s",
-                }}
-              >
-                {v === "private" ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <rect x="3" y="11" width="18" height="11" rx="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                  </svg>
-                )}
-                {v === "private" ? "Private" : "Public"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Cover image ─────────────────────────────────────────── */}
+        {/* ════════════════════════════════════════════════════════════
+            CANVAS — full composition zone
+            ════════════════════════════════════════════════════════════ */}
         <div
           style={{
             position: "relative",
-            height: 220,
-            marginTop: 14,
+            minHeight: 460,
+            // No-image state: rich purple gradient
             background: imagePreview
               ? undefined
-              : "linear-gradient(160deg, var(--surface-raised) 0%, var(--btn-bg) 100%)",
-            cursor: imagePreview ? "default" : "pointer",
+              : "linear-gradient(155deg, #1e1340 0%, #4c1d95 38%, #7c3aed 70%, #a78bfa 100%)",
+            overflow: "visible",
           }}
-          onClick={() => !imagePreview && fileInputRef.current?.click()}
         >
+          {/* Background image */}
           {imagePreview && (
             <img
               src={imagePreview}
-              alt="Cover preview"
+              alt="Cover"
               style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
+                position: "absolute", inset: 0,
+                width: "100%", height: "100%",
                 objectFit: "cover",
               }}
             />
           )}
-          {/* Gradient overlay */}
+
+          {/* Overlay gradients
+              – top band: darken nav bar area for legibility
+              – bottom band: heavy dark ramp so text is always readable */}
           <div
             style={{
-              position: "absolute",
-              inset: 0,
+              position: "absolute", inset: 0, pointerEvents: "none",
               background: imagePreview
-                ? "linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 50%)"
-                : "none",
-              pointerEvents: "none",
+                ? "linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, transparent 25%), linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.42) 38%, transparent 65%)"
+                : "linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, transparent 22%), linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)",
             }}
           />
 
-          {/* Back link */}
-          <Link
-            href="/"
-            onClick={(e) => e.stopPropagation()}
+          {/* ── Nav bar: [back] [toggle] [preview] ───────────────── */}
+          <div
             style={{
-              position: "absolute",
-              top: 14,
-              left: 14,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: imagePreview ? "rgba(0,0,0,0.38)" : "var(--btn-bg)",
-              border: imagePreview
-                ? "1px solid rgba(255,255,255,0.2)"
-                : "1px solid var(--border)",
-              color: imagePreview ? "#fff" : "inherit",
-              textDecoration: "none",
-            }}
-            aria-label="Back"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-
-          {/* Preview pill — top right */}
-          <button
-            type="button"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute",
-              top: 14,
-              right: 14,
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "7px 13px",
-              borderRadius: 20,
-              border: imagePreview ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--border)",
-              background: imagePreview ? "rgba(0,0,0,0.32)" : "var(--btn-bg)",
-              color: imagePreview ? "#fff" : "inherit",
-              fontSize: 13,
-              fontWeight: 500,
-              cursor: "pointer",
-              opacity: 0.85,
+              position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "14px 16px",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            Preview
-          </button>
+            {/* Back */}
+            <Link href="/" onClick={(e) => e.stopPropagation()} style={glassCircle} aria-label="Back">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </Link>
 
-          {/* Empty state: centered primary CTA */}
-          {!imagePreview && (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                pointerEvents: "none",
-              }}
-            >
+            {/* Toggle — centered, grows to fill */}
+            <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
               <div
                 style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: "50%",
-                  background: "var(--btn-bg-active)",
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.28)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  borderRadius: 20,
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  padding: 2, gap: 1,
+                  maxWidth: 200, width: "100%",
                 }}
               >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ opacity: 0.6 }}
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
-                </svg>
+                {(["private", "public"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setVisibility(v)}
+                    style={{
+                      flex: 1, padding: "5px 10px", borderRadius: 18, border: "none",
+                      background: visibility === v ? "rgba(255,255,255,0.22)" : "transparent",
+                      color: "#fff",
+                      fontSize: 12, fontWeight: visibility === v ? 600 : 400,
+                      cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                      transition: "background 0.15s",
+                    }}
+                  >
+                    {v === "private" ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <rect x="3" y="11" width="18" height="11" rx="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    ) : (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                      </svg>
+                    )}
+                    {v === "private" ? "Private" : "Public"}
+                  </button>
+                ))}
               </div>
-              <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.5 }}>
-                Add background photo
-              </span>
             </div>
-          )}
 
-          {/* Image controls (only when image is set) */}
-          {imagePreview && (
-            <div
+            {/* Preview */}
+            <button type="button" onClick={(e) => e.stopPropagation()} style={glassPill}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              Preview
+            </button>
+          </div>
+
+          {/* ── Photo CTA (centered, no-image state only) ─────────── */}
+          {!imagePreview && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
               style={{
-                position: "absolute",
-                bottom: 14,
-                right: 14,
-                display: "flex",
-                gap: 8,
+                position: "absolute", top: "50%", left: "50%",
+                transform: "translate(-50%, -55%)",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 9,
+                background: "rgba(255,255,255,0.07)",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+                border: "1.5px dashed rgba(255,255,255,0.25)",
+                borderRadius: 16, padding: "20px 32px",
+                color: "#fff", cursor: "pointer", zIndex: 5,
               }}
             >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.75 }}>Add background photo</span>
+            </button>
+          )}
+
+          {/* Change / Remove (when image is set) */}
+          {imagePreview && (
+            <div style={{ position: "absolute", bottom: 96, right: 16, display: "flex", gap: 6, zIndex: 5 }}>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                style={{
-                  padding: "7px 14px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.35)",
-                  background: "rgba(0,0,0,0.42)",
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ ...glassPill, fontSize: 12, padding: "5px 12px" }}
               >
                 Change
               </button>
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   handleImageChange(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                style={{
-                  padding: "7px 14px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(255,255,255,0.35)",
-                  background: "rgba(0,0,0,0.42)",
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                style={{ ...glassPill, fontSize: 12, padding: "5px 12px" }}
               >
                 Remove
               </button>
             </div>
           )}
-        </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          style={{ display: "none" }}
-          onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
-        />
-
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
-
-          <style>{`.cep-title::placeholder{opacity:0.28;}`}</style>
-
-          {/* ── Info card ───────────────────────────────────────────── */}
+          {/* ── Bottom composition: title · date · location ─────────── */}
           <div
             style={{
-              marginTop: 16,
-              borderRadius: 14,
-              border: "1px solid var(--border)",
-              overflow: "hidden",
-              background: "var(--background)",
+              position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
+              padding: "0 20px 32px",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
             }}
           >
             {/* Title */}
@@ -675,103 +597,39 @@ export function CreateEventPage() {
               onChange={(e) => setTitle(e.target.value)}
               className="cep-title"
               style={{
-                display: "block",
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "18px 16px 14px",
-                border: "none",
-                background: "transparent",
-                fontSize: 18,
-                fontWeight: 700,
-                color: title ? "var(--foreground)" : "inherit",
-                outline: "none",
-                fontFamily: "inherit",
+                width: "100%", maxWidth: 400,
+                background: "transparent", border: "none", outline: "none",
+                fontSize: 26, fontWeight: 800,
+                color: "#fff",
                 textAlign: "center",
+                fontFamily: "inherit",
               }}
             />
 
-            <div style={{ height: 1, background: "var(--border)", margin: "0 16px" }} />
-
-            {/* Date / Time row */}
+            {/* Date / time row */}
             <button
               type="button"
               onClick={() => setDateSheetOpen(true)}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                width: "100%",
-                padding: "14px 16px",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                textAlign: "left",
-                color: "inherit",
+                display: "flex", alignItems: "center", gap: 6,
+                background: "none", border: "none", cursor: "pointer",
+                color: dateLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)",
+                fontSize: 14, fontWeight: dateLine ? 500 : 400,
+                fontFamily: "inherit",
               }}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0, opacity: 0.45 }}
-              >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
-              <span
-                style={{
-                  flex: 1,
-                  fontSize: dateLine ? 15 : 14,
-                  opacity: dateLine ? 1 : 0.35,
-                  fontWeight: dateLine ? 600 : 400,
-                }}
-              >
-                {dateLine || "Date & time"}
-              </span>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ opacity: 0.3, flexShrink: 0 }}
-              >
-                <path d="M9 18l6-6-6-6" />
-              </svg>
+              {dateLine || "Date & time"}
             </button>
 
-            <div style={{ height: 1, background: "var(--border)", margin: "0 16px" }} />
-
-            {/* Address row */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "0 16px",
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0, opacity: 0.45 }}
-              >
+            {/* Location row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", maxWidth: 340, justifyContent: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
@@ -780,80 +638,50 @@ export function CreateEventPage() {
                   placeholder="Location (optional)"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  className="cep-location"
                   style={{
-                    flex: 1,
-                    padding: "14px 0",
-                    border: "none",
-                    background: "transparent",
-                    fontSize: address ? 15 : 14,
-                    fontWeight: address ? 500 : 400,
-                    color: "inherit",
-                    outline: "none",
-                    fontFamily: "inherit",
+                    background: "transparent", border: "none", outline: "none",
+                    color: address ? "rgba(255,255,255,0.85)" : undefined,
+                    fontSize: 14, fontFamily: "inherit",
+                    textAlign: "center", width: "100%", maxWidth: 280,
                   }}
                 />
               ) : (
-                <div ref={venueWrapperRef} style={{ flex: 1, position: "relative" }}>
+                <div ref={venueWrapperRef} style={{ position: "relative", maxWidth: 280, width: "100%" }}>
                   <input
                     placeholder="Venue name"
                     value={venueName}
                     onChange={(e) => handleVenueNameChange(e.target.value)}
                     onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                     autoComplete="off"
+                    className="cep-location"
                     style={{
                       width: "100%",
-                      padding: "14px 0",
-                      border: "none",
-                      borderBottom: venueId ? "1.5px solid #16a34a" : "none",
-                      background: "transparent",
-                      fontSize: venueName ? 15 : 14,
-                      fontWeight: venueName ? 500 : 400,
-                      color: "inherit",
-                      outline: "none",
-                      fontFamily: "inherit",
+                      background: "transparent", border: "none", outline: "none",
+                      color: venueName ? "rgba(255,255,255,0.85)" : undefined,
+                      fontSize: 14, fontFamily: "inherit", textAlign: "center",
                     }}
                   />
                   {showSuggestions && (
-                    <ul
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: -16,
-                        right: 0,
-                        zIndex: 50,
-                        margin: "4px 0 0",
-                        padding: 0,
-                        listStyle: "none",
-                        background: "var(--background)",
-                        border: "1px solid var(--border-strong)",
-                        borderRadius: 10,
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
-                        overflow: "hidden",
-                      }}
-                    >
+                    <ul style={{
+                      position: "absolute", bottom: "100%", left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 50, margin: "0 0 6px", padding: 0, listStyle: "none",
+                      background: "var(--background)", border: "1px solid var(--border-strong)",
+                      borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                      overflow: "hidden", minWidth: 220,
+                    }}>
                       {suggestions.map((v) => (
                         <li
                           key={v.id}
                           onMouseDown={() => selectVenue(v)}
-                          style={{
-                            padding: "9px 12px",
-                            cursor: "pointer",
-                            borderBottom: "1px solid var(--border)",
-                            fontSize: 14,
-                          }}
-                          onMouseEnter={(e) =>
-                            ((e.currentTarget as HTMLLIElement).style.background =
-                              "var(--surface-subtle)")
-                          }
-                          onMouseLeave={(e) =>
-                            ((e.currentTarget as HTMLLIElement).style.background = "")
-                          }
+                          style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", fontSize: 14 }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLLIElement).style.background = "")}
                         >
                           <span style={{ fontWeight: 600 }}>{v.name}</span>
                           {(v.city || v.address_line1) && (
-                            <span style={{ opacity: 0.6, marginLeft: 6 }}>
-                              {[v.address_line1, v.city].filter(Boolean).join(", ")}
-                            </span>
+                            <span style={{ opacity: 0.6, marginLeft: 6 }}>{[v.address_line1, v.city].filter(Boolean).join(", ")}</span>
                           )}
                         </li>
                       ))}
@@ -863,10 +691,23 @@ export function CreateEventPage() {
               )}
             </div>
           </div>
+        </div>
+        {/* ════════════════════ END CANVAS ════════════════════════════ */}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: "none" }}
+          onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
+        />
+
+        {/* ── Lower section ────────────────────────────────────────── */}
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
 
           {/* ── Public-only: venue address + city + category + tickets ── */}
           {!isPrivate && (
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <div style={{ display: "grid", gap: 10, marginTop: 20 }}>
               <div
                 className="col-stack"
                 style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
@@ -919,36 +760,23 @@ export function CreateEventPage() {
                 gap: 12,
                 padding: "18px 0",
                 borderBottom: "1px solid var(--border)",
-                marginTop: 20,
+                marginTop: isPrivate ? 24 : 16,
               }}
             >
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
                   alt={displayName}
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "50%",
-                    objectFit: "cover",
-                    flexShrink: 0,
-                  }}
+                  style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
                 />
               ) : (
                 <div
                   style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: "50%",
+                    width: 34, height: 34, borderRadius: "50%",
                     background: getAvatarColor(displayName),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#fff",
-                    flexShrink: 0,
-                    userSelect: "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700, color: "#fff",
+                    flexShrink: 0, userSelect: "none",
                   }}
                 >
                   {getInitials(displayName)}
@@ -956,15 +784,7 @@ export function CreateEventPage() {
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Hosted by</div>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {displayName}
                 </div>
               </div>
@@ -973,15 +793,10 @@ export function CreateEventPage() {
                 disabled
                 title="Coming soon"
                 style={{
-                  padding: "5px 12px",
-                  borderRadius: 8,
+                  padding: "5px 12px", borderRadius: 8,
                   border: "1px solid var(--border-strong)",
-                  background: "transparent",
-                  cursor: "not-allowed",
-                  fontSize: 12,
-                  opacity: 0.35,
-                  color: "inherit",
-                  flexShrink: 0,
+                  background: "transparent", cursor: "not-allowed",
+                  fontSize: 12, opacity: 0.35, color: "inherit", flexShrink: 0,
                 }}
               >
                 + Cohost
@@ -1008,18 +823,11 @@ export function CreateEventPage() {
                 onBlur={() => { if (!description) setDescriptionOpen(false); }}
                 rows={4}
                 style={{
-                  display: "block",
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "14px 16px",
-                  border: "none",
-                  fontSize: 14,
-                  background: "transparent",
-                  color: "inherit",
-                  resize: "vertical",
-                  outline: "none",
-                  fontFamily: "inherit",
-                  lineHeight: 1.6,
+                  display: "block", width: "100%", boxSizing: "border-box",
+                  padding: "14px 16px", border: "none",
+                  fontSize: 14, background: "transparent", color: "inherit",
+                  resize: "vertical", outline: "none",
+                  fontFamily: "inherit", lineHeight: 1.6,
                 }}
               />
             ) : (
@@ -1027,35 +835,17 @@ export function CreateEventPage() {
                 type="button"
                 onClick={() => setDescriptionOpen(true)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  width: "100%",
-                  padding: "14px 16px",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  color: "inherit",
+                  display: "flex", alignItems: "center", gap: 12,
+                  width: "100%", padding: "14px 16px",
+                  background: "transparent", border: "none",
+                  cursor: "pointer", textAlign: "left", color: "inherit",
                 }}
               >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ flexShrink: 0, opacity: 0.45 }}
-                >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.45 }}>
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
-                <span style={{ fontSize: 14, opacity: 0.35, fontWeight: 400 }}>
-                  Add a description
-                </span>
+                <span style={{ fontSize: 14, opacity: 0.35, fontWeight: 400 }}>Add a description</span>
               </button>
             )}
           </div>
@@ -1069,25 +859,15 @@ export function CreateEventPage() {
             type="submit"
             disabled={submitting || !canSubmit}
             style={{
-              display: "block",
-              width: "100%",
-              marginTop: 20,
-              padding: "14px",
-              borderRadius: 12,
-              border: "none",
-              fontWeight: 700,
-              fontSize: 15,
-              background:
-                submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
+              display: "block", width: "100%", marginTop: 20,
+              padding: "14px", borderRadius: 12, border: "none",
+              fontWeight: 700, fontSize: 15,
+              background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
               color: submitting || !canSubmit ? "inherit" : "var(--background)",
               cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
             }}
           >
-            {submitting
-              ? "Creating…"
-              : isPrivate
-              ? "Create private event"
-              : "Submit for review"}
+            {submitting ? "Creating…" : isPrivate ? "Create private event" : "Submit for review"}
           </button>
 
           <p style={{ fontSize: 12, opacity: 0.4, textAlign: "center", margin: "12px 0 0" }}>
@@ -1102,12 +882,9 @@ export function CreateEventPage() {
       {dateSheetOpen && (
         <div
           style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 400,
+            position: "fixed", inset: 0, zIndex: 400,
             background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            alignItems: "flex-end",
+            display: "flex", alignItems: "flex-end",
           }}
           onClick={(e) => e.target === e.currentTarget && setDateSheetOpen(false)}
         >
@@ -1116,8 +893,7 @@ export function CreateEventPage() {
               width: "100%",
               background: "var(--background)",
               borderRadius: "22px 22px 0 0",
-              maxHeight: "90vh",
-              overflowY: "auto",
+              maxHeight: "90vh", overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
@@ -1169,8 +945,7 @@ export function CreateEventPage() {
                   onClick={() => setAllDay((v) => !v)}
                   aria-pressed={allDay}
                   style={{
-                    width: 48, height: 28, borderRadius: 14, border: "none",
-                    cursor: "pointer",
+                    width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer",
                     background: allDay ? "var(--accent)" : "var(--btn-bg-active)",
                     position: "relative", transition: "background 0.2s", flexShrink: 0,
                   }}
@@ -1186,10 +961,7 @@ export function CreateEventPage() {
 
               {/* START section */}
               <div style={{ display: "grid", gap: 12 }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
-                  textTransform: "uppercase", opacity: 0.4,
-                }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", opacity: 0.4 }}>
                   Start
                 </span>
                 <div style={{ display: "grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap: 10 }}>
@@ -1200,26 +972,14 @@ export function CreateEventPage() {
                       setStartDate(e.target.value);
                       if (!endDate) setEndDate(e.target.value);
                     }}
-                    style={{
-                      padding: "14px 16px", borderRadius: 12,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface-subtle)",
-                      color: "inherit", fontSize: 15,
-                      width: "100%", boxSizing: "border-box",
-                    }}
+                    style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
                   />
                   {!allDay && (
                     <input
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      style={{
-                        padding: "14px 16px", borderRadius: 12,
-                        border: "1px solid var(--border)",
-                        background: "var(--surface-subtle)",
-                        color: "inherit", fontSize: 15,
-                        width: "100%", boxSizing: "border-box",
-                      }}
+                      style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
                     />
                   )}
                 </div>
@@ -1232,11 +992,10 @@ export function CreateEventPage() {
                   onClick={() => setShowEndTime(true)}
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
-                    background: "var(--surface-subtle)", border: "none",
-                    borderRadius: 12, padding: "14px 16px",
-                    cursor: "pointer", color: "inherit", fontFamily: "inherit",
-                    fontSize: 14, fontWeight: 500, opacity: 0.7, width: "100%",
-                    textAlign: "left",
+                    background: "var(--surface-subtle)", border: "none", borderRadius: 12,
+                    padding: "14px 16px", cursor: "pointer", color: "inherit",
+                    fontFamily: "inherit", fontSize: 14, fontWeight: 500, opacity: 0.7,
+                    width: "100%", textAlign: "left",
                   }}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -1247,19 +1006,13 @@ export function CreateEventPage() {
               ) : (
                 <div style={{ display: "grid", gap: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
-                      textTransform: "uppercase", opacity: 0.4,
-                    }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", opacity: 0.4 }}>
                       End
                     </span>
                     <button
                       type="button"
                       onClick={() => { setShowEndTime(false); setEndDate(""); setEndTime(""); }}
-                      style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        fontSize: 13, color: "#ef4444", fontFamily: "inherit", fontWeight: 500,
-                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", fontFamily: "inherit", fontWeight: 500 }}
                     >
                       Remove
                     </button>
@@ -1269,26 +1022,14 @@ export function CreateEventPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      style={{
-                        padding: "14px 16px", borderRadius: 12,
-                        border: "1px solid var(--border)",
-                        background: "var(--surface-subtle)",
-                        color: "inherit", fontSize: 15,
-                        width: "100%", boxSizing: "border-box",
-                      }}
+                      style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
                     />
                     {!allDay && (
                       <input
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        style={{
-                          padding: "14px 16px", borderRadius: 12,
-                          border: "1px solid var(--border)",
-                          background: "var(--surface-subtle)",
-                          color: "inherit", fontSize: 15,
-                          width: "100%", boxSizing: "border-box",
-                        }}
+                        style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
                       />
                     )}
                   </div>
@@ -1299,16 +1040,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={() => setDateSheetOpen(false)}
-                style={{
-                  padding: "15px",
-                  borderRadius: 14,
-                  border: "none",
-                  background: "var(--foreground)",
-                  color: "var(--background)",
-                  fontWeight: 700,
-                  fontSize: 15,
-                  cursor: "pointer",
-                }}
+                style={{ padding: "15px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
               >
                 Done
               </button>
