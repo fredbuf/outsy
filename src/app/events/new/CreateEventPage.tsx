@@ -490,7 +490,7 @@ export function CreateEventPage() {
                   maxWidth: 200, width: "100%",
                 }}
               >
-                {(["private", "public"] as const).map((v) => (
+                {(["public", "private"] as const).map((v) => (
                   <button
                     key={v}
                     type="button"
@@ -522,14 +522,8 @@ export function CreateEventPage() {
               </div>
             </div>
 
-            {/* Preview */}
-            <button type="button" onClick={(e) => e.stopPropagation()} style={glassPill}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              Preview
-            </button>
+            {/* Spacer to balance the back button */}
+            <div style={{ width: 36, flexShrink: 0 }} />
           </div>
 
           {/* ── Photo CTA (centered, no-image state only) ─────────── */}
@@ -628,7 +622,8 @@ export function CreateEventPage() {
             </button>
 
             {/* Location row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", maxWidth: 340, justifyContent: "center" }}>
+            <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
@@ -643,11 +638,11 @@ export function CreateEventPage() {
                     background: "transparent", border: "none", outline: "none",
                     color: address ? "rgba(255,255,255,0.85)" : undefined,
                     fontSize: 14, fontFamily: "inherit",
-                    textAlign: "center", width: "100%", maxWidth: 280,
+                    textAlign: "center", width: "auto", maxWidth: 280, minWidth: 120,
                   }}
                 />
               ) : (
-                <div ref={venueWrapperRef} style={{ position: "relative", maxWidth: 280, width: "100%" }}>
+                <div ref={venueWrapperRef} style={{ position: "relative", width: 240 }}>
                   <input
                     placeholder="Venue name"
                     value={venueName}
@@ -689,6 +684,7 @@ export function CreateEventPage() {
                   )}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -855,20 +851,33 @@ export function CreateEventPage() {
           )}
 
           {/* ── Submit ──────────────────────────────────────────────── */}
-          <button
-            type="submit"
-            disabled={submitting || !canSubmit}
-            style={{
-              display: "block", width: "100%", marginTop: 20,
-              padding: "14px", borderRadius: 12, border: "none",
-              fontWeight: 700, fontSize: 15,
-              background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
-              color: submitting || !canSubmit ? "inherit" : "var(--background)",
-              cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
-            }}
-          >
-            {submitting ? "Creating…" : isPrivate ? "Create private event" : "Submit for review"}
-          </button>
+          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+            <button
+              type="button"
+              style={{
+                padding: "14px 20px", borderRadius: 12,
+                border: "1px solid var(--border-strong)", background: "transparent",
+                fontWeight: 600, fontSize: 15, cursor: "pointer", color: "inherit",
+                flexShrink: 0,
+              }}
+            >
+              Preview
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !canSubmit}
+              style={{
+                flex: 1,
+                padding: "14px", borderRadius: 12, border: "none",
+                fontWeight: 700, fontSize: 15,
+                background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
+                color: submitting || !canSubmit ? "inherit" : "var(--background)",
+                cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
+              }}
+            >
+              {submitting ? "Creating…" : "Publish event"}
+            </button>
+          </div>
 
           <p style={{ fontSize: 12, opacity: 0.4, textAlign: "center", margin: "12px 0 0" }}>
             {isPrivate
