@@ -371,14 +371,13 @@ export default async function EventPage({
             <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Layer 3 — minimal vignette: light top scrim for nav, clear through
-              most of the image, soft bottom ramp only where text lives.
-              Text shadows carry readability; the overlay stays out of the way. */}
+          {/* Layer 3 — bottom-only fade: image is fully clear from the top,
+              gradient kicks in at 60% and melts into the page background. */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(14,9,22,0.20) 0%, transparent 14%, transparent 52%, rgba(14,9,22,0.28) 68%, rgba(14,9,22,0.60) 82%, rgba(14,9,22,0.80) 95%, rgba(14,9,22,0.86) 100%)",
+              background: "linear-gradient(to bottom, transparent 60%, rgba(14,9,22,0.55) 78%, rgba(14,9,22,0.90) 93%, rgba(14,9,22,0.98) 100%)",
             }}
           />
 
