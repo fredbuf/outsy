@@ -318,67 +318,26 @@ export default async function EventPage({
       <main style={{ padding: 0 }}>
 
         {/*
-          Outer wrapper — single stacking context for the whole top area.
+          Three in-flow blocks inside one relative wrapper:
 
-          Children (back → front):
-            [A] Reflected blurred continuation — position:absolute, starts at
-                the bottom edge of the main image (top:360), extends 600px
-                downward BEHIND the content. No background on content = the
-                reflected layer shows through.
-            [B] Image + hero text inner wrapper — position:relative, height:360,
-                zIndex:2. Sits above [A] and covers any blur fringe at the seam.
-            [C] Content — position:relative, zIndex:1, no explicit background,
-                so [A] is visible behind it.
+          [B] Main image, height 360, zIndex 1
+              — nav and hero text absolutely positioned inside.
+
+          [A] Reflection, height 220, zIndex 0, marginTop -20
+              — pulls 20 px UP into [B] so [B]'s z-index 1 covers the
+                hard blur-clip at [A]'s overflow:hidden top edge.
+              — same image, transform scaleY(-1), NO explicit transformOrigin
+                (default 50% 50% keeps painted output within the layout box).
+              — filter blur(40px), opacity 0.75 (boosted for visual check).
+
+          [C] Content, zIndex 1, marginTop -(220-20) = -200
+              — starts at y=360 (right under [B]), overlapping [A].
+              — no background → reflection visible behind.
         */}
         <div style={{ position: "relative" }}>
 
-          {/* [A] Reflected blurred continuation — behind content */}
-          {event.image_url && (
-            <div
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                top: 340,           /* overlaps the bottom 20 px of the main image so the seam is seamless */
-                left: 0, right: 0,
-                height: 640,
-                overflow: "hidden",
-                pointerEvents: "none",
-                zIndex: 0,
-              }}
-            >
-              {/* same image, flipped — bottom of original appears at top of this element */}
-              <img
-                src={event.image_url}
-                alt=""
-                style={{
-                  position: "absolute",
-                  top: 0, left: 0,
-                  width: "100%",
-                  height: 360,
-                  objectFit: "cover",
-                  objectPosition: "center top",
-                  transform: "scaleY(-1)",
-                  transformOrigin: "top",
-                  filter: "blur(44px)",
-                  opacity: 0.72,
-                  display: "block",
-                }}
-              />
-              {/* gentle fade-out at the very bottom so it dissolves into page bg */}
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 0, left: 0, right: 0,
-                  height: 180,
-                  background: "linear-gradient(to bottom, transparent, var(--background))",
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
-          )}
-
-          {/* [B] Main image + nav + hero text — explicit height keeps absolute children scoped */}
-          <div style={{ position: "relative", height: 360, zIndex: 2 }}>
+          {/* ── [B] Main image ───────────────────────────────────────────── */}
+          <div style={{ position: "relative", height: 360, zIndex: 1 }}>
             {event.image_url ? (
               <img
                 src={event.image_url}
@@ -426,11 +385,11 @@ export default async function EventPage({
               />
             </div>
 
-            {/* Hero text — lower on the image */}
+            {/* Hero text — bottom 4 (≈24 px lower than previous bottom 28) */}
             <div
               style={{
-                position: "absolute", bottom: 28, left: 0, right: 0,
-                padding: "0 24px",
+                position: "absolute", bottom: 4, left: 0, right: 0,
+                padding: "0 24px 8px",
                 textAlign: "center",
                 zIndex: 1,
               }}
@@ -455,11 +414,60 @@ export default async function EventPage({
             </div>
           </div>
 
-          {/* [C] Content — no background; reflected layer [A] shows through */}
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px", position: "relative", zIndex: 1 }}>
+          {/* ── [A] Reflection ───────────────────────────────────────────── */}
+          {event.image_url && (
+            <div
+              aria-hidden="true"
+              style={{
+                height: 220,
+                overflow: "hidden",
+                position: "relative",
+                zIndex: 0,
+                marginTop: -20,   /* overlaps [B] by 20 px; [B] zIndex 1 covers the seam */
+              }}
+            >
+              <img
+                src={event.image_url}
+                alt=""
+                style={{
+                  position: "absolute",
+                  top: 0, left: 0,
+                  width: "100%",
+                  height: 360,
+                  objectFit: "cover",
+                  objectPosition: "center top",
+                  transform: "scaleY(-1)",
+                  /* transformOrigin intentionally omitted → browser default 50% 50%
+                     maps original-y=360 to painted-y=0, so the bottom of the main
+                     image appears at the top of the reflection. overflow:hidden then
+                     clips the 360 px img to show only the top 220 px of that output. */
+                  filter: "blur(40px)",
+                  opacity: 0.75,   /* ← boosted temporarily so the layer is easy to spot */
+                  display: "block",
+                }}
+              />
+              {/* Soft bottom fade — transparent → page background */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to bottom, transparent 40%, var(--background) 100%)",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          )}
 
-            {/* RSVP */}
-            <div style={{ paddingTop: 24, paddingBottom: 4 }}>
+          {/* ── [C] Content — sits on top of [A], no background ─────────── */}
+          {/* marginTop -200 = -(220 - 20): content starts at y=360, right   */}
+          {/* below [B], overlapping the reflection. No background → [A]      */}
+          {/* shows through the transparent content wrapper.                   */}
+          <div style={{ marginTop: event.image_url ? -200 : 0, position: "relative", zIndex: 1 }}>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+
+              {/* RSVP */}
+              <div style={{ paddingTop: 24, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
@@ -589,8 +597,9 @@ export default async function EventPage({
             </div>
           )}
 
-          </div>{/* [C] end content */}
-        </div>{/* end outer wrapper */}
+            </div>{/* inner maxWidth div */}
+          </div>{/* [C] marginTop wrapper */}
+        </div>{/* outer wrapper */}
       </main>
     );
   }
