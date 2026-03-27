@@ -317,8 +317,8 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
-        {/* ── Hero image block ──────────────────────────────────────────── */}
-        <div style={{ position: "relative", minHeight: 460 }}>
+        {/* ── Hero: image only (nav lives here, no title) ──────────────── */}
+        <div style={{ position: "relative", height: 300 }}>
           {event.image_url ? (
             <img
               src={event.image_url}
@@ -334,12 +334,12 @@ export default async function EventPage({
             <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Dark gradient rising from the bottom — forms the transition zone */}
+          {/* Top band darkens nav; bottom 100 px fades toward the dark band */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 22%, rgba(0,0,0,0.28) 48%, transparent 70%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, transparent 28%), linear-gradient(to top, rgba(0,0,0,0.50) 0%, transparent 100px)",
             }}
           />
 
@@ -374,45 +374,64 @@ export default async function EventPage({
               eventData={ownerEventData}
             />
           </div>
+        </div>
 
-          {/* Title + metadata — centred inside the dark transition zone */}
+        {/* ── Dark text band ────────────────────────────────────────────────
+             Solid dark rectangle holding title + metadata.
+             An upward gradient bleeds 80 px into the image above;
+             a downward gradient dissolves 100 px into the page below.     */}
+        <div style={{ background: "#0d0d0d", position: "relative", zIndex: 1 }}>
+
+          {/* ↑ Gradient into image — dark at band top, transparent upward */}
           <div
+            aria-hidden="true"
             style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "0 24px 48px",
-              textAlign: "center",
-              zIndex: 1,
+              position: "absolute", left: 0, right: 0,
+              top: 0, height: 80,
+              transform: "translateY(-100%)",
+              background: "linear-gradient(to top, #0d0d0d 0%, transparent 100%)",
+              pointerEvents: "none",
             }}
-          >
+          />
+
+          {/* Title + metadata */}
+          <div style={{ padding: "20px 24px 28px", textAlign: "center" }}>
             <h1
               style={{
-                color: "#fff", fontSize: 30, fontWeight: 800,
-                lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 8,
-                textShadow: "0 2px 16px rgba(0,0,0,0.70)",
+                color: "#fff", fontSize: 28, fontWeight: 800,
+                lineHeight: 1.2, letterSpacing: "-0.02em", margin: "0 0 8px",
               }}
             >
               {event.title}
             </h1>
-            <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0 }}>
+            <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0 }}>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </div>
             {address && (
-              <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
                 {address}
               </div>
             )}
           </div>
+
+          {/* ↓ Gradient into page — dark at band bottom, transparent downward */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", left: 0, right: 0,
+              bottom: 0, height: 100,
+              transform: "translateY(100%)",
+              background: "linear-gradient(to bottom, #0d0d0d 0%, transparent 100%)",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
         </div>
 
-        {/* ── Content area ──────────────────────────────────────────────────
-             Top gradient continues the dark transition from the hero.
-             Fades from a dark tint to transparent over 96 px, then the
-             normal page background takes over — no hard line.              */}
-        <div
-          style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, transparent 80px), var(--surface-subtle)",
-          }}
-        >
+        {/* ── Content area ─────────────────────────────────────────────────
+             Plain page background; the downward gradient above provides
+             the soft transition — no extra background blending needed.    */}
+        <div style={{ background: "var(--surface-subtle)" }}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
             {/* RSVP */}
