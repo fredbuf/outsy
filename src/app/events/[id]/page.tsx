@@ -317,109 +317,72 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
-        {/* ── Background system ────────────────────────────────────────────────
-             Layer 1 (fixed, zIndex -2): blurred atmospheric wash — tints the
-             entire page top with the image colours so content sits inside the
-             same atmosphere as the image.
-             Layer 2 (inside hero): the sharp image, intentionally shorter than
-             its container, so the bottom of the hero is pure blurred-bg.
-             Layer 3: warm-tinted gradient (not black) fades the sharp image
-             edge away into the atmospheric background.                        */}
+        {/* ── Hero container ──────────────────────────────────────────────────
+             Layer 1: main image, covers top area.
+             Layer 2: same image, flipped vertically — positioned directly
+               below the main image to form a mirror reflection. Heavy blur
+               and reduced opacity make it read as tone/colour, not a copy.
+             Layer 3: soft gradient over the reflection, fading from
+               transparent into the page background so the edge dissolves.  */}
+        <div style={{ position: "relative" }}>
 
-        {/* Layer 1 — blurred atmospheric wash + reflected extension
-             1a: normal blurred wash covers the upper page atmosphere.
-             1b: same image, flipped vertically (scaleY(-1)), positioned so its
-                 top edge aligns with the hero's fade zone — the bottom of the
-                 original image appears at the top of the reflection, just like
-                 a water mirror. Heavily blurred so it reads as colour/tone, not
-                 as a literal duplicate.
-             1c: warm tint gradient darkens and unifies the reflected region. */}
-        {event.image_url && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "fixed", inset: 0, zIndex: -1,
-              overflow: "hidden", pointerEvents: "none",
-            }}
-          >
-            {/* 1a — normal upper wash */}
-            <img
-              src={event.image_url}
-              alt=""
-              style={{
-                position: "absolute", top: 0, left: "50%",
-                transform: "translateX(-50%) scale(1.06)",
-                width: "100%", height: "85vh",
-                objectFit: "cover",
-                filter: "blur(44px) saturate(1.5)",
-                opacity: 0.22,
-                transformOrigin: "top center",
-              }}
-            />
-
-            {/* 1b — reflected extension: objectPosition:center bottom shows
-                the bottom of the original image; scaleY(-1) flips it so that
-                portion appears at the TOP of this element, creating the mirror. */}
-            <img
-              src={event.image_url}
-              alt=""
-              style={{
-                position: "absolute", top: "40vh", left: "50%",
-                transform: "translateX(-50%) scaleY(-1)",
-                width: "100%", height: "65vh",
-                objectFit: "cover", objectPosition: "center bottom",
-                filter: "blur(24px) saturate(1.3)",
-                opacity: 0.32,
-              }}
-            />
-
-            {/* 1c — warm tint over the reflected region */}
-            <div style={{
-              position: "absolute", top: "38vh", left: 0, right: 0, bottom: 0,
-              background: "linear-gradient(to bottom, transparent 0%, rgba(14,9,22,0.30) 40%, rgba(14,9,22,0.60) 100%)",
-            }} />
-          </div>
-        )}
-
-        {/* ②  Hero container — holds nav controls + text */}
-        <div style={{ position: "relative", width: "100%", minHeight: 400 }}>
-          {/* Layer 2 — sharp image, fills only the top 80% of the container.
-              The uncovered bottom 20% lets the blurred wash show through,
-              creating a natural image → blurred-atmosphere transition. */}
+          {/* Layer 1 — main image */}
           {event.image_url ? (
             <img
               src={event.image_url}
               alt=""
               style={{
-                position: "absolute", top: 0, left: 0, right: 0,
-                width: "100%", height: "80%",
-                objectFit: "cover", objectPosition: "center top",
                 display: "block",
+                width: "100%",
+                height: 360,
+                objectFit: "cover",
+                objectPosition: "center top",
               }}
             />
           ) : (
-            <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
+            <div style={{ height: 360, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Layer 3 — bottom-only fade: image is fully clear from the top,
-              gradient kicks in at 60% and melts into the page background. */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, transparent 60%, rgba(14,9,22,0.55) 78%, rgba(14,9,22,0.90) 93%, rgba(14,9,22,0.98) 100%)",
-            }}
-          />
+          {/* Layer 2 — reflection: flipped image directly below main */}
+          {event.image_url && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: "relative",
+                height: 140,
+                overflow: "hidden",
+              }}
+            >
+              <img
+                src={event.image_url}
+                alt=""
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: 360,
+                  objectFit: "cover",
+                  objectPosition: "center top",
+                  transform: "scaleY(-1)",
+                  transformOrigin: "top",
+                  filter: "blur(40px)",
+                  opacity: 0.5,
+                  display: "block",
+                }}
+              />
 
-          {/* Seam eraser */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute", top: "100%", left: 0, right: 0,
-              height: 44, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(14,9,22,0.80), transparent)",
-            }}
-          />
+              {/* Layer 3 — overlay: transparent → page background */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to bottom, transparent 0%, var(--background) 100%)",
+                  pointerEvents: "none",
+                }}
+              />
+            </div>
+          )}
 
           {/* Nav controls — absolute top */}
           <div
@@ -452,13 +415,11 @@ export default async function EventPage({
             />
           </div>
 
-          {/* Hero text — absolute bottom, centred. Padding reduced so text sits
-              closer to the image edge (premium feel). Text shadows carry
-              readability now that the overlay is lighter. */}
+          {/* Hero text — sits at bottom of main image, above reflection zone */}
           <div
             style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "0 24px 12px",
+              position: "absolute", bottom: 140, left: 0, right: 0,
+              padding: "0 24px 16px",
               textAlign: "center",
             }}
           >
@@ -471,37 +432,23 @@ export default async function EventPage({
             >
               {event.title}
             </h1>
-            {/* Date · time — one line, no icon */}
             <div style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0, textShadow: "0 1px 8px rgba(0,0,0,0.75)" }}>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </div>
-            {/* Address — own line, lighter */}
             {address && (
               <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, textShadow: "0 1px 6px rgba(0,0,0,0.70)" }}>
                 {address}
               </div>
             )}
           </div>
+
         </div>
 
         {/* Content below hero ───────────────────────────────────────────────── */}
-        {/* Full-width wrapper carries a tinted top gradient that continues the
-            hero atmosphere into the content area. Works in both light and dark
-            mode because the dark overlay fades to transparent (not to white),
-            letting the page background colour show through naturally below. */}
-        <div style={{ position: "relative" }}>
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute", top: 0, left: 0, right: 0,
-              height: 160, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(14,9,22,0.22) 0%, rgba(14,9,22,0.06) 55%, transparent 100%)",
-            }}
-          />
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px", position: "relative" }}>
 
-          {/* ③ RSVP — top padding clears the 44px seam-eraser gradient above */}
-          <div style={{ paddingTop: 52, paddingBottom: 4 }}>
+          {/* ③ RSVP */}
+          <div style={{ paddingTop: 24, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
@@ -632,7 +579,6 @@ export default async function EventPage({
           )}
 
         </div>
-        </div>{/* end full-width wrapper */}
       </main>
     );
   }
