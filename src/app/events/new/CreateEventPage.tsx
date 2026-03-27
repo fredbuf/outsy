@@ -1021,19 +1021,19 @@ export function CreateEventPage() {
             }}
           >
             {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
-              <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.4 }} />
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
             </div>
 
             {/* Header: X left · title center · Done right */}
-            <div style={{ display: "flex", alignItems: "center", padding: "10px 16px 4px" }}>
+            <div style={{ display: "flex", alignItems: "center", padding: "14px 20px 8px" }}>
               <button
                 type="button"
                 onClick={() => setDateSheetOpen(false)}
                 aria-label="Close"
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 32, height: 32, borderRadius: "50%",
+                  width: 34, height: 34, borderRadius: "50%",
                   background: "var(--btn-bg)", border: "none",
                   cursor: "pointer", color: "inherit", flexShrink: 0,
                 }}
@@ -1042,7 +1042,7 @@ export function CreateEventPage() {
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 700 }}>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
                 Date &amp; time
               </span>
               <button
@@ -1050,7 +1050,7 @@ export function CreateEventPage() {
                 onClick={() => setDateSheetOpen(false)}
                 style={{
                   background: "none", border: "none", cursor: "pointer",
-                  fontSize: 14, fontWeight: 600, color: "var(--accent)",
+                  fontSize: 15, fontWeight: 600, color: "var(--accent)",
                   padding: "4px 0", flexShrink: 0,
                 }}
               >
@@ -1058,24 +1058,27 @@ export function CreateEventPage() {
               </button>
             </div>
 
-            <div style={{ padding: "16px 20px 8px", display: "grid", gap: 28 }}>
+            <div style={{ padding: "8px 20px 16px", display: "grid", gap: 0 }}>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: "var(--border)", margin: "8px 0 20px" }} />
 
               {/* All day row */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 52, paddingBottom: 20, borderBottom: "1px solid var(--border)" }}>
                 <span style={{ fontSize: 16, fontWeight: 500 }}>All day</span>
                 <button
                   type="button"
                   onClick={() => setAllDay((v) => !v)}
                   aria-pressed={allDay}
                   style={{
-                    width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer",
+                    width: 51, height: 31, borderRadius: 16, border: "none", cursor: "pointer",
                     background: allDay ? "var(--accent)" : "var(--btn-bg-active)",
                     position: "relative", transition: "background 0.2s", flexShrink: 0,
                   }}
                 >
                   <span style={{
-                    position: "absolute", top: 3, left: allDay ? 23 : 3,
-                    width: 22, height: 22, borderRadius: "50%",
+                    position: "absolute", top: 4, left: allDay ? 24 : 4,
+                    width: 23, height: 23, borderRadius: "50%",
                     background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
                     transition: "left 0.18s",
                   }} />
@@ -1083,29 +1086,27 @@ export function CreateEventPage() {
               </div>
 
               {/* START section */}
-              <div style={{ display: "grid", gap: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", opacity: 0.4 }}>
+              <div style={{ display: "grid", gap: 10, paddingTop: 20 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.4 }}>
                   Start
                 </span>
-                <div style={{ display: "grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap: 10 }}>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (!endDate) setEndDate(e.target.value);
+                  }}
+                  style={{ padding: "15px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, width: "100%", boxSizing: "border-box" }}
+                />
+                {!allDay && (
                   <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (!endDate) setEndDate(e.target.value);
-                    }}
-                    style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    style={{ padding: "15px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, width: "100%", boxSizing: "border-box" }}
                   />
-                  {!allDay && (
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
-                    />
-                  )}
-                </div>
+                )}
               </div>
 
               {/* Add end time / END section */}
@@ -1114,48 +1115,46 @@ export function CreateEventPage() {
                   type="button"
                   onClick={() => setShowEndTime(true)}
                   style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    background: "var(--surface-subtle)", border: "none", borderRadius: 12,
-                    padding: "14px 16px", cursor: "pointer", color: "inherit",
-                    fontFamily: "inherit", fontSize: 14, fontWeight: 500, opacity: 0.7,
-                    width: "100%", textAlign: "left",
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: "none", border: "none", borderTop: "1px solid var(--border)",
+                    padding: "20px 0 4px", cursor: "pointer", color: "var(--accent)",
+                    fontFamily: "inherit", fontSize: 15, fontWeight: 500,
+                    width: "100%", textAlign: "left", marginTop: 20,
                   }}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                   Add end time
                 </button>
               ) : (
-                <div style={{ display: "grid", gap: 12 }}>
+                <div style={{ display: "grid", gap: 10, paddingTop: 20, borderTop: "1px solid var(--border)", marginTop: 20 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", opacity: 0.4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.4 }}>
                       End
                     </span>
                     <button
                       type="button"
                       onClick={() => { setShowEndTime(false); setEndDate(""); setEndTime(""); }}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", fontFamily: "inherit", fontWeight: 500 }}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#ef4444", fontFamily: "inherit", fontWeight: 500, padding: 0 }}
                     >
                       Remove
                     </button>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap: 10 }}>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={{ padding: "15px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, width: "100%", boxSizing: "border-box" }}
+                  />
+                  {!allDay && (
                     <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      style={{ padding: "15px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, width: "100%", boxSizing: "border-box" }}
                     />
-                    {!allDay && (
-                      <input
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
-                      />
-                    )}
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -1163,7 +1162,7 @@ export function CreateEventPage() {
               <button
                 type="button"
                 onClick={() => setDateSheetOpen(false)}
-                style={{ padding: "15px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+                style={{ padding: "16px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 16, cursor: "pointer", marginTop: 28 }}
               >
                 Done
               </button>

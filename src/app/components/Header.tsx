@@ -144,7 +144,7 @@ export function Header() {
 
           {!loading && user && (
             <Link
-              href="/events#submit"
+              href="/events/new"
               style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
             >
               <span className="nav-label">Create</span>
