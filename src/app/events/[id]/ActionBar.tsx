@@ -119,6 +119,7 @@ export function ActionBar({
       display: "flex" as const,
       flexDirection: "column" as const,
       alignItems: "center" as const,
+      justifyContent: "center" as const,
       gap: 4,
       padding: "10px 6px",
       borderRadius: 11,
