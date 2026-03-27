@@ -317,157 +317,106 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
-        {/*
-          Three in-flow blocks inside one relative wrapper:
-
-          [B] Main image, height 360, zIndex 1
-              — nav and hero text absolutely positioned inside.
-
-          [A] Reflection, height 220, zIndex 0, marginTop -20
-              — pulls 20 px UP into [B] so [B]'s z-index 1 covers the
-                hard blur-clip at [A]'s overflow:hidden top edge.
-              — same image, transform scaleY(-1), NO explicit transformOrigin
-                (default 50% 50% keeps painted output within the layout box).
-              — filter blur(40px), opacity 0.75 (boosted for visual check).
-
-          [C] Content, zIndex 1, marginTop -(220-20) = -200
-              — starts at y=360 (right under [B]), overlapping [A].
-              — no background → reflection visible behind.
-        */}
-        <div style={{ position: "relative" }}>
-
-          {/* ── [B] Main image ───────────────────────────────────────────── */}
-          <div style={{ position: "relative", height: 360, zIndex: 1 }}>
-            {event.image_url ? (
-              <img
-                src={event.image_url}
-                alt=""
-                style={{
-                  position: "absolute", inset: 0,
-                  width: "100%", height: "100%",
-                  objectFit: "cover", objectPosition: "center top",
-                  display: "block",
-                }}
-              />
-            ) : (
-              <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
-            )}
-
-            {/* Nav controls */}
-            <div
+        {/* ── Hero image block ──────────────────────────────────────────── */}
+        <div style={{ position: "relative", height: 360 }}>
+          {event.image_url ? (
+            <img
+              src={event.image_url}
+              alt=""
               style={{
-                position: "absolute", top: 20, left: 16, right: 16,
-                display: "flex", justifyContent: "space-between", alignItems: "center",
-                zIndex: 1,
+                position: "absolute", inset: 0,
+                width: "100%", height: "100%",
+                objectFit: "cover", objectPosition: "center top",
+                display: "block",
               }}
-            >
-              <Link
-                href="/events"
-                aria-label="Back to events"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 36, height: 36, borderRadius: "50%",
-                  background: "rgba(0,0,0,0.38)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  textDecoration: "none", color: "#fff", flexShrink: 0,
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 18l-6-6 6-6" />
-                </svg>
-              </Link>
-              <EventOwnerActions
-                compact
-                eventId={id}
-                creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-                source={event.source}
-                eventData={ownerEventData}
-              />
-            </div>
-
-            {/* Hero text — bottom 4 (≈24 px lower than previous bottom 28) */}
-            <div
-              style={{
-                position: "absolute", bottom: 4, left: 0, right: 0,
-                padding: "0 24px 8px",
-                textAlign: "center",
-                zIndex: 1,
-              }}
-            >
-              <h1
-                style={{
-                  color: "#fff", fontSize: 30, fontWeight: 800,
-                  lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 8,
-                  textShadow: "0 2px 20px rgba(0,0,0,0.80), 0 1px 6px rgba(0,0,0,0.55)",
-                }}
-              >
-                {event.title}
-              </h1>
-              <div style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0, textShadow: "0 1px 8px rgba(0,0,0,0.75)" }}>
-                {dateLine}{timeLine ? ` · ${timeLine}` : ""}
-              </div>
-              {address && (
-                <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, textShadow: "0 1px 6px rgba(0,0,0,0.70)" }}>
-                  {address}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── [A] Reflection ───────────────────────────────────────────── */}
-          {event.image_url && (
-            <div
-              aria-hidden="true"
-              style={{
-                height: 220,
-                overflow: "hidden",
-                position: "relative",
-                zIndex: 0,
-                marginTop: -20,   /* overlaps [B] by 20 px; [B] zIndex 1 covers the seam */
-              }}
-            >
-              <img
-                src={event.image_url}
-                alt=""
-                style={{
-                  position: "absolute",
-                  top: 0, left: 0,
-                  width: "100%",
-                  height: 360,
-                  objectFit: "cover",
-                  objectPosition: "center top",
-                  transform: "scaleY(-1)",
-                  /* transformOrigin intentionally omitted → browser default 50% 50%
-                     maps original-y=360 to painted-y=0, so the bottom of the main
-                     image appears at the top of the reflection. overflow:hidden then
-                     clips the 360 px img to show only the top 220 px of that output. */
-                  filter: "blur(40px)",
-                  opacity: 0.75,   /* ← boosted temporarily so the layer is easy to spot */
-                  display: "block",
-                }}
-              />
-              {/* Soft bottom fade — transparent → page background */}
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(to bottom, transparent 40%, var(--background) 100%)",
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
+            />
+          ) : (
+            <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* ── [C] Content — sits on top of [A], no background ─────────── */}
-          {/* marginTop -200 = -(220 - 20): content starts at y=360, right   */}
-          {/* below [B], overlapping the reflection. No background → [A]      */}
-          {/* shows through the transparent content wrapper.                   */}
-          <div style={{ marginTop: event.image_url ? -200 : 0, position: "relative", zIndex: 1 }}>
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+          {/* Dark gradient rising from the bottom — forms the transition zone */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.48) 28%, rgba(0,0,0,0.10) 55%, transparent 75%)",
+            }}
+          />
 
-              {/* RSVP */}
-              <div style={{ paddingTop: 24, paddingBottom: 4 }}>
+          {/* Nav controls */}
+          <div
+            style={{
+              position: "absolute", top: 20, left: 16, right: 16,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              zIndex: 1,
+            }}
+          >
+            <Link
+              href="/events"
+              aria-label="Back to events"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(0,0,0,0.38)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                textDecoration: "none", color: "#fff", flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </Link>
+            <EventOwnerActions
+              compact
+              eventId={id}
+              creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+              source={event.source}
+              eventData={ownerEventData}
+            />
+          </div>
+
+          {/* Title + metadata — inside the dark transition zone */}
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              padding: "0 24px 28px",
+              textAlign: "center",
+              zIndex: 1,
+            }}
+          >
+            <h1
+              style={{
+                color: "#fff", fontSize: 30, fontWeight: 800,
+                lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 8,
+                textShadow: "0 2px 16px rgba(0,0,0,0.70)",
+              }}
+            >
+              {event.title}
+            </h1>
+            <div style={{ color: "rgba(255,255,255,0.88)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0 }}>
+              {dateLine}{timeLine ? ` · ${timeLine}` : ""}
+            </div>
+            {address && (
+              <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>
+                {address}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Content area ──────────────────────────────────────────────────
+             Top gradient continues the dark transition from the hero.
+             Fades from a dark tint to transparent over 96 px, then the
+             normal page background takes over — no hard line.              */}
+        <div
+          style={{
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.06) 48px, transparent 96px)",
+          }}
+        >
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+
+            {/* RSVP */}
+            <div style={{ paddingTop: 24, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
@@ -597,9 +546,8 @@ export default async function EventPage({
             </div>
           )}
 
-            </div>{/* inner maxWidth div */}
-          </div>{/* [C] marginTop wrapper */}
-        </div>{/* outer wrapper */}
+          </div>{/* inner maxWidth div */}
+        </div>{/* content gradient wrapper */}
       </main>
     );
   }
