@@ -112,6 +112,12 @@ export function CreateEventPage() {
   // Description expand
   const [descriptionOpen, setDescriptionOpen] = useState(false);
 
+  // Photo menu
+  const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
+
+  // Location sheet
+  const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+
   // Submit state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +222,7 @@ export function CreateEventPage() {
 
   const canSubmit = Boolean(title.trim() && startDate);
   const dateLine = formatDateLine(startDate, startTime, allDay);
+  const locationLine = isPrivate ? address : venueName;
 
   const fallbackName =
     user?.user_metadata?.full_name ??
@@ -552,25 +559,15 @@ export function CreateEventPage() {
             </button>
           )}
 
-          {/* Change / Remove (when image is set) */}
+          {/* Modify photo (when image is set) */}
           {imagePreview && (
-            <div style={{ position: "absolute", bottom: 96, right: 16, display: "flex", gap: 6, zIndex: 5 }}>
+            <div style={{ position: "absolute", bottom: 96, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 5 }}>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                style={{ ...glassPill, fontSize: 12, padding: "5px 12px" }}
+                onClick={() => setPhotoMenuOpen(true)}
+                style={{ ...glassPill, fontSize: 12, padding: "6px 16px" }}
               >
-                Change
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleImageChange(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
-                style={{ ...glassPill, fontSize: 12, padding: "5px 12px" }}
-              >
-                Remove
+                Modify photo
               </button>
             </div>
           )}
@@ -622,70 +619,23 @@ export function CreateEventPage() {
             </button>
 
             {/* Location row */}
-            <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => setLocationSheetOpen(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                background: "none", border: "none", cursor: "pointer",
+                color: locationLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)",
+                fontSize: 14, fontWeight: locationLine ? 500 : 400,
+                fontFamily: "inherit",
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
-              {isPrivate ? (
-                <input
-                  placeholder="Location (optional)"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="cep-location"
-                  style={{
-                    background: "transparent", border: "none", outline: "none",
-                    color: address ? "rgba(255,255,255,0.85)" : undefined,
-                    fontSize: 14, fontFamily: "inherit",
-                    textAlign: "center", width: "auto", maxWidth: 280, minWidth: 120,
-                  }}
-                />
-              ) : (
-                <div ref={venueWrapperRef} style={{ position: "relative", width: 240 }}>
-                  <input
-                    placeholder="Venue name"
-                    value={venueName}
-                    onChange={(e) => handleVenueNameChange(e.target.value)}
-                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                    autoComplete="off"
-                    className="cep-location"
-                    style={{
-                      width: "100%",
-                      background: "transparent", border: "none", outline: "none",
-                      color: venueName ? "rgba(255,255,255,0.85)" : undefined,
-                      fontSize: 14, fontFamily: "inherit", textAlign: "center",
-                    }}
-                  />
-                  {showSuggestions && (
-                    <ul style={{
-                      position: "absolute", bottom: "100%", left: "50%",
-                      transform: "translateX(-50%)",
-                      zIndex: 50, margin: "0 0 6px", padding: 0, listStyle: "none",
-                      background: "var(--background)", border: "1px solid var(--border-strong)",
-                      borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                      overflow: "hidden", minWidth: 220,
-                    }}>
-                      {suggestions.map((v) => (
-                        <li
-                          key={v.id}
-                          onMouseDown={() => selectVenue(v)}
-                          style={{ padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid var(--border)", fontSize: 14 }}
-                          onMouseEnter={(e) => ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")}
-                          onMouseLeave={(e) => ((e.currentTarget as HTMLLIElement).style.background = "")}
-                        >
-                          <span style={{ fontWeight: 600 }}>{v.name}</span>
-                          {(v.city || v.address_line1) && (
-                            <span style={{ opacity: 0.6, marginLeft: 6 }}>{[v.address_line1, v.city].filter(Boolean).join(", ")}</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-              </div>
-            </div>
+              {locationLine || "Location"}
+            </button>
           </div>
         </div>
         {/* ════════════════════ END CANVAS ════════════════════════════ */}
@@ -886,6 +836,170 @@ export function CreateEventPage() {
           </p>
         </div>
       </form>
+
+      {/* ── Photo action sheet ──────────────────────────────────────── */}
+      {photoMenuOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 400,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "flex-end",
+          }}
+          onClick={() => setPhotoMenuOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              background: "var(--background)",
+              borderRadius: "22px 22px 0 0",
+              paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 4 }}>
+              <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.4 }} />
+            </div>
+            <button
+              type="button"
+              onClick={() => { setPhotoMenuOpen(false); fileInputRef.current?.click(); }}
+              style={{
+                display: "block", width: "100%", padding: "16px 20px",
+                background: "none", border: "none", borderBottom: "1px solid var(--border)",
+                fontSize: 15, fontWeight: 500, cursor: "pointer", color: "inherit",
+                textAlign: "left",
+              }}
+            >
+              Change photo
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPhotoMenuOpen(false); handleImageChange(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+              style={{
+                display: "block", width: "100%", padding: "16px 20px",
+                background: "none", border: "none",
+                fontSize: 15, fontWeight: 500, cursor: "pointer", color: "#dc2626",
+                textAlign: "left",
+              }}
+            >
+              Remove photo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Location sheet ──────────────────────────────────────────── */}
+      {locationSheetOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 400,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "flex-end",
+          }}
+          onClick={(e) => e.target === e.currentTarget && setLocationSheetOpen(false)}
+        >
+          <div
+            style={{
+              width: "100%",
+              background: "var(--background)",
+              borderRadius: "22px 22px 0 0",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
+              <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.4 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", padding: "10px 16px 16px" }}>
+              <button
+                type="button"
+                onClick={() => setLocationSheetOpen(false)}
+                aria-label="Close"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: "var(--btn-bg)", border: "none",
+                  cursor: "pointer", color: "inherit", flexShrink: 0,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 700 }}>Location</span>
+              <button
+                type="button"
+                onClick={() => setLocationSheetOpen(false)}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: 14, fontWeight: 600, color: "var(--accent)",
+                  padding: "4px 0", flexShrink: 0,
+                }}
+              >
+                Done
+              </button>
+            </div>
+            <div style={{ padding: "0 20px 8px" }}>
+              {isPrivate ? (
+                <input
+                  autoFocus
+                  placeholder="Enter address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    fontSize: 15,
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    background: "var(--surface-subtle)",
+                  }}
+                />
+              ) : (
+                <div ref={venueWrapperRef} style={{ position: "relative" }}>
+                  <input
+                    autoFocus
+                    placeholder="Venue name"
+                    value={venueName}
+                    onChange={(e) => handleVenueNameChange(e.target.value)}
+                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    autoComplete="off"
+                    style={{
+                      ...inputStyle,
+                      fontSize: 15,
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: "var(--surface-subtle)",
+                    }}
+                  />
+                  {showSuggestions && (
+                    <ul style={{
+                      position: "absolute", top: "100%", left: 0, right: 0,
+                      zIndex: 50, margin: "4px 0 0", padding: 0, listStyle: "none",
+                      background: "var(--background)", border: "1px solid var(--border-strong)",
+                      borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                      overflow: "hidden",
+                    }}>
+                      {suggestions.map((v) => (
+                        <li
+                          key={v.id}
+                          onMouseDown={() => { selectVenue(v); setLocationSheetOpen(false); }}
+                          style={{ padding: "12px 14px", cursor: "pointer", borderBottom: "1px solid var(--border)", fontSize: 14 }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLLIElement).style.background = "")}
+                        >
+                          <span style={{ fontWeight: 600 }}>{v.name}</span>
+                          {(v.city || v.address_line1) && (
+                            <span style={{ opacity: 0.6, marginLeft: 6 }}>{[v.address_line1, v.city].filter(Boolean).join(", ")}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Date / Time bottom sheet ────────────────────────────────── */}
       {dateSheetOpen && (
