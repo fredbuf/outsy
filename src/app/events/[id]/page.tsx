@@ -339,7 +339,7 @@ export default async function EventPage({
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.48) 28%, rgba(0,0,0,0.10) 55%, transparent 75%)",
+              background: "linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 22%, rgba(0,0,0,0.28) 48%, transparent 70%)",
             }}
           />
 
@@ -375,11 +375,11 @@ export default async function EventPage({
             />
           </div>
 
-          {/* Title + metadata — inside the dark transition zone */}
+          {/* Title + metadata — centred inside the dark transition zone */}
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "0 24px 28px",
+              padding: "0 24px 48px",
               textAlign: "center",
               zIndex: 1,
             }}
@@ -410,13 +410,13 @@ export default async function EventPage({
              normal page background takes over — no hard line.              */}
         <div
           style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.06) 48px, transparent 96px)",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, transparent 80px), var(--surface-subtle)",
           }}
         >
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
             {/* RSVP */}
-            <div style={{ paddingTop: 24, paddingBottom: 4 }}>
+            <div style={{ paddingTop: 44, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
