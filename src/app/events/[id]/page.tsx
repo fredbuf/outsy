@@ -323,8 +323,33 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
+        {/* Blurred image wash — tints the page background with image colours */}
+        {event.image_url && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed", inset: 0, zIndex: -1,
+              overflow: "hidden", pointerEvents: "none",
+            }}
+          >
+            <img
+              src={event.image_url}
+              alt=""
+              style={{
+                position: "absolute", top: 0, left: "50%",
+                transform: "translateX(-50%)",
+                width: "100%", height: "60vh",
+                objectFit: "cover",
+                filter: "blur(72px) saturate(1.3)",
+                opacity: 0.14,
+                transformOrigin: "top center",
+              }}
+            />
+          </div>
+        )}
+
         {/* ①②  Full-bleed hero ─────────────────────────────────────────────── */}
-        <div style={{ position: "relative", width: "100%", minHeight: 420 }}>
+        <div style={{ position: "relative", width: "100%", minHeight: 440 }}>
           {/* Background: image or category-coloured gradient */}
           {event.image_url ? (
             <img
@@ -339,12 +364,12 @@ export default async function EventPage({
             <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Gradient: dark top-bar + heavy bottom fade */}
+          {/* Gradient: nav scrim at top + deep fade at bottom that bleeds into the tinted page */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 28%, transparent 35%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.82) 100%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.52) 0%, transparent 22%, transparent 40%, rgba(0,0,0,0.22) 58%, rgba(0,0,0,0.78) 78%, rgba(0,0,0,0.96) 100%)",
             }}
           />
 
@@ -379,24 +404,26 @@ export default async function EventPage({
             />
           </div>
 
-          {/* Hero text — absolute bottom */}
+          {/* Hero text — absolute bottom, centred */}
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "0 20px 28px",
+              padding: "0 24px 32px",
+              textAlign: "center",
             }}
           >
             <h1
               style={{
-                color: "#fff", fontSize: 28, fontWeight: 800,
-                lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 10,
+                color: "#fff", fontSize: 30, fontWeight: 800,
+                lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 12,
+                textShadow: "0 2px 12px rgba(0,0,0,0.55)",
               }}
             >
               {event.title}
             </h1>
             {/* Date row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.88)", fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.9)", fontSize: 14, fontWeight: 500, marginBottom: 5, textShadow: "0 1px 4px rgba(0,0,0,0.45)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.75 }}>
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
               </svg>
@@ -404,8 +431,8 @@ export default async function EventPage({
             </div>
             {/* Time row */}
             {timeLine && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: address ? 4 : 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.72)", fontSize: 13, marginBottom: address ? 5 : 0, textShadow: "0 1px 4px rgba(0,0,0,0.45)" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.7 }}>
                   <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                 </svg>
                 {timeLine}{endTime ? ` – ${endTime}` : ""}
@@ -413,8 +440,8 @@ export default async function EventPage({
             )}
             {/* Address row */}
             {address && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.7)", fontSize: 13 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.65)", fontSize: 13, textShadow: "0 1px 4px rgba(0,0,0,0.45)" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.7 }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                 </svg>
                 {address}
