@@ -428,10 +428,22 @@ export default async function EventPage({
           />
         </div>
 
-        {/* ── Content area ─────────────────────────────────────────────────
-             Plain page background; the downward gradient above provides
-             the soft transition — no extra background blending needed.    */}
-        <div style={{ background: "var(--surface-subtle)" }}>
+        {/* ── Content area — forced dark surface ───────────────────────
+             CSS variables are overridden here so every child component
+             (ActionBar, CopyInviteLink, AttendeeList, etc.) automatically
+             uses dark-appropriate colours without per-component changes.  */}
+        <div style={{
+          background: "#111110",
+          color: "#eae8e4",
+          "--border":        "rgba(255,255,255,0.10)",
+          "--border-strong": "rgba(255,255,255,0.18)",
+          "--btn-bg":        "rgba(255,255,255,0.07)",
+          "--btn-bg-active": "rgba(255,255,255,0.13)",
+          "--surface-subtle":"rgba(255,255,255,0.04)",
+          "--background":    "#111110",
+          "--foreground":    "#eae8e4",
+          "--accent":        "#a78bfa",
+        } as React.CSSProperties}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
             {/* RSVP */}
