@@ -339,7 +339,7 @@ export default async function EventPage({
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, transparent 28%), linear-gradient(to top, #0d0d0d 0%, rgba(13,13,13,0.55) 22%, transparent 52%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, transparent 28%), linear-gradient(to top, rgba(0,0,0,0.50) 0%, transparent 100px)",
             }}
           />
 
@@ -418,16 +418,12 @@ export default async function EventPage({
              Top gradient runs from the dark band colour to transparent,
              then the page background takes over with no hard line.         */}
         <div
-          style={{
-            background: "linear-gradient(to bottom, rgba(10,9,8,0.9) 0%, rgba(10,9,8,0.7) 25%, rgba(10,9,8,0.4) 50%, rgba(10,9,8,0.15) 75%, transparent 100%), var(--surface-subtle)",
-            backgroundSize: "100% 160px, 100%",
-            backgroundRepeat: "no-repeat",
-          }}
+          style={{ background: "var(--surface-subtle)" }}
         >
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
             {/* RSVP */}
-            <div style={{ paddingTop: 44, paddingBottom: 4 }}>
+            <div style={{ paddingTop: 44, paddingBottom: 4, boxShadow: "0 -20px 40px rgba(0,0,0,0.08)" }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
