@@ -95,16 +95,8 @@ export function ActionBar({
   const isPublic = visibility === "public";
   const hasTickets = isPublic && !!sourceUrl;
 
-  // Color palette for private-event active states
-  const PRIVATE_COLORS: Record<RsvpResponse, { bg: string; fg: string }> = {
-    going:    { bg: "rgba(16, 185, 129, 0.15)",  fg: "#10b981" },
-    maybe:    { bg: "rgba(245, 158, 11, 0.15)",  fg: "#f59e0b" },
-    cant_go:  { bg: "rgba(239, 68, 68, 0.14)",   fg: "#ef4444" },
-  };
-
   function segmentStyle(response: RsvpResponse) {
     const active = myResponse === response;
-    const privateColor = !isPublic && active ? PRIVATE_COLORS[response] : null;
     return {
       flex: 1,
       display: "flex" as const,
@@ -113,15 +105,15 @@ export function ActionBar({
       gap: 4,
       padding: "10px 6px",
       borderRadius: 11,
-      border: privateColor ? `1.5px solid ${privateColor.fg}33` : "none",
-      background: privateColor ? privateColor.bg : active ? "var(--background)" : "transparent",
+      border: "none",
+      background: active ? "var(--background)" : "transparent",
       fontWeight: active ? 600 : 400,
       fontSize: 13,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
-      color: (privateColor ? privateColor.fg : active && response === "maybe" ? "#f59e0b" : "inherit") as string,
+      color: (active && response === "maybe" && isPublic ? "#f59e0b" : "inherit") as string,
       transition: "background 0.15s, color 0.15s",
-      boxShadow: active && !privateColor ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+      boxShadow: active ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
     };
   }
 
@@ -137,47 +129,62 @@ export function ActionBar({
           padding: 3,
           gap: 2,
         }}>
-          {/* Going */}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
-            style={segmentStyle("going")}
-          >
-            <CheckIcon />
-            <span>
-              Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
-            </span>
-          </button>
+            {isPublic ? (
+            <>
+              {/* Going */}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
+                style={segmentStyle("going")}
+              >
+                <CheckIcon />
+                <span>
+                  Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
+                </span>
+              </button>
 
-          {/* Interested / Maybe */}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
-            style={segmentStyle("maybe")}
-          >
-            {isPublic ? <StarIcon filled={myResponse === "maybe"} /> : <ClockIcon />}
-            <span>
-              {isPublic ? "Interested" : "Maybe"}{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
-            </span>
-          </button>
-
-          {/* Not going — private events only, inside segment */}
-          {!isPublic && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
-              style={segmentStyle("cant_go")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-              <span>
-                Can&apos;t go{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}
-              </span>
-            </button>
+              {/* Interested */}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
+                style={segmentStyle("maybe")}
+              >
+                <StarIcon filled={myResponse === "maybe"} />
+                <span>
+                  Interested{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Private: Going / Can't go / Maybe — text only, no icons */}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
+                style={segmentStyle("going")}
+              >
+                <span>Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}</span>
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
+                style={segmentStyle("cant_go")}
+              >
+                <span>Can&apos;t go{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}</span>
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
+                style={segmentStyle("maybe")}
+              >
+                <span>Maybe{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}</span>
+              </button>
+            </>
           )}
         </div>
 
