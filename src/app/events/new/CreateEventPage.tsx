@@ -109,6 +109,9 @@ export function CreateEventPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const venueWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Description expand
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
+
   // Submit state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -404,8 +407,10 @@ export function CreateEventPage() {
             height: 240,
             background: imagePreview
               ? undefined
-              : "linear-gradient(135deg, var(--surface-raised) 0%, var(--surface-subtle) 100%)",
+              : "var(--surface-raised)",
+            cursor: imagePreview ? "default" : "pointer",
           }}
+          onClick={() => !imagePreview && fileInputRef.current?.click()}
         >
           {imagePreview && (
             <img
@@ -420,13 +425,14 @@ export function CreateEventPage() {
               }}
             />
           )}
-          {/* Subtle gradient overlay */}
+          {/* Gradient overlay */}
           <div
             style={{
               position: "absolute",
               inset: 0,
-              background:
-                "linear-gradient(to top, rgba(0,0,0,0.25) 0%, transparent 50%)",
+              background: imagePreview
+                ? "linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 50%)"
+                : "none",
               pointerEvents: "none",
             }}
           />
@@ -434,6 +440,7 @@ export function CreateEventPage() {
           {/* Back link */}
           <Link
             href="/"
+            onClick={(e) => e.stopPropagation()}
             style={{
               position: "absolute",
               top: 14,
@@ -467,90 +474,102 @@ export function CreateEventPage() {
             </svg>
           </Link>
 
-          {/* Cover photo controls */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 14,
-              right: 14,
-              display: "flex",
-              gap: 8,
-            }}
-          >
-            {imagePreview ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.35)",
-                    background: "rgba(0,0,0,0.42)",
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Change
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleImageChange(null);
-                    if (fileInputRef.current) fileInputRef.current.value = "";
-                  }}
-                  style={{
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.35)",
-                    background: "rgba(0,0,0,0.42)",
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Remove
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
+          {/* Empty state: centered primary CTA */}
+          {!imagePreview && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                pointerEvents: "none",
+              }}
+            >
+              <div
                 style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: "50%",
+                  background: "var(--btn-bg-active)",
                   display: "flex",
                   alignItems: "center",
-                  gap: 7,
-                  padding: "8px 14px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border-strong)",
-                  background: "var(--background)",
-                  color: "inherit",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
+                  justifyContent: "center",
                 }}
               >
                 <svg
-                  width="14"
-                  height="14"
+                  width="22"
+                  height="22"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
+                  strokeWidth="1.8"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  style={{ opacity: 0.6 }}
                 >
                   <rect x="3" y="3" width="18" height="18" rx="2" />
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
-                Add cover photo
+              </div>
+              <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.5 }}>
+                Add background photo
+              </span>
+            </div>
+          )}
+
+          {/* Image controls (only when image is set) */}
+          {imagePreview && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 14,
+                right: 14,
+                display: "flex",
+                gap: 8,
+              }}
+            >
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  background: "rgba(0,0,0,0.42)",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Change
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleImageChange(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  background: "rgba(0,0,0,0.42)",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         <input
@@ -633,6 +652,8 @@ export function CreateEventPage() {
             ))}
           </div>
 
+          <style>{`.cep-title::placeholder{opacity:0.28;}`}</style>
+
           {/* ── Info card ───────────────────────────────────────────── */}
           <div
             style={{
@@ -648,6 +669,7 @@ export function CreateEventPage() {
               placeholder="Event title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              className="cep-title"
               style={{
                 display: "block",
                 width: "100%",
@@ -657,7 +679,7 @@ export function CreateEventPage() {
                 background: "transparent",
                 fontSize: 17,
                 fontWeight: 600,
-                color: "inherit",
+                color: title ? "var(--foreground)" : "inherit",
                 outline: "none",
                 fontFamily: "inherit",
               }}
@@ -701,9 +723,9 @@ export function CreateEventPage() {
               <span
                 style={{
                   flex: 1,
-                  fontSize: 14,
-                  opacity: dateLine ? 1 : 0.4,
-                  fontWeight: dateLine ? 500 : 400,
+                  fontSize: dateLine ? 15 : 14,
+                  opacity: dateLine ? 1 : 0.35,
+                  fontWeight: dateLine ? 600 : 400,
                 }}
               >
                 {dateLine || "Date & time"}
@@ -758,7 +780,8 @@ export function CreateEventPage() {
                     padding: "14px 0",
                     border: "none",
                     background: "transparent",
-                    fontSize: 14,
+                    fontSize: address ? 15 : 14,
+                    fontWeight: address ? 500 : 400,
                     color: "inherit",
                     outline: "none",
                     fontFamily: "inherit",
@@ -778,7 +801,8 @@ export function CreateEventPage() {
                       border: "none",
                       borderBottom: venueId ? "1.5px solid #16a34a" : "none",
                       background: "transparent",
-                      fontSize: 14,
+                      fontSize: venueName ? 15 : 14,
+                      fontWeight: venueName ? 500 : 400,
                       color: "inherit",
                       outline: "none",
                       fontFamily: "inherit",
@@ -961,28 +985,75 @@ export function CreateEventPage() {
           )}
 
           {/* ── Description ─────────────────────────────────────────── */}
-          <textarea
-            placeholder="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
+          <div
             style={{
-              display: "block",
-              width: "100%",
-              boxSizing: "border-box",
-              marginTop: 16,
-              padding: "14px",
+              marginTop: 10,
               borderRadius: 14,
               border: "1px solid var(--border)",
-              fontSize: 14,
-              background: "transparent",
-              color: "inherit",
-              resize: "vertical",
-              outline: "none",
-              fontFamily: "inherit",
-              lineHeight: 1.6,
+              background: "var(--background)",
+              overflow: "hidden",
             }}
-          />
+          >
+            {descriptionOpen || description ? (
+              <textarea
+                autoFocus={descriptionOpen && !description}
+                placeholder="What's this event about?"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                onBlur={() => { if (!description) setDescriptionOpen(false); }}
+                rows={4}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "14px 16px",
+                  border: "none",
+                  fontSize: 14,
+                  background: "transparent",
+                  color: "inherit",
+                  resize: "vertical",
+                  outline: "none",
+                  fontFamily: "inherit",
+                  lineHeight: 1.6,
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDescriptionOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  width: "100%",
+                  padding: "14px 16px",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: "inherit",
+                }}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ flexShrink: 0, opacity: 0.45 }}
+                >
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span style={{ fontSize: 14, opacity: 0.35, fontWeight: 400 }}>
+                  Add a description
+                </span>
+              </button>
+            )}
+          </div>
 
           {error && (
             <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 0 0" }}>{error}</p>
