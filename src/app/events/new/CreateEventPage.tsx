@@ -400,14 +400,67 @@ export function CreateEventPage() {
   return (
     <>
       <form onSubmit={handleSubmit}>
+
+        {/* ── Visibility toggle — above cover ─────────────────────── */}
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 16px 0" }}>
+          <div
+            style={{
+              display: "flex",
+              background: "var(--btn-bg)",
+              borderRadius: 12,
+              padding: 3,
+              gap: 2,
+            }}
+          >
+            {(["private", "public"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVisibility(v)}
+                style={{
+                  flex: 1,
+                  padding: "7px 10px",
+                  borderRadius: 9,
+                  border: "none",
+                  background: visibility === v ? "var(--background)" : "transparent",
+                  fontWeight: visibility === v ? 600 : 400,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  color: "inherit",
+                  boxShadow: visibility === v ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+                  transition: "background 0.15s",
+                }}
+              >
+                {v === "private" ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                )}
+                {v === "private" ? "Private" : "Public"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* ── Cover image ─────────────────────────────────────────── */}
         <div
           style={{
             position: "relative",
-            height: 240,
+            height: 220,
+            marginTop: 14,
             background: imagePreview
               ? undefined
-              : "var(--surface-raised)",
+              : "linear-gradient(160deg, var(--surface-raised) 0%, var(--btn-bg) 100%)",
             cursor: imagePreview ? "default" : "pointer",
           }}
           onClick={() => !imagePreview && fileInputRef.current?.click()}
@@ -460,19 +513,39 @@ export function CreateEventPage() {
             }}
             aria-label="Back"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </Link>
+
+          {/* Preview pill — top right */}
+          <button
+            type="button"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute",
+              top: 14,
+              right: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "7px 13px",
+              borderRadius: 20,
+              border: imagePreview ? "1px solid rgba(255,255,255,0.25)" : "1px solid var(--border)",
+              background: imagePreview ? "rgba(0,0,0,0.32)" : "var(--btn-bg)",
+              color: imagePreview ? "#fff" : "inherit",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              opacity: 0.85,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            Preview
+          </button>
 
           {/* Empty state: centered primary CTA */}
           {!imagePreview && (
@@ -582,81 +655,12 @@ export function CreateEventPage() {
 
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
 
-          {/* ── Visibility pill toggle ──────────────────────────────── */}
-          <div
-            style={{
-              display: "flex",
-              background: "var(--btn-bg)",
-              borderRadius: 12,
-              padding: 3,
-              gap: 2,
-              margin: "20px 0",
-            }}
-          >
-            {(["private", "public"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setVisibility(v)}
-                style={{
-                  flex: 1,
-                  padding: "9px 12px",
-                  borderRadius: 9,
-                  border: "none",
-                  background: visibility === v ? "var(--background)" : "transparent",
-                  fontWeight: visibility === v ? 600 : 400,
-                  cursor: "pointer",
-                  fontSize: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 7,
-                  color: "inherit",
-                  boxShadow: visibility === v ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
-                  transition: "background 0.15s",
-                }}
-              >
-                {v === "private" ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <rect x="3" y="11" width="18" height="11" rx="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                  </svg>
-                )}
-                {v === "private" ? "Private" : "Public"}
-              </button>
-            ))}
-          </div>
-
           <style>{`.cep-title::placeholder{opacity:0.28;}`}</style>
 
           {/* ── Info card ───────────────────────────────────────────── */}
           <div
             style={{
+              marginTop: 16,
               borderRadius: 14,
               border: "1px solid var(--border)",
               overflow: "hidden",
@@ -674,14 +678,15 @@ export function CreateEventPage() {
                 display: "block",
                 width: "100%",
                 boxSizing: "border-box",
-                padding: "16px",
+                padding: "18px 16px 14px",
                 border: "none",
                 background: "transparent",
-                fontSize: 17,
-                fontWeight: 600,
+                fontSize: 18,
+                fontWeight: 700,
                 color: title ? "var(--foreground)" : "inherit",
                 outline: "none",
                 fontFamily: "inherit",
+                textAlign: "center",
               }}
             />
 
@@ -1100,7 +1105,7 @@ export function CreateEventPage() {
             position: "fixed",
             inset: 0,
             zIndex: 400,
-            background: "rgba(0,0,0,0.5)",
+            background: "rgba(0,0,0,0.45)",
             display: "flex",
             alignItems: "flex-end",
           }}
@@ -1110,107 +1115,84 @@ export function CreateEventPage() {
             style={{
               width: "100%",
               background: "var(--background)",
-              borderRadius: "20px 20px 0 0",
-              maxHeight: "85vh",
+              borderRadius: "22px 22px 0 0",
+              maxHeight: "90vh",
               overflowY: "auto",
-              paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
             {/* Drag handle */}
-            <div
-              style={{ display: "flex", justifyContent: "center", padding: "12px 0 8px" }}
-            >
-              <div
-                style={{
-                  width: 36,
-                  height: 4,
-                  borderRadius: 2,
-                  background: "var(--border-strong)",
-                  opacity: 0.6,
-                }}
-              />
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
+              <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.4 }} />
             </div>
 
-            <div style={{ padding: "4px 20px 20px", display: "grid", gap: 20 }}>
-              {/* Header */}
-              <div
+            {/* Header: X left · title center · Done right */}
+            <div style={{ display: "flex", alignItems: "center", padding: "10px 16px 4px" }}>
+              <button
+                type="button"
+                onClick={() => setDateSheetOpen(false)}
+                aria-label="Close"
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: "var(--btn-bg)", border: "none",
+                  cursor: "pointer", color: "inherit", flexShrink: 0,
                 }}
               >
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Date &amp; time</h3>
-                <button
-                  type="button"
-                  onClick={() => setDateSheetOpen(false)}
-                  aria-label="Close"
-                  style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 22,
-                    lineHeight: 1,
-                    opacity: 0.35,
-                    color: "inherit",
-                  }}
-                >
-                  ×
-                </button>
-              </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 700 }}>
+                Date &amp; time
+              </span>
+              <button
+                type="button"
+                onClick={() => setDateSheetOpen(false)}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: 14, fontWeight: 600, color: "var(--accent)",
+                  padding: "4px 0", flexShrink: 0,
+                }}
+              >
+                Done
+              </button>
+            </div>
 
-              {/* All day toggle */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ fontSize: 14, fontWeight: 500 }}>All day</span>
+            <div style={{ padding: "16px 20px 8px", display: "grid", gap: 28 }}>
+
+              {/* All day row */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 44 }}>
+                <span style={{ fontSize: 16, fontWeight: 500 }}>All day</span>
                 <button
                   type="button"
                   onClick={() => setAllDay((v) => !v)}
                   aria-pressed={allDay}
                   style={{
-                    width: 44,
-                    height: 26,
-                    borderRadius: 13,
-                    border: "none",
+                    width: 48, height: 28, borderRadius: 14, border: "none",
                     cursor: "pointer",
                     background: allDay ? "var(--accent)" : "var(--btn-bg-active)",
-                    position: "relative",
-                    transition: "background 0.2s",
-                    flexShrink: 0,
+                    position: "relative", transition: "background 0.2s", flexShrink: 0,
                   }}
                 >
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 3,
-                      left: allDay ? 21 : 3,
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: "#fff",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                      transition: "left 0.2s",
-                    }}
-                  />
+                  <span style={{
+                    position: "absolute", top: 3, left: allDay ? 23 : 3,
+                    width: 22, height: 22, borderRadius: "50%",
+                    background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                    transition: "left 0.18s",
+                  }} />
                 </button>
               </div>
 
-              {/* Start */}
-              <div style={{ display: "grid", gap: 8 }}>
-                <span style={{ fontSize: 12, opacity: 0.5, fontWeight: 500 }}>START</span>
-                <div
-                  className="col-stack"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: allDay ? "1fr" : "1fr 1fr",
-                    gap: 10,
-                  }}
-                >
+              {/* START section */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
+                  textTransform: "uppercase", opacity: 0.4,
+                }}>
+                  Start
+                </span>
+                <div style={{ display: "grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap: 10 }}>
                   <input
                     type="date"
                     value={startDate}
@@ -1218,115 +1200,108 @@ export function CreateEventPage() {
                       setStartDate(e.target.value);
                       if (!endDate) setEndDate(e.target.value);
                     }}
-                    style={inputStyle}
+                    style={{
+                      padding: "14px 16px", borderRadius: 12,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface-subtle)",
+                      color: "inherit", fontSize: 15,
+                      width: "100%", boxSizing: "border-box",
+                    }}
                   />
                   {!allDay && (
                     <input
                       type="time"
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      style={inputStyle}
+                      style={{
+                        padding: "14px 16px", borderRadius: 12,
+                        border: "1px solid var(--border)",
+                        background: "var(--surface-subtle)",
+                        color: "inherit", fontSize: 15,
+                        width: "100%", boxSizing: "border-box",
+                      }}
                     />
                   )}
                 </div>
               </div>
 
-              {/* End time */}
+              {/* Add end time / END section */}
               {!showEndTime ? (
                 <button
                   type="button"
                   onClick={() => setShowEndTime(true)}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    opacity: 0.6,
-                    color: "inherit",
-                    padding: 0,
-                    fontFamily: "inherit",
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: "var(--surface-subtle)", border: "none",
+                    borderRadius: 12, padding: "14px 16px",
+                    cursor: "pointer", color: "inherit", fontFamily: "inherit",
+                    fontSize: 14, fontWeight: 500, opacity: 0.7, width: "100%",
+                    textAlign: "left",
                   }}
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                   Add end time
                 </button>
               ) : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <span style={{ fontSize: 12, opacity: 0.5, fontWeight: 500 }}>END</span>
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, letterSpacing: "0.07em",
+                      textTransform: "uppercase", opacity: 0.4,
+                    }}>
+                      End
+                    </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowEndTime(false);
-                        setEndDate("");
-                        setEndTime("");
-                      }}
+                      onClick={() => { setShowEndTime(false); setEndDate(""); setEndTime(""); }}
                       style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        fontSize: 12,
-                        opacity: 0.5,
-                        color: "inherit",
-                        fontFamily: "inherit",
+                        background: "none", border: "none", cursor: "pointer",
+                        fontSize: 13, color: "#ef4444", fontFamily: "inherit", fontWeight: 500,
                       }}
                     >
                       Remove
                     </button>
                   </div>
-                  <div
-                    className="col-stack"
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: allDay ? "1fr" : "1fr 1fr",
-                      gap: 10,
-                    }}
-                  >
+                  <div style={{ display: "grid", gridTemplateColumns: allDay ? "1fr" : "1fr 1fr", gap: 10 }}>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      style={inputStyle}
+                      style={{
+                        padding: "14px 16px", borderRadius: 12,
+                        border: "1px solid var(--border)",
+                        background: "var(--surface-subtle)",
+                        color: "inherit", fontSize: 15,
+                        width: "100%", boxSizing: "border-box",
+                      }}
                     />
                     {!allDay && (
                       <input
                         type="time"
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        style={inputStyle}
+                        style={{
+                          padding: "14px 16px", borderRadius: 12,
+                          border: "1px solid var(--border)",
+                          background: "var(--surface-subtle)",
+                          color: "inherit", fontSize: 15,
+                          width: "100%", boxSizing: "border-box",
+                        }}
                       />
                     )}
                   </div>
                 </div>
               )}
 
+              {/* Done button */}
               <button
                 type="button"
                 onClick={() => setDateSheetOpen(false)}
                 style={{
-                  padding: "13px",
-                  borderRadius: 12,
+                  padding: "15px",
+                  borderRadius: 14,
                   border: "none",
                   background: "var(--foreground)",
                   color: "var(--background)",
