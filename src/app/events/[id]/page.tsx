@@ -317,7 +317,16 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
-        {/* Blurred image wash — tints the page background with image colours */}
+        {/* ── Background system ────────────────────────────────────────────────
+             Layer 1 (fixed, zIndex -2): blurred atmospheric wash — tints the
+             entire page top with the image colours so content sits inside the
+             same atmosphere as the image.
+             Layer 2 (inside hero): the sharp image, intentionally shorter than
+             its container, so the bottom of the hero is pure blurred-bg.
+             Layer 3: warm-tinted gradient (not black) fades the sharp image
+             edge away into the atmospheric background.                        */}
+
+        {/* Layer 1 — blurred atmospheric wash */}
         {event.image_url && (
           <div
             aria-hidden="true"
@@ -331,39 +340,45 @@ export default async function EventPage({
               alt=""
               style={{
                 position: "absolute", top: 0, left: "50%",
-                transform: "translateX(-50%)",
-                width: "100%", height: "60vh",
+                transform: "translateX(-50%) scale(1.06)",
+                width: "100%", height: "85vh",
                 objectFit: "cover",
-                filter: "blur(72px) saturate(1.3)",
-                opacity: 0.14,
+                filter: "blur(40px) saturate(1.6)",
+                opacity: 0.28,
                 transformOrigin: "top center",
               }}
             />
           </div>
         )}
 
-        {/* ①②  Full-bleed hero ─────────────────────────────────────────────── */}
-        <div style={{ position: "relative", width: "100%", minHeight: 440 }}>
-          {/* Background: image or category-coloured gradient */}
+        {/* ②  Hero container — holds nav controls + text */}
+        <div style={{ position: "relative", width: "100%", minHeight: 400 }}>
+          {/* Layer 2 — sharp image, fills only the top 80% of the container.
+              The uncovered bottom 20% lets the blurred wash show through,
+              creating a natural image → blurred-atmosphere transition. */}
           {event.image_url ? (
             <img
               src={event.image_url}
               alt=""
               style={{
-                position: "absolute", inset: 0, width: "100%", height: "100%",
-                objectFit: "cover", display: "block",
+                position: "absolute", top: 0, left: 0, right: 0,
+                width: "100%", height: "80%",
+                objectFit: "cover", objectPosition: "center top",
+                display: "block",
               }}
             />
           ) : (
             <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Gradient: nav scrim at top + aggressive fade at bottom for seamless page blend */}
+          {/* Layer 3 — warm atmospheric gradient (dark purple-brown, not pure black)
+              Top scrim protects nav buttons. Center is clear. Bottom ramp
+              dissolves the sharp image edge into the blurred wash below. */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 18%, transparent 34%, rgba(0,0,0,0.45) 52%, rgba(0,0,0,0.88) 70%, rgba(0,0,0,0.97) 84%, rgba(0,0,0,1) 100%)",
+              background: "linear-gradient(to bottom, rgba(14,9,22,0.55) 0%, transparent 16%, transparent 32%, rgba(14,9,22,0.38) 50%, rgba(14,9,22,0.80) 66%, rgba(14,9,22,0.95) 80%, rgba(14,9,22,0.99) 100%)",
             }}
           />
 
