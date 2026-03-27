@@ -561,7 +561,7 @@ export function CreateEventPage() {
 
           {/* Modify photo (when image is set) */}
           {imagePreview && (
-            <div style={{ position: "absolute", bottom: 96, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 5 }}>
+            <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 5 }}>
               <button
                 type="button"
                 onClick={() => setPhotoMenuOpen(true)}
