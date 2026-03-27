@@ -382,6 +382,20 @@ export default async function EventPage({
             }}
           />
 
+          {/* Seam eraser — absolute child positioned at top:100% so it starts exactly
+              at the hero's bottom edge and bleeds 44px into the content zone below.
+              Fades from the hero's bottom tone to fully transparent, hiding the hard
+              edge between the hero and the content div. pointer-events:none means
+              the RSVP buttons underneath remain fully interactive. */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", top: "100%", left: 0, right: 0,
+              height: 44, pointerEvents: "none",
+              background: "linear-gradient(to bottom, rgba(14,9,22,0.90), transparent)",
+            }}
+          />
+
           {/* Nav controls — absolute top */}
           <div
             style={{
@@ -446,8 +460,8 @@ export default async function EventPage({
         {/* Content below hero ───────────────────────────────────────────────── */}
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
-          {/* ③ RSVP */}
-          <div style={{ paddingTop: 20, paddingBottom: 4 }}>
+          {/* ③ RSVP — top padding clears the 44px seam-eraser gradient above */}
+          <div style={{ paddingTop: 52, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
