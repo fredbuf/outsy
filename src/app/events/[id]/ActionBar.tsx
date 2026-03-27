@@ -22,14 +22,6 @@ function StarIcon({ filled }: { filled?: boolean }) {
   );
 }
 
-function ClockIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
 
 export function ActionBar({
   eventId,
@@ -95,8 +87,15 @@ export function ActionBar({
   const isPublic = visibility === "public";
   const hasTickets = isPublic && !!sourceUrl;
 
+  const PRIVATE_COLORS: Record<RsvpResponse, { bg: string; border: string; fg: string }> = {
+    going:   { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.25)",  fg: "#10b981" },
+    maybe:   { bg: "rgba(245, 158, 11, 0.15)", border: "rgba(245, 158, 11, 0.25)",  fg: "#f59e0b" },
+    cant_go: { bg: "rgba(239, 68, 68, 0.14)",  border: "rgba(239, 68, 68, 0.22)",   fg: "#ef4444" },
+  };
+
   function segmentStyle(response: RsvpResponse) {
     const active = myResponse === response;
+    const pc = !isPublic && active ? PRIVATE_COLORS[response] : null;
     return {
       flex: 1,
       display: "flex" as const,
@@ -105,15 +104,15 @@ export function ActionBar({
       gap: 4,
       padding: "10px 6px",
       borderRadius: 11,
-      border: "none",
-      background: active ? "var(--background)" : "transparent",
+      border: pc ? `1.5px solid ${pc.border}` : "none",
+      background: pc ? pc.bg : active ? "var(--background)" : "transparent",
       fontWeight: active ? 600 : 400,
       fontSize: 13,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
-      color: (active && response === "maybe" && isPublic ? "#f59e0b" : "inherit") as string,
+      color: (pc ? pc.fg : active && response === "maybe" && isPublic ? "#f59e0b" : "inherit") as string,
       transition: "background 0.15s, color 0.15s",
-      boxShadow: active ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+      boxShadow: active && !pc ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
     };
   }
 

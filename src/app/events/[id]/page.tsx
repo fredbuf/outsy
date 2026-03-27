@@ -299,12 +299,6 @@ export default async function EventPage({
     const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
-    const endTime = event.end_at
-      ? new Date(event.end_at).toLocaleString("en-US", {
-          timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
-        })
-      : null;
-
     const ownerEventData = {
       title: event.title,
       description: event.description ?? "",
@@ -364,12 +358,12 @@ export default async function EventPage({
             <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Gradient: nav scrim at top + deep fade at bottom that bleeds into the tinted page */}
+          {/* Gradient: nav scrim at top + aggressive fade at bottom for seamless page blend */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.52) 0%, transparent 22%, transparent 40%, rgba(0,0,0,0.22) 58%, rgba(0,0,0,0.78) 78%, rgba(0,0,0,0.96) 100%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 18%, transparent 34%, rgba(0,0,0,0.45) 52%, rgba(0,0,0,0.88) 70%, rgba(0,0,0,0.97) 84%, rgba(0,0,0,1) 100%)",
             }}
           />
 
@@ -558,35 +552,12 @@ export default async function EventPage({
             </div>
           )}
 
-          {/* ⑦ Event details */}
-          <div style={{ paddingTop: 16, paddingBottom: 16, display: "grid", gap: 10, borderBottom: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.45 }}>
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{dateLine}</div>
-                {timeLine && (
-                  <div style={{ fontSize: 13, opacity: 0.6, marginTop: 2 }}>
-                    {timeLine}{endTime ? ` – ${endTime}` : ""}
-                  </div>
-                )}
-              </div>
-            </div>
-            {address && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.45 }}>
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-                </svg>
-                <div style={{ fontSize: 14 }}>{address}</div>
-              </div>
-            )}
-          </div>
-
-          {/* ⑧ Description */}
+          {/* ⑦ Description */}
           {event.description && (
-            <div style={{ paddingTop: 16 }}>
+            <div style={{ paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+              <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
+                About
+              </h2>
               <ExpandableDescription text={event.description} />
             </div>
           )}
