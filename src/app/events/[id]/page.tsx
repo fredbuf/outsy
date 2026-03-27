@@ -326,7 +326,14 @@ export default async function EventPage({
              Layer 3: warm-tinted gradient (not black) fades the sharp image
              edge away into the atmospheric background.                        */}
 
-        {/* Layer 1 — blurred atmospheric wash */}
+        {/* Layer 1 — blurred atmospheric wash + reflected extension
+             1a: normal blurred wash covers the upper page atmosphere.
+             1b: same image, flipped vertically (scaleY(-1)), positioned so its
+                 top edge aligns with the hero's fade zone — the bottom of the
+                 original image appears at the top of the reflection, just like
+                 a water mirror. Heavily blurred so it reads as colour/tone, not
+                 as a literal duplicate.
+             1c: warm tint gradient darkens and unifies the reflected region. */}
         {event.image_url && (
           <div
             aria-hidden="true"
@@ -335,6 +342,7 @@ export default async function EventPage({
               overflow: "hidden", pointerEvents: "none",
             }}
           >
+            {/* 1a — normal upper wash */}
             <img
               src={event.image_url}
               alt=""
@@ -343,11 +351,33 @@ export default async function EventPage({
                 transform: "translateX(-50%) scale(1.06)",
                 width: "100%", height: "85vh",
                 objectFit: "cover",
-                filter: "blur(40px) saturate(1.6)",
-                opacity: 0.28,
+                filter: "blur(44px) saturate(1.5)",
+                opacity: 0.22,
                 transformOrigin: "top center",
               }}
             />
+
+            {/* 1b — reflected extension: objectPosition:center bottom shows
+                the bottom of the original image; scaleY(-1) flips it so that
+                portion appears at the TOP of this element, creating the mirror. */}
+            <img
+              src={event.image_url}
+              alt=""
+              style={{
+                position: "absolute", top: "40vh", left: "50%",
+                transform: "translateX(-50%) scaleY(-1)",
+                width: "100%", height: "65vh",
+                objectFit: "cover", objectPosition: "center bottom",
+                filter: "blur(24px) saturate(1.3)",
+                opacity: 0.32,
+              }}
+            />
+
+            {/* 1c — warm tint over the reflected region */}
+            <div style={{
+              position: "absolute", top: "38vh", left: 0, right: 0, bottom: 0,
+              background: "linear-gradient(to bottom, transparent 0%, rgba(14,9,22,0.30) 40%, rgba(14,9,22,0.60) 100%)",
+            }} />
           </div>
         )}
 
@@ -465,7 +495,7 @@ export default async function EventPage({
             style={{
               position: "absolute", top: 0, left: 0, right: 0,
               height: 160, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(14,9,22,0.42) 0%, rgba(14,9,22,0.12) 55%, transparent 100%)",
+              background: "linear-gradient(to bottom, rgba(14,9,22,0.22) 0%, rgba(14,9,22,0.06) 55%, transparent 100%)",
             }}
           />
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px", position: "relative" }}>
