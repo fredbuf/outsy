@@ -455,7 +455,20 @@ export default async function EventPage({
         </div>
 
         {/* Content below hero ───────────────────────────────────────────────── */}
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+        {/* Full-width wrapper carries a tinted top gradient that continues the
+            hero atmosphere into the content area. Works in both light and dark
+            mode because the dark overlay fades to transparent (not to white),
+            letting the page background colour show through naturally below. */}
+        <div style={{ position: "relative" }}>
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", top: 0, left: 0, right: 0,
+              height: 160, pointerEvents: "none",
+              background: "linear-gradient(to bottom, rgba(14,9,22,0.42) 0%, rgba(14,9,22,0.12) 55%, transparent 100%)",
+            }}
+          />
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px", position: "relative" }}>
 
           {/* ③ RSVP — top padding clears the 44px seam-eraser gradient above */}
           <div style={{ paddingTop: 52, paddingBottom: 4 }}>
@@ -589,6 +602,7 @@ export default async function EventPage({
           )}
 
         </div>
+        </div>{/* end full-width wrapper */}
       </main>
     );
   }
