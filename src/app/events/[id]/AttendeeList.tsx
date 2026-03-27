@@ -89,11 +89,13 @@ export function AttendeeList({
   initialAttendees,
   goingCount,
   maybeCount,
+  avatarSize = 30,
 }: {
   eventId: string;
   initialAttendees: Attendee[];
   goingCount: number;
   maybeCount: number;
+  avatarSize?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [allAttendees, setAllAttendees] = useState<FullAttendee[] | null>(null);
@@ -161,29 +163,29 @@ export function AttendeeList({
               <div
                 key={i}
                 style={{
-                  marginLeft: i === 0 ? 0 : -8,
+                  marginLeft: i === 0 ? 0 : -(avatarSize * 0.27),
                   zIndex: initialAttendees.length - i,
                   position: "relative",
                 }}
               >
-                <AvatarCircle a={a} size={30} stackBorder />
+                <AvatarCircle a={a} size={avatarSize} stackBorder />
               </div>
             ))}
             {goingCount > initialAttendees.length && (
               <div
                 style={{
-                  width: 30,
-                  height: 30,
+                  width: avatarSize,
+                  height: avatarSize,
                   borderRadius: "50%",
                   background: "var(--surface-subtle)",
                   border: "2px solid var(--background)",
-                  marginLeft: -8,
+                  marginLeft: -(avatarSize * 0.27),
                   zIndex: 0,
                   position: "relative",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 10,
+                  fontSize: Math.round(avatarSize * 0.33),
                   fontWeight: 700,
                   opacity: 0.75,
                 }}

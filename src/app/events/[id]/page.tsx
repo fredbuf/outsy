@@ -78,6 +78,48 @@ async function fetchAttendees(eventId: string): Promise<Attendee[]> {
     .filter((p): p is Attendee => p !== null);
 }
 
+type ActivityItem = {
+  response: "going" | "maybe" | "cant_go";
+  updated_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
+async function fetchRecentActivity(eventId: string): Promise<ActivityItem[]> {
+  const { data } = await supabaseServer()
+    .from("rsvps")
+    .select("response,updated_at,profiles(display_name,avatar_url)")
+    .eq("event_id", eventId)
+    .in("response", ["going", "maybe", "cant_go"])
+    .order("updated_at", { ascending: false })
+    .limit(3);
+  return (data ?? []).map((row) => {
+    const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      response: row.response as "going" | "maybe" | "cant_go",
+      updated_at: row.updated_at as string,
+      display_name: (p as { display_name: string | null } | null)?.display_name ?? null,
+      avatar_url: (p as { avatar_url: string | null } | null)?.avatar_url ?? null,
+    };
+  });
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
+
+function rsvpActivityLabel(r: "going" | "maybe" | "cant_go"): { text: string; color: string } {
+  if (r === "going")   return { text: "is going",     color: "#10b981" };
+  if (r === "maybe")   return { text: "might go",     color: "#f59e0b" };
+  return                       { text: "can't make it", color: "#ef4444" };
+}
+
 const AVATAR_COLORS = [
   "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
@@ -246,254 +288,299 @@ export default async function EventPage({
   /* ── Private event: social layout ──────────────────────────────────────── */
   if (event.visibility === "private") {
     const address = [venue?.address_line1, venue?.city].filter(Boolean).join(", ");
-    return (
-      <main
-        style={{
-          maxWidth: 560,
-          margin: "0 auto",
-          padding: "20px 16px 64px",
-          display: "grid",
-          gap: 0,
-        }}
-      >
-        {/* Nav row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-          <Link
-            href="/events"
-            aria-label="Back to events"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 40,
-              height: 40,
-              borderRadius: 12,
-              border: "1px solid var(--border-strong)",
-              textDecoration: "none",
-              color: "inherit",
-              opacity: 0.7,
-              flexShrink: 0,
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-          <ShareButton title={event.title} />
-        </div>
+    const recentActivity = await fetchRecentActivity(id);
 
-        {/* Hero image */}
-        {event.image_url && (
-          <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", marginBottom: 24 }}>
+    // Date helpers for the details section
+    const startD = new Date(event.start_at);
+    const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
+    const dateLine = startD.toLocaleString("en-US", {
+      timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
+    });
+    const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
+      timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
+    });
+    const endTime = event.end_at
+      ? new Date(event.end_at).toLocaleString("en-US", {
+          timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
+        })
+      : null;
+
+    const ownerEventData = {
+      title: event.title,
+      description: event.description ?? "",
+      startAt: toDatetimeLocal(event.start_at),
+      endAt: toDatetimeLocal(event.end_at ?? null),
+      category: (event.category_primary as "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family") ?? "concerts",
+      venueName: venue?.name ?? "",
+      venueAddress: venue?.address_line1 ?? "",
+      venueCity: venue?.city ?? "Montréal",
+      sourceUrl: "",
+      visibility: "private" as const,
+      address: venue?.address_line1 ?? venue?.name ?? "",
+      imageUrl: event.image_url ?? null,
+    };
+
+    return (
+      <main style={{ padding: 0 }}>
+
+        {/* ①②  Full-bleed hero ─────────────────────────────────────────────── */}
+        <div style={{ position: "relative", width: "100%", minHeight: 420 }}>
+          {/* Background: image or category-coloured gradient */}
+          {event.image_url ? (
             <img
               src={event.image_url}
-              alt={event.title}
-              style={{ width: "100%", maxHeight: 300, objectFit: "cover", display: "block" }}
-            />
-            <div
+              alt=""
               style={{
-                position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: "40%",
-                background: "linear-gradient(to top, rgba(0,0,0,0.45), transparent)",
-                pointerEvents: "none",
+                position: "absolute", inset: 0, width: "100%", height: "100%",
+                objectFit: "cover", display: "block",
               }}
             />
-          </div>
-        )}
+          ) : (
+            <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
+          )}
 
-        {/* Title */}
-        <h1
-          style={{
-            fontSize: 32,
-            fontWeight: 800,
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            marginBottom: 20,
-          }}
-        >
-          {event.title}
-        </h1>
+          {/* Gradient: dark top-bar + heavy bottom fade */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 28%, transparent 35%, rgba(0,0,0,0.3) 55%, rgba(0,0,0,0.82) 100%)",
+            }}
+          />
 
-        {/* Date / time / address */}
-        {(() => {
-          const d = new Date(event.start_at);
-          const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
-          const dateLine = d.toLocaleString("en-US", {
-            timeZone: "America/Toronto",
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          });
-          const timeLine = isUnknownTime ? null : d.toLocaleString("en-US", {
-            timeZone: "America/Toronto",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          });
-          const endTime = event.end_at
-            ? new Date(event.end_at).toLocaleString("en-US", {
-                timeZone: "America/Toronto",
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : null;
-          return (
-            <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 600 }}>{dateLine}</div>
-                  {timeLine && (
-                    <div style={{ fontSize: 14, opacity: 0.65, marginTop: 2 }}>
-                      {timeLine}{endTime ? ` – ${endTime}` : ""}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {address && (
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.5 }}>
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  <div style={{ fontSize: 15, fontWeight: 500 }}>{address}</div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Hosted by */}
-        {creator && (
+          {/* Nav controls — absolute top */}
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "14px 16px",
-              borderRadius: 14,
-              background: "var(--surface-subtle)",
-              marginBottom: 24,
+              position: "absolute", top: 20, left: 16, right: 16,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
             }}
           >
-            {creator.avatar_url ? (
-              <img
-                src={creator.avatar_url}
-                alt={creator.display_name ?? ""}
-                style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "50%",
-                  background: getAvatarColor(creator.display_name),
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#fff",
-                  userSelect: "none",
-                }}
-              >
-                {getInitials(creator.display_name)}
+            <Link
+              href="/events"
+              aria-label="Back to events"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(0,0,0,0.38)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                textDecoration: "none", color: "#fff", flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </Link>
+            <EventOwnerActions
+              compact
+              eventId={id}
+              creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+              source={event.source}
+              eventData={ownerEventData}
+            />
+          </div>
+
+          {/* Hero text — absolute bottom */}
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              padding: "0 20px 28px",
+            }}
+          >
+            <h1
+              style={{
+                color: "#fff", fontSize: 28, fontWeight: 800,
+                lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 10,
+              }}
+            >
+              {event.title}
+            </h1>
+            {/* Date row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.88)", fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {dateLine}
+            </div>
+            {/* Time row */}
+            {timeLine && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: address ? 4 : 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
+                {timeLine}{endTime ? ` – ${endTime}` : ""}
               </div>
             )}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 2 }}>
-                Hosted by
+            {/* Address row */}
+            {address && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.7)", fontSize: 13 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                </svg>
+                {address}
               </div>
-              {creator.username ? (
-                <Link
-                  href={`/u/${creator.username}`}
-                  style={{ fontSize: 15, fontWeight: 600, textDecoration: "none", color: "inherit" }}
-                >
-                  {creator.display_name ?? `@${creator.username}`}
-                </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Content below hero ───────────────────────────────────────────────── */}
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+
+          {/* ③ RSVP */}
+          <div style={{ paddingTop: 20, paddingBottom: 4 }}>
+            <ActionBar
+              eventId={id}
+              initialCounts={rsvpCounts}
+              sourceUrl={null}
+              visibility="private"
+            />
+          </div>
+
+          {/* ④ Guest preview */}
+          <div
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 12, paddingTop: 18, paddingBottom: 18,
+              borderBottom: "1px solid var(--border)",
+            }}
+          >
+            {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
+              <AttendeeList
+                eventId={id}
+                initialAttendees={attendees}
+                goingCount={rsvpCounts.going}
+                maybeCount={rsvpCounts.maybe}
+                avatarSize={36}
+              />
+            ) : (
+              <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
+            )}
+            <CopyInviteLink title={event.title} visibility="private" />
+          </div>
+
+          {/* ⑤ Activity preview */}
+          {recentActivity.length > 0 && (
+            <div style={{ paddingTop: 6, paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>
+              {recentActivity.map((item, i) => {
+                const label = rsvpActivityLabel(item.response);
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      paddingTop: 10, paddingBottom: 10,
+                    }}
+                  >
+                    {item.avatar_url ? (
+                      <img
+                        src={item.avatar_url}
+                        alt={item.display_name ?? ""}
+                        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 28, height: 28, borderRadius: "50%",
+                          background: getAvatarColor(item.display_name),
+                          flexShrink: 0, display: "flex", alignItems: "center",
+                          justifyContent: "center", fontSize: 10, fontWeight: 700,
+                          color: "#fff", userSelect: "none",
+                        }}
+                      >
+                        {getInitials(item.display_name)}
+                      </div>
+                    )}
+                    <span style={{ fontSize: 13, flex: 1 }}>
+                      <strong>{item.display_name ?? "Someone"}</strong>{" "}
+                      <span style={{ color: label.color }}>{label.text}</span>
+                    </span>
+                    <span style={{ fontSize: 12, opacity: 0.35, flexShrink: 0 }}>
+                      {relativeTime(item.updated_at)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ⑥ Hosted by */}
+          {creator && (
+            <div
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                paddingTop: 16, paddingBottom: 16,
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
+              {creator.avatar_url ? (
+                <img
+                  src={creator.avatar_url}
+                  alt={creator.display_name ?? ""}
+                  style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                />
               ) : (
-                <div style={{ fontSize: 15, fontWeight: 600 }}>
-                  {creator.display_name ?? "a member"}
+                <div
+                  style={{
+                    width: 32, height: 32, borderRadius: "50%",
+                    background: getAvatarColor(creator.display_name),
+                    flexShrink: 0, display: "flex", alignItems: "center",
+                    justifyContent: "center", fontSize: 11, fontWeight: 700,
+                    color: "#fff", userSelect: "none",
+                  }}
+                >
+                  {getInitials(creator.display_name)}
                 </div>
               )}
+              <span style={{ fontSize: 14, opacity: 0.75 }}>
+                Hosted by{" "}
+                {creator.username ? (
+                  <Link
+                    href={`/u/${creator.username}`}
+                    style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}
+                  >
+                    {creator.display_name ?? `@${creator.username}`}
+                  </Link>
+                ) : (
+                  <strong>{creator.display_name ?? "a member"}</strong>
+                )}
+              </span>
             </div>
-          </div>
-        )}
-
-        {/* RSVP */}
-        <div style={{ marginBottom: 24 }}>
-          <ActionBar
-            eventId={id}
-            initialCounts={rsvpCounts}
-            sourceUrl={null}
-            visibility="private"
-          />
-        </div>
-
-        {/* Guest list */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "14px 16px",
-            borderRadius: 14,
-            border: "1px solid var(--border)",
-            marginBottom: 24,
-          }}
-        >
-          {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
-            <AttendeeList
-              eventId={id}
-              initialAttendees={attendees}
-              goingCount={rsvpCounts.going}
-              maybeCount={rsvpCounts.maybe}
-            />
-          ) : (
-            <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
           )}
-          <CopyInviteLink title={event.title} visibility="private" />
-        </div>
 
-        {/* Description */}
-        {event.description && (
-          <div style={{ marginBottom: 24 }}>
-            <ExpandableDescription text={event.description} />
+          {/* ⑦ Event details */}
+          <div style={{ paddingTop: 16, paddingBottom: 16, display: "grid", gap: 10, borderBottom: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.45 }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{dateLine}</div>
+                {timeLine && (
+                  <div style={{ fontSize: 13, opacity: 0.6, marginTop: 2 }}>
+                    {timeLine}{endTime ? ` – ${endTime}` : ""}
+                  </div>
+                )}
+              </div>
+            </div>
+            {address && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2, opacity: 0.45 }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                </svg>
+                <div style={{ fontSize: 14 }}>{address}</div>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Owner actions */}
-        <EventOwnerActions
-          eventId={id}
-          creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-          source={event.source}
-          eventData={{
-            title: event.title,
-            description: event.description ?? "",
-            startAt: toDatetimeLocal(event.start_at),
-            endAt: toDatetimeLocal(event.end_at ?? null),
-            category: (event.category_primary as "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family") ?? "concerts",
-            venueName: venue?.name ?? "",
-            venueAddress: venue?.address_line1 ?? "",
-            venueCity: venue?.city ?? "Montréal",
-            sourceUrl: "",
-            visibility: "private",
-            address: venue?.address_line1 ?? venue?.name ?? "",
-            imageUrl: event.image_url ?? null,
-          }}
-        />
+          {/* ⑧ Description */}
+          {event.description && (
+            <div style={{ paddingTop: 16 }}>
+              <ExpandableDescription text={event.description} />
+            </div>
+          )}
+
+        </div>
       </main>
     );
   }
