@@ -903,20 +903,24 @@ export function CreateEventPage() {
               width: "100%",
               background: "var(--background)",
               borderRadius: "22px 22px 0 0",
+              maxHeight: "90vh", overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
-              <div style={{ width: 32, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.4 }} />
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "10px 16px 16px" }}>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", padding: "14px 20px 8px" }}>
               <button
                 type="button"
                 onClick={() => setLocationSheetOpen(false)}
                 aria-label="Close"
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 32, height: 32, borderRadius: "50%",
+                  width: 34, height: 34, borderRadius: "50%",
                   background: "var(--btn-bg)", border: "none",
                   cursor: "pointer", color: "inherit", flexShrink: 0,
                 }}
@@ -925,77 +929,91 @@ export function CreateEventPage() {
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 700 }}>Location</span>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Location</span>
               <button
                 type="button"
                 onClick={() => setLocationSheetOpen(false)}
                 style={{
                   background: "none", border: "none", cursor: "pointer",
-                  fontSize: 14, fontWeight: 600, color: "var(--accent)",
+                  fontSize: 15, fontWeight: 600, color: "var(--accent)",
                   padding: "4px 0", flexShrink: 0,
                 }}
               >
                 Done
               </button>
             </div>
-            <div style={{ padding: "0 20px 8px" }}>
-              {isPrivate ? (
-                <input
-                  autoFocus
-                  placeholder="Enter address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    fontSize: 15,
-                    padding: "14px 16px",
-                    borderRadius: 12,
-                    background: "var(--surface-subtle)",
-                  }}
-                />
-              ) : (
-                <div ref={venueWrapperRef} style={{ position: "relative" }}>
+
+            <div style={{ padding: "8px 20px 16px" }}>
+              <div style={{ maxWidth: 460, margin: "0 auto", width: "100%" }}>
+
+                {/* Divider */}
+                <div style={{ height: 1, background: "var(--border)", margin: "8px 0 20px" }} />
+
+                {isPrivate ? (
                   <input
                     autoFocus
-                    placeholder="Venue name"
-                    value={venueName}
-                    onChange={(e) => handleVenueNameChange(e.target.value)}
-                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                    autoComplete="off"
+                    placeholder="Enter address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
                     style={{
-                      ...inputStyle,
-                      fontSize: 15,
-                      padding: "14px 16px",
-                      borderRadius: 12,
-                      background: "var(--surface-subtle)",
+                      width: "100%", boxSizing: "border-box",
+                      padding: "11px 14px", borderRadius: 12,
+                      border: "1px solid var(--border)", background: "var(--surface-subtle)",
+                      color: "inherit", fontSize: 15, fontFamily: "inherit",
                     }}
                   />
-                  {showSuggestions && (
-                    <ul style={{
-                      position: "absolute", top: "100%", left: 0, right: 0,
-                      zIndex: 50, margin: "4px 0 0", padding: 0, listStyle: "none",
-                      background: "var(--background)", border: "1px solid var(--border-strong)",
-                      borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-                      overflow: "hidden",
-                    }}>
-                      {suggestions.map((v) => (
-                        <li
-                          key={v.id}
-                          onMouseDown={() => { selectVenue(v); setLocationSheetOpen(false); }}
-                          style={{ padding: "12px 14px", cursor: "pointer", borderBottom: "1px solid var(--border)", fontSize: 14 }}
-                          onMouseEnter={(e) => ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")}
-                          onMouseLeave={(e) => ((e.currentTarget as HTMLLIElement).style.background = "")}
-                        >
-                          <span style={{ fontWeight: 600 }}>{v.name}</span>
-                          {(v.city || v.address_line1) && (
-                            <span style={{ opacity: 0.6, marginLeft: 6 }}>{[v.address_line1, v.city].filter(Boolean).join(", ")}</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
+                ) : (
+                  <div ref={venueWrapperRef} style={{ position: "relative" }}>
+                    <input
+                      autoFocus
+                      placeholder="Venue name"
+                      value={venueName}
+                      onChange={(e) => handleVenueNameChange(e.target.value)}
+                      onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                      autoComplete="off"
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        padding: "11px 14px", borderRadius: 12,
+                        border: "1px solid var(--border)", background: "var(--surface-subtle)",
+                        color: "inherit", fontSize: 15, fontFamily: "inherit",
+                      }}
+                    />
+                    {showSuggestions && (
+                      <ul style={{
+                        position: "absolute", top: "100%", left: 0, right: 0,
+                        zIndex: 50, margin: "4px 0 0", padding: 0, listStyle: "none",
+                        background: "var(--background)", border: "1px solid var(--border-strong)",
+                        borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+                        overflow: "hidden",
+                      }}>
+                        {suggestions.map((v) => (
+                          <li
+                            key={v.id}
+                            onMouseDown={() => { selectVenue(v); setLocationSheetOpen(false); }}
+                            style={{ padding: "12px 14px", cursor: "pointer", borderBottom: "1px solid var(--border)", fontSize: 14 }}
+                            onMouseEnter={(e) => ((e.currentTarget as HTMLLIElement).style.background = "var(--surface-subtle)")}
+                            onMouseLeave={(e) => ((e.currentTarget as HTMLLIElement).style.background = "")}
+                          >
+                            <span style={{ fontWeight: 600 }}>{v.name}</span>
+                            {(v.city || v.address_line1) && (
+                              <span style={{ opacity: 0.6, marginLeft: 6 }}>{[v.address_line1, v.city].filter(Boolean).join(", ")}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {/* Done button */}
+                <button
+                  type="button"
+                  onClick={() => setLocationSheetOpen(false)}
+                  style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>
