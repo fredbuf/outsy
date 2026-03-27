@@ -317,138 +317,149 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
-        {/* ── Hero container ──────────────────────────────────────────────────
-             Layer 1: main image, covers top area.
-             Layer 2: same image, flipped vertically — positioned directly
-               below the main image to form a mirror reflection. Heavy blur
-               and reduced opacity make it read as tone/colour, not a copy.
-             Layer 3: soft gradient over the reflection, fading from
-               transparent into the page background so the edge dissolves.  */}
+        {/*
+          Outer wrapper — single stacking context for the whole top area.
+
+          Children (back → front):
+            [A] Reflected blurred continuation — position:absolute, starts at
+                the bottom edge of the main image (top:360), extends 600px
+                downward BEHIND the content. No background on content = the
+                reflected layer shows through.
+            [B] Image + hero text inner wrapper — position:relative, height:360,
+                zIndex:2. Sits above [A] and covers any blur fringe at the seam.
+            [C] Content — position:relative, zIndex:1, no explicit background,
+                so [A] is visible behind it.
+        */}
         <div style={{ position: "relative" }}>
 
-          {/* Layer 1 — main image */}
-          {event.image_url ? (
-            <img
-              src={event.image_url}
-              alt=""
-              style={{
-                display: "block",
-                width: "100%",
-                height: 360,
-                objectFit: "cover",
-                objectPosition: "center top",
-              }}
-            />
-          ) : (
-            <div style={{ height: 360, background: categoryBg(event.category_primary) }} />
-          )}
-
-          {/* Layer 2 — reflection: flipped image directly below main */}
+          {/* [A] Reflected blurred continuation — behind content */}
           {event.image_url && (
             <div
               aria-hidden="true"
               style={{
-                position: "relative",
-                height: 140,
+                position: "absolute",
+                top: 340,           /* overlaps the bottom 20 px of the main image so the seam is seamless */
+                left: 0, right: 0,
+                height: 640,
                 overflow: "hidden",
+                pointerEvents: "none",
+                zIndex: 0,
               }}
             >
+              {/* same image, flipped — bottom of original appears at top of this element */}
               <img
                 src={event.image_url}
                 alt=""
                 style={{
                   position: "absolute",
-                  top: 0,
-                  left: 0,
+                  top: 0, left: 0,
                   width: "100%",
                   height: 360,
                   objectFit: "cover",
                   objectPosition: "center top",
                   transform: "scaleY(-1)",
                   transformOrigin: "top",
-                  filter: "blur(40px)",
-                  opacity: 0.5,
+                  filter: "blur(44px)",
+                  opacity: 0.72,
                   display: "block",
                 }}
               />
-
-              {/* Layer 3 — overlay: transparent → page background */}
+              {/* gentle fade-out at the very bottom so it dissolves into page bg */}
               <div
                 style={{
                   position: "absolute",
-                  inset: 0,
-                  background: "linear-gradient(to bottom, transparent 0%, var(--background) 100%)",
+                  bottom: 0, left: 0, right: 0,
+                  height: 180,
+                  background: "linear-gradient(to bottom, transparent, var(--background))",
                   pointerEvents: "none",
                 }}
               />
             </div>
           )}
 
-          {/* Nav controls — absolute top */}
-          <div
-            style={{
-              position: "absolute", top: 20, left: 16, right: 16,
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-            }}
-          >
-            <Link
-              href="/events"
-              aria-label="Back to events"
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 36, height: 36, borderRadius: "50%",
-                background: "rgba(0,0,0,0.38)",
-                border: "1px solid rgba(255,255,255,0.2)",
-                textDecoration: "none", color: "#fff", flexShrink: 0,
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </Link>
-            <EventOwnerActions
-              compact
-              eventId={id}
-              creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-              source={event.source}
-              eventData={ownerEventData}
-            />
-          </div>
-
-          {/* Hero text — sits at bottom of main image, above reflection zone */}
-          <div
-            style={{
-              position: "absolute", bottom: 140, left: 0, right: 0,
-              padding: "0 24px 16px",
-              textAlign: "center",
-            }}
-          >
-            <h1
-              style={{
-                color: "#fff", fontSize: 30, fontWeight: 800,
-                lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 10,
-                textShadow: "0 2px 20px rgba(0,0,0,0.80), 0 1px 6px rgba(0,0,0,0.55)",
-              }}
-            >
-              {event.title}
-            </h1>
-            <div style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0, textShadow: "0 1px 8px rgba(0,0,0,0.75)" }}>
-              {dateLine}{timeLine ? ` · ${timeLine}` : ""}
-            </div>
-            {address && (
-              <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, textShadow: "0 1px 6px rgba(0,0,0,0.70)" }}>
-                {address}
-              </div>
+          {/* [B] Main image + nav + hero text — explicit height keeps absolute children scoped */}
+          <div style={{ position: "relative", height: 360, zIndex: 2 }}>
+            {event.image_url ? (
+              <img
+                src={event.image_url}
+                alt=""
+                style={{
+                  position: "absolute", inset: 0,
+                  width: "100%", height: "100%",
+                  objectFit: "cover", objectPosition: "center top",
+                  display: "block",
+                }}
+              />
+            ) : (
+              <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
             )}
+
+            {/* Nav controls */}
+            <div
+              style={{
+                position: "absolute", top: 20, left: 16, right: 16,
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                zIndex: 1,
+              }}
+            >
+              <Link
+                href="/events"
+                aria-label="Back to events"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 36, height: 36, borderRadius: "50%",
+                  background: "rgba(0,0,0,0.38)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  textDecoration: "none", color: "#fff", flexShrink: 0,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </Link>
+              <EventOwnerActions
+                compact
+                eventId={id}
+                creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+                source={event.source}
+                eventData={ownerEventData}
+              />
+            </div>
+
+            {/* Hero text — lower on the image */}
+            <div
+              style={{
+                position: "absolute", bottom: 28, left: 0, right: 0,
+                padding: "0 24px",
+                textAlign: "center",
+                zIndex: 1,
+              }}
+            >
+              <h1
+                style={{
+                  color: "#fff", fontSize: 30, fontWeight: 800,
+                  lineHeight: 1.15, letterSpacing: "-0.02em", marginBottom: 8,
+                  textShadow: "0 2px 20px rgba(0,0,0,0.80), 0 1px 6px rgba(0,0,0,0.55)",
+                }}
+              >
+                {event.title}
+              </h1>
+              <div style={{ color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: 500, marginBottom: address ? 4 : 0, textShadow: "0 1px 8px rgba(0,0,0,0.75)" }}>
+                {dateLine}{timeLine ? ` · ${timeLine}` : ""}
+              </div>
+              {address && (
+                <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, textShadow: "0 1px 6px rgba(0,0,0,0.70)" }}>
+                  {address}
+                </div>
+              )}
+            </div>
           </div>
 
-        </div>
+          {/* [C] Content — no background; reflected layer [A] shows through */}
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px", position: "relative", zIndex: 1 }}>
 
-        {/* Content below hero ───────────────────────────────────────────────── */}
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px", position: "relative" }}>
-
-          {/* ③ RSVP */}
-          <div style={{ paddingTop: 24, paddingBottom: 4 }}>
+            {/* RSVP */}
+            <div style={{ paddingTop: 24, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
@@ -578,7 +589,8 @@ export default async function EventPage({
             </div>
           )}
 
-        </div>
+          </div>{/* [C] end content */}
+        </div>{/* end outer wrapper */}
       </main>
     );
   }
