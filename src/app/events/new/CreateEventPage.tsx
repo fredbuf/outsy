@@ -2,7 +2,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -71,6 +71,22 @@ function toLocalTimeStr(iso: string): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+export type EditEventData = {
+  id: string;
+  title: string;
+  description: string | null;
+  start_at: string;
+  end_at: string | null;
+  visibility: "public" | "private";
+  category_primary: string;
+  source_url: string | null;
+  image_url: string | null;
+  venue_id: string | null;
+  venue_name: string | null;
+  venue_address: string | null;
+  venue_city: string | null;
+};
+
 const inputStyle: React.CSSProperties = {
   padding: "11px 14px",
   borderRadius: 10,
@@ -82,52 +98,73 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-export function CreateEventPage() {
+export function CreateEventPage({ editData }: { editData?: EditEventData } = {}) {
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
-  const searchParams = useSearchParams();
-  const editEventId = searchParams.get("edit");
-  const isEditMode = Boolean(editEventId);
+  const isEditMode = Boolean(editData);
+  const editEventId = editData?.id ?? null;
 
-  const [visibility, setVisibility] = useState<Visibility>("private");
+  const [visibility, setVisibility] = useState<Visibility>(
+    () => (editData?.visibility as Visibility) ?? "private"
+  );
   const isPrivate = visibility === "private";
 
   // Core fields
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [address, setAddress] = useState("");
-  const [category, setCategory] = useState<Category>("concerts");
-  const [sourceUrl, setSourceUrl] = useState("");
-  const [venueName, setVenueName] = useState("");
-  const [venueAddress, setVenueAddress] = useState("");
-  const [venueCity, setVenueCity] = useState("Montréal");
+  const [title, setTitle] = useState(() => editData?.title ?? "");
+  const [description, setDescription] = useState(() => editData?.description ?? "");
+  const [address, setAddress] = useState(() =>
+    editData?.visibility === "private"
+      ? (editData?.venue_address ?? editData?.venue_name ?? "")
+      : ""
+  );
+  const [category, setCategory] = useState<Category>(
+    () => (editData?.category_primary as Category) ?? "concerts"
+  );
+  const [sourceUrl, setSourceUrl] = useState(() => editData?.source_url ?? "");
+  const [venueName, setVenueName] = useState(() =>
+    editData?.visibility !== "private" ? (editData?.venue_name ?? "") : ""
+  );
+  const [venueAddress, setVenueAddress] = useState(() =>
+    editData?.visibility !== "private" ? (editData?.venue_address ?? "") : ""
+  );
+  const [venueCity, setVenueCity] = useState(() => editData?.venue_city ?? "Montréal");
 
   // Date / time
-  const [startDate, setStartDate] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [showEndTime, setShowEndTime] = useState(false);
+  const [startDate, setStartDate] = useState(() =>
+    editData?.start_at ? toLocalDateStr(editData.start_at) : ""
+  );
+  const [startTime, setStartTime] = useState(() =>
+    editData?.start_at ? toLocalTimeStr(editData.start_at) : ""
+  );
+  const [endDate, setEndDate] = useState(() =>
+    editData?.end_at ? toLocalDateStr(editData.end_at) : ""
+  );
+  const [endTime, setEndTime] = useState(() =>
+    editData?.end_at ? toLocalTimeStr(editData.end_at) : ""
+  );
+  const [showEndTime, setShowEndTime] = useState(() => Boolean(editData?.end_at));
   const [allDay, setAllDay] = useState(false);
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
 
   // Image
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    () => editData?.image_url ?? null
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Host profile
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
 
   // Venue autocomplete
-  const [venueId, setVenueId] = useState<string | null>(null);
+  const [venueId, setVenueId] = useState<string | null>(() => editData?.venue_id ?? null);
   const [suggestions, setSuggestions] = useState<VenueSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const venueWrapperRef = useRef<HTMLDivElement>(null);
 
   // Description expand
-  const [descriptionOpen, setDescriptionOpen] = useState(false);
+  const [descriptionOpen, setDescriptionOpen] = useState(() => Boolean(editData?.description));
 
   // Photo menu
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
@@ -158,47 +195,6 @@ export function CreateEventPage() {
       .single()
       .then(({ data }) => setHostProfile(data ?? null));
   }, [user]);
-
-  // Load existing event data when in edit mode
-  useEffect(() => {
-    if (!editEventId) return;
-    supabaseBrowser()
-      .from("events")
-      .select("title,description,start_at,end_at,visibility,category_primary,source_url,image_url,venues(name,address_line1,city)")
-      .eq("id", editEventId)
-      .single()
-      .then(({ data }) => {
-        if (!data) return;
-        setTitle(data.title ?? "");
-        setDescription(data.description ?? "");
-        if (data.description) setDescriptionOpen(true);
-        setVisibility((data.visibility as Visibility) ?? "private");
-        setCategory((data.category_primary as Category) ?? "concerts");
-        setSourceUrl(data.source_url ?? "");
-        if (data.start_at) {
-          setStartDate(toLocalDateStr(data.start_at));
-          setStartTime(toLocalTimeStr(data.start_at));
-        }
-        if (data.end_at) {
-          setEndDate(toLocalDateStr(data.end_at));
-          setEndTime(toLocalTimeStr(data.end_at));
-          setShowEndTime(true);
-        }
-        const v = (Array.isArray(data.venues) ? data.venues[0] : data.venues) as
-          | { name?: string; address_line1?: string; city?: string }
-          | null;
-        if (data.visibility === "private") {
-          setAddress(v?.address_line1 ?? v?.name ?? "");
-        } else {
-          setVenueName(v?.name ?? "");
-          setVenueAddress(v?.address_line1 ?? "");
-          setVenueCity(v?.city ?? "Montréal");
-        }
-        if (data.image_url) {
-          setImagePreview(data.image_url);
-        }
-      });
-  }, [editEventId]);
 
   // Click outside venue suggestions
   useEffect(() => {

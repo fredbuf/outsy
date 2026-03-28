@@ -130,7 +130,7 @@ export function EventOwnerActions({
               >
                 <button
                   type="button"
-                  onClick={() => { setMenuOpen(false); router.push(`/events/new?edit=${eventId}`); }}
+                  onClick={() => { setMenuOpen(false); router.push(`/events/${eventId}/edit`); }}
                   style={{
                     display: "block", width: "100%", textAlign: "left",
                     padding: "12px 16px", background: "none", border: "none",
@@ -175,7 +175,7 @@ export function EventOwnerActions({
       >
         <button
           type="button"
-          onClick={() => router.push(`/events/new?edit=${eventId}`)}
+          onClick={() => router.push(`/events/${eventId}/edit`)}
           style={{
             padding: "9px 18px", borderRadius: 10,
             border: "1px solid var(--border-strong)", background: "transparent",
