@@ -294,7 +294,7 @@ export default async function EventPage({
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
     return (
-      <main style={{ padding: "16px 0 0", position: "relative", minHeight: "100dvh" }}>
+      <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
 
         {/* ── Ambient background: blurred image tones fill the full page ── */}
         {event.image_url ? (
@@ -308,7 +308,7 @@ export default async function EventPage({
                 position: "absolute", inset: 0,
                 width: "100%", height: "100%",
                 objectFit: "cover",
-                filter: "blur(80px) saturate(1.6) brightness(0.22)",
+                filter: "blur(80px) saturate(1.8) brightness(0.38)",
                 transform: "scale(1.15)",
                 pointerEvents: "none",
               }}
@@ -327,9 +327,8 @@ export default async function EventPage({
         <div
           style={{
             position: "relative",
-            borderRadius: 24,
+            borderRadius: "0 0 28px 28px",
             overflow: "hidden",
-            margin: "0 0 0 0",
           }}
         >
           {/* Image — defines the card height via aspectRatio */}
@@ -437,7 +436,7 @@ export default async function EventPage({
           "--btn-bg":        "rgba(255,255,255,0.07)",
           "--btn-bg-active": "rgba(255,255,255,0.13)",
           "--surface-subtle":"rgba(255,255,255,0.04)",
-          "--background":    "rgba(20,11,7,0.70)",
+          "--background":    "rgba(20,11,7,0.55)",
           "--foreground":    "#eae8e4",
           "--accent":        "#a78bfa",
         } as React.CSSProperties}>
