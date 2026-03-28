@@ -296,29 +296,30 @@ export default async function EventPage({
     return (
       <main style={{ padding: 0 }}>
 
-        {/* ── Hero: image only (nav lives here, no title) ──────────────── */}
-        <div style={{ position: "relative", height: 300 }}>
+        {/* ── Image section ────────────────────────────────────────────────
+             Clean full-width crop. Nav controls float over the top.      */}
+        <div style={{ position: "relative" }}>
           {event.image_url ? (
             <img
               src={event.image_url}
               alt=""
               style={{
-                position: "absolute", inset: 0,
-                width: "100%", height: "100%",
-                objectFit: "cover",
                 display: "block",
+                width: "100%",
+                aspectRatio: "4/3",
+                objectFit: "cover",
               }}
             />
           ) : (
-            <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
+            <div style={{ width: "100%", aspectRatio: "4/3", background: categoryBg(event.category_primary) }} />
           )}
 
-          {/* Top band darkens nav; bottom 100 px fades toward the dark band */}
+          {/* Subtle top scrim so nav buttons read on any image */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, transparent 28%), linear-gradient(to top, rgba(0,0,0,0.50) 0%, transparent 100px)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 22%)",
             }}
           />
 
@@ -352,30 +353,40 @@ export default async function EventPage({
           </div>
         </div>
 
-        {/* ── Dark text band ────────────────────────────────────────────────
-             Solid dark rectangle holding title + metadata.
-             An upward gradient bleeds 80 px into the image above;
-             a downward gradient dissolves 100 px into the page below.     */}
-        <div style={{ background: "#0d0d0d", position: "relative", zIndex: 1 }}>
-
-          {/* ↑ Gradient into image — dark at band top, transparent upward */}
+        {/* ── Info section ─────────────────────────────────────────────────
+             Sits flush under the image. The blurred image is used as a
+             local backdrop behind the text, creating continuity between
+             the two sections without a global dark gradient.              */}
+        <div style={{ position: "relative", overflow: "hidden" }}>
+          {/* Blurred image backdrop — local to this section only */}
+          {event.image_url ? (
+            <img
+              aria-hidden="true"
+              src={event.image_url}
+              alt=""
+              style={{
+                position: "absolute", inset: 0,
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                filter: "blur(40px) saturate(1.5)",
+                transform: "scale(1.15)",
+                pointerEvents: "none",
+              }}
+            />
+          ) : (
+            <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
+          )}
+          {/* Dark tint over the blur */}
           <div
             aria-hidden="true"
-            style={{
-              position: "absolute", left: 0, right: 0,
-              top: 0, height: 80,
-              transform: "translateY(-100%)",
-              background: "linear-gradient(to top, #0d0d0d 0%, transparent 100%)",
-              pointerEvents: "none",
-            }}
+            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.60)", pointerEvents: "none" }}
           />
-
-          {/* Title + metadata */}
-          <div style={{ padding: "32px 24px 32px", textAlign: "center" }}>
+          {/* Text */}
+          <div style={{ position: "relative", zIndex: 1, padding: "28px 24px 32px", textAlign: "center" }}>
             <h1
               style={{
-                color: "#fff", fontSize: 28, fontWeight: 800,
-                lineHeight: 1.2, letterSpacing: "-0.02em", margin: "0 0 10px",
+                color: "#fff", fontSize: 26, fontWeight: 800,
+                lineHeight: 1.2, letterSpacing: "-0.02em", margin: "0 0 12px",
               }}
             >
               {event.title}
@@ -390,7 +401,7 @@ export default async function EventPage({
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </div>
             {address && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
@@ -399,19 +410,6 @@ export default async function EventPage({
               </div>
             )}
           </div>
-
-          {/* ↓ Gradient into page — dark at band bottom, transparent downward */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute", left: 0, right: 0,
-              bottom: 0, height: 100,
-              transform: "translateY(100%)",
-              background: "linear-gradient(to bottom, #0d0d0d 0%, transparent 100%)",
-              pointerEvents: "none",
-              zIndex: 1,
-            }}
-          />
         </div>
 
         {/* ── Content area — forced dark surface ───────────────────────
