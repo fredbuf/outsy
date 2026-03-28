@@ -2,7 +2,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -57,6 +57,20 @@ function formatDateLine(startDate: string, startTime: string, allDay: boolean): 
   return `${dateStr} · ${timeStr}`;
 }
 
+function toLocalDateStr(iso: string): string {
+  const d = new Date(iso);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function toLocalTimeStr(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 const inputStyle: React.CSSProperties = {
   padding: "11px 14px",
   borderRadius: 10,
@@ -71,6 +85,9 @@ const inputStyle: React.CSSProperties = {
 export function CreateEventPage() {
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
+  const searchParams = useSearchParams();
+  const editEventId = searchParams.get("edit");
+  const isEditMode = Boolean(editEventId);
 
   const [visibility, setVisibility] = useState<Visibility>("private");
   const isPrivate = visibility === "private";
@@ -141,6 +158,47 @@ export function CreateEventPage() {
       .single()
       .then(({ data }) => setHostProfile(data ?? null));
   }, [user]);
+
+  // Load existing event data when in edit mode
+  useEffect(() => {
+    if (!editEventId) return;
+    supabaseBrowser()
+      .from("events")
+      .select("title,description,start_at,end_at,visibility,category_primary,source_url,image_url,venues(name,address_line1,city)")
+      .eq("id", editEventId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        setTitle(data.title ?? "");
+        setDescription(data.description ?? "");
+        if (data.description) setDescriptionOpen(true);
+        setVisibility((data.visibility as Visibility) ?? "private");
+        setCategory((data.category_primary as Category) ?? "concerts");
+        setSourceUrl(data.source_url ?? "");
+        if (data.start_at) {
+          setStartDate(toLocalDateStr(data.start_at));
+          setStartTime(toLocalTimeStr(data.start_at));
+        }
+        if (data.end_at) {
+          setEndDate(toLocalDateStr(data.end_at));
+          setEndTime(toLocalTimeStr(data.end_at));
+          setShowEndTime(true);
+        }
+        const v = (Array.isArray(data.venues) ? data.venues[0] : data.venues) as
+          | { name?: string; address_line1?: string; city?: string }
+          | null;
+        if (data.visibility === "private") {
+          setAddress(v?.address_line1 ?? v?.name ?? "");
+        } else {
+          setVenueName(v?.name ?? "");
+          setVenueAddress(v?.address_line1 ?? "");
+          setVenueCity(v?.city ?? "Montréal");
+        }
+        if (data.image_url) {
+          setImagePreview(data.image_url);
+        }
+      });
+  }, [editEventId]);
 
   // Click outside venue suggestions
   useEffect(() => {
@@ -257,6 +315,9 @@ export function CreateEventPage() {
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
         imageUrl = uploadJson.url as string;
+      } else if (isEditMode && imagePreview?.startsWith("https://")) {
+        // Keep existing image when editing without picking a new file
+        imageUrl = imagePreview;
       }
 
       const basePayload = { title, description, startAt, endAt, visibility, imageUrl };
@@ -280,15 +341,22 @@ export function CreateEventPage() {
             sourceUrl: sourceUrl.trim() || null,
           };
 
-      const res = await fetch("/api/events/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...authHeader },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        isEditMode ? `/api/events/${editEventId}` : "/api/events/submit",
+        {
+          method: isEditMode ? "PATCH" : "POST",
+          headers: { "content-type": "application/json", ...authHeader },
+          body: JSON.stringify(payload),
+        },
+      );
       const json = await res.json();
-      if (!res.ok || !json?.ok) throw new Error(json?.error ?? "Could not create event.");
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error ?? (isEditMode ? "Could not update event." : "Could not create event."));
+      }
 
-      if (isPrivate) {
+      if (isEditMode) {
+        router.push(`/events/${editEventId}`);
+      } else if (isPrivate) {
         router.push(`/events/${json.eventId}`);
       } else {
         setPublicSubmitted(true);
@@ -825,7 +893,9 @@ export function CreateEventPage() {
                 cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
               }}
             >
-              {submitting ? "Creating…" : "Publish event"}
+              {submitting
+                ? (isEditMode ? "Saving…" : "Creating…")
+                : (isEditMode ? "Save changes" : "Publish event")}
             </button>
           </div>
 

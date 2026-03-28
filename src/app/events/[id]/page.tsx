@@ -259,13 +259,6 @@ function formatPrice(
   return null;
 }
 
-function toDatetimeLocal(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const eastern = new Date(d.toLocaleString("en-US", { timeZone: "America/Toronto" }));
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${eastern.getFullYear()}-${pad(eastern.getMonth() + 1)}-${pad(eastern.getDate())}T${pad(eastern.getHours())}:${pad(eastern.getMinutes())}`;
-}
 
 export default async function EventPage({
   params,
@@ -299,21 +292,6 @@ export default async function EventPage({
     const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
-    const ownerEventData = {
-      title: event.title,
-      description: event.description ?? "",
-      startAt: toDatetimeLocal(event.start_at),
-      endAt: toDatetimeLocal(event.end_at ?? null),
-      category: (event.category_primary as "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family") ?? "concerts",
-      venueName: venue?.name ?? "",
-      venueAddress: venue?.address_line1 ?? "",
-      venueCity: venue?.city ?? "Montréal",
-      sourceUrl: "",
-      visibility: "private" as const,
-      address: venue?.address_line1 ?? venue?.name ?? "",
-      imageUrl: event.image_url ?? null,
-    };
-
     return (
       <main style={{ padding: 0 }}>
 
@@ -371,7 +349,6 @@ export default async function EventPage({
               eventId={id}
               creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
               source={event.source}
-              eventData={ownerEventData}
             />
           </div>
         </div>
@@ -395,7 +372,7 @@ export default async function EventPage({
           />
 
           {/* Title + metadata */}
-          <div style={{ padding: "25px 24px 25px", textAlign: "center" }}>
+          <div style={{ padding: "32px 24px 32px", textAlign: "center" }}>
             <h1
               style={{
                 color: "#fff", fontSize: 28, fontWeight: 800,
@@ -424,14 +401,16 @@ export default async function EventPage({
             )}
           </div>
 
-          {/* ↓ Gradient — contained within band bottom, no overlap into content */}
+          {/* ↓ Gradient into page — dark at band bottom, transparent downward */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", left: 0, right: 0,
-              bottom: 0, height: 50,
-              background: "linear-gradient(to bottom, transparent 0%, #0d0d0d 100%)",
+              bottom: 0, height: 100,
+              transform: "translateY(100%)",
+              background: "linear-gradient(to bottom, #0d0d0d 0%, transparent 100%)",
               pointerEvents: "none",
+              zIndex: 1,
             }}
           />
         </div>
@@ -830,22 +809,6 @@ export default async function EventPage({
           eventId={id}
           creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
           source={event.source}
-          eventData={{
-            title: event.title,
-            description: event.description ?? "",
-            startAt: toDatetimeLocal(event.start_at),
-            endAt: toDatetimeLocal(event.end_at ?? null),
-            category: (event.category_primary as "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family") ?? "concerts",
-            venueName: venue?.name ?? "",
-            venueAddress: venue?.address_line1 ?? "",
-            venueCity: venue?.city ?? "Montréal",
-            sourceUrl: event.source_url ?? "",
-            visibility: (event.visibility as "public" | "private") ?? "public",
-            address: event.visibility === "private"
-              ? (venue?.address_line1 ?? venue?.name ?? "")
-              : "",
-            imageUrl: event.image_url ?? null,
-          }}
         />
 
       {/* Social proof */}

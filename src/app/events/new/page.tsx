@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { CreateEventPage } from "./CreateEventPage";
 
@@ -6,5 +7,9 @@ export const metadata: Metadata = {
 };
 
 export default function NewEventRoute() {
-  return <CreateEventPage />;
+  return (
+    <Suspense>
+      <CreateEventPage />
+    </Suspense>
+  );
 }
