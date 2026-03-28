@@ -27,11 +27,9 @@ type EventRow = {
 };
 
 type SuggestionItem = { id: string; title: string };
-type VenueItem = { id: string; name: string };
 type DateWindow = "all" | "today" | "this_week" | "weekend";
-type Distance = "near_me" | "5km" | "10km" | "25km";
-type SheetCategory = "party" | "food_drinks" | "culture" | "outdoor" | "music";
-type Price = "free" | "paid";
+type SheetCategory = "party" | "drinks" | "music" | "food" | "outdoor" | "culture" | "social";
+type EventType = "all" | "public" | "private";
 
 // ─── Timezone helpers ────────────────────────────────────────────────────────
 
@@ -48,12 +46,6 @@ function montrealDayStart(dateStr: string): string {
   const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
   const s = Number(parts.find((p) => p.type === "second")?.value ?? "0");
   return new Date(noonUtc.getTime() - (h * 3600 + m * 60 + s) * 1000).toISOString();
-}
-
-function montrealDayEnd(dateStr: string): string {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const nextDayUtc = new Date(Date.UTC(year, month - 1, day + 1));
-  return new Date(new Date(montrealDayStart(nextDayUtc.toISOString().slice(0, 10))).getTime() - 1).toISOString();
 }
 
 // ─── Search helpers ───────────────────────────────────────────────────────────
@@ -207,10 +199,7 @@ function buildRecurringSet(events: EventRow[]): Set<string> {
 function buildPageQuery(
   supabase: ReturnType<typeof supabaseBrowser>,
   pageIndex: number,
-  fromDate: string,
-  toDate: string,
-  searchQuery: string,
-  venueId: string
+  searchQuery: string
 ) {
   const rangeFrom = pageIndex * PAGE_SIZE;
   const rangeTo = rangeFrom + PAGE_SIZE - 1;
@@ -224,26 +213,12 @@ function buildPageQuery(
     .in("status", ["scheduled", "announced"])
     .eq("is_approved", true)
     .eq("is_rejected", false)
-    .eq("visibility", "public");
+    .eq("visibility", "public")
+    .gte("start_at", new Date().toISOString());
 
   if (searchQuery) {
     const escaped = escapeIlike(searchQuery.trim());
-    // Match against original title and accent-stripped title_normalized.
     q = q.or(`title.ilike.%${escaped}%,title_normalized.ilike.%${escaped}%`);
-  }
-
-  if (fromDate) {
-    q = q.gte("start_at", montrealDayStart(fromDate));
-  } else {
-    q = q.gte("start_at", new Date().toISOString());
-  }
-
-  if (toDate) {
-    q = q.lte("start_at", montrealDayEnd(toDate));
-  }
-
-  if (venueId) {
-    q = q.eq("venue_id", venueId);
   }
 
   return q.order("start_at", { ascending: true }).range(rangeFrom, rangeTo);
@@ -383,6 +358,26 @@ const CATEGORY_LABELS: Record<string, string> = {
   family:       "Family",
 };
 
+const SHEET_CATEGORY_LABELS: Record<SheetCategory, string> = {
+  party:   "Party",
+  drinks:  "Drinks",
+  music:   "Music",
+  food:    "Food",
+  outdoor: "Outdoor",
+  culture: "Culture",
+  social:  "Social",
+};
+
+const SHEET_CATEGORY_MAP: Record<SheetCategory, Category> = {
+  party:   "nightlife",
+  drinks:  "nightlife",
+  music:   "concerts",
+  food:    "arts_culture",
+  outdoor: "sports",
+  culture: "arts_culture",
+  social:  "family",
+};
+
 function categoryBg(cat: Category): string {
   switch (cat) {
     case "concerts":     return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
@@ -431,12 +426,9 @@ export function EventsList() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   const [category, setCategory] = useState<Category | "all">("all");
-  const [source, setSource] = useState<SourceType | "all">("all");
   const [dateWindow, setDateWindow] = useState<DateWindow>("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [venueId, setVenueId] = useState("");
-  const [venues, setVenues] = useState<VenueItem[]>([]);
+  const [sheetCategory, setSheetCategory] = useState<SheetCategory | null>(null);
+  const [typeFilter, setTypeFilter] = useState<EventType>("all");
 
   // Small pool of event titles used to compute "did you mean?" suggestions.
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
@@ -444,35 +436,17 @@ export function EventsList() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [thisWeekOpen, setThisWeekOpen] = useState(false);
   const [weekBounds] = useState(() => thisWeekBoundsIso());
-  const [showCustomRange, setShowCustomRange] = useState(false);
 
-  const [distance, setDistance] = useState<Distance | null>(null);
-  const [sheetCategory, setSheetCategory] = useState<SheetCategory | null>(null);
-  const [price, setPrice] = useState<Price | null>(null);
-  const [spotsLeft, setSpotsLeft] = useState(false);
-
-  const hasCustomRange = fromDate !== "" || toDate !== "";
   const activeFilterCount = [
-    source !== "all",
-    venueId !== "",
-    hasCustomRange || dateWindow !== "all",
-    distance !== null,
+    dateWindow !== "all",
     sheetCategory !== null,
-    price !== null,
-    spotsLeft,
+    typeFilter !== "all",
   ].filter(Boolean).length;
 
   function handleResetFilters() {
-    setSource("all");
-    setVenueId("");
     setDateWindow("all");
-    setFromDate("");
-    setToDate("");
-    setShowCustomRange(false);
-    setDistance(null);
     setSheetCategory(null);
-    setPrice(null);
-    setSpotsLeft(false);
+    setTypeFilter("all");
   }
   const genRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -482,19 +456,6 @@ export function EventsList() {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
   }, [query]);
-
-  // Fetch venue list once on mount for the venue dropdown.
-  useEffect(() => {
-    const run = async () => {
-      const { data } = await supabaseBrowser()
-        .from("venues")
-        .select("id,name")
-        .order("name", { ascending: true })
-        .limit(300);
-      setVenues((data ?? []) as VenueItem[]);
-    };
-    run();
-  }, []);
 
   // Fetch a lightweight title pool once on mount for suggestion computation.
   // No setState synchronously in the effect body — the set happens after await.
@@ -572,10 +533,7 @@ export function EventsList() {
       const { data, error } = await buildPageQuery(
         supabaseBrowser(),
         0,
-        fromDate,
-        toDate,
-        debouncedQuery,
-        venueId
+        debouncedQuery
       );
       if (gen !== genRef.current) return;
       if (error) {
@@ -592,17 +550,14 @@ export function EventsList() {
     };
 
     run();
-  }, [fromDate, toDate, debouncedQuery, venueId]);
+  }, [debouncedQuery]);
 
   async function handleLoadMore() {
     setLoadingMore(true);
     const { data, error } = await buildPageQuery(
       supabaseBrowser(),
       nextPage,
-      fromDate,
-      toDate,
-      debouncedQuery,
-      venueId
+      debouncedQuery
     );
     if (error) console.error(error);
     const rows = (data ?? []) as unknown as EventRow[];
@@ -622,17 +577,17 @@ export function EventsList() {
     );
   }
 
-  // Text search is now server-side — category/source/date are client-side.
+  // Text search is server-side; category/date/type/sheetCategory are client-side.
   const filtered = useMemo(() => {
     return events.filter((e) => {
       if (category !== "all" && e.category_primary !== category) return false;
-      if (source !== "all" && e.source !== source) return false;
-      if (!hasCustomRange && !isInDateWindow(e.start_at, dateWindow)) return false;
-      if (price === "free" && e.min_price !== null && e.min_price > 0) return false;
-      if (price === "paid" && (e.min_price === null || e.min_price === 0)) return false;
+      if (!isInDateWindow(e.start_at, dateWindow)) return false;
+      if (sheetCategory !== null && e.category_primary !== SHEET_CATEGORY_MAP[sheetCategory]) return false;
+      if (typeFilter === "public" && e.source === "manual") return false;
+      if (typeFilter === "private" && e.source !== "manual") return false;
       return true;
     });
-  }, [events, category, source, dateWindow, hasCustomRange, price]);
+  }, [events, category, dateWindow, sheetCategory, typeFilter]);
 
   // Suggestions: top-5 titles from the pool, shown only when search returned nothing.
   // Fast path: word overlap. Fallback: fuzzy (Levenshtein) when overlap finds nothing.
@@ -911,10 +866,10 @@ export function EventsList() {
           <section style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>All events</h2>
-              {(category !== "all" || source !== "all" || hasCustomRange || dateWindow !== "all") && (
+              {(category !== "all" || dateWindow !== "all" || sheetCategory !== null || typeFilter !== "all") && (
                 <button
                   type="button"
-                  onClick={() => { setCategory("all"); setSource("all"); setDateWindow("all"); setFromDate(""); setToDate(""); setVenueId(""); }}
+                  onClick={() => { setCategory("all"); setDateWindow("all"); setSheetCategory(null); setTypeFilter("all"); }}
                   style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
                 >
                   See all
@@ -1107,7 +1062,8 @@ export function EventsList() {
           onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
         >
-          <div style={{ background: "var(--background)", width: "100%", maxHeight: "85dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "var(--background)", width: "100%", maxHeight: "100dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column" }}>
+
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px", flexShrink: 0 }}>
               <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Filters</h3>
@@ -1122,7 +1078,7 @@ export function EventsList() {
             </div>
 
             {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 24px", display: "grid", gap: 28, alignContent: "start" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", display: "grid", gap: 28, alignContent: "start", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
 
               {/* Date */}
               <div style={{ display: "grid", gap: 12 }}>
@@ -1130,59 +1086,15 @@ export function EventsList() {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {(["today", "this_week", "weekend"] as const).map((w) => {
                     const labels: Record<string, string> = { today: "Today", this_week: "This week", weekend: "This weekend" };
-                    const active = !showCustomRange && !hasCustomRange && dateWindow === w;
+                    const active = dateWindow === w;
                     return (
                       <button
                         key={w}
                         type="button"
-                        onClick={() => { setShowCustomRange(false); setFromDate(""); setToDate(""); setDateWindow(active ? "all" : w); }}
+                        onClick={() => setDateWindow(active ? "all" : w)}
                         style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
                       >
                         {labels[w]}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => { setShowCustomRange((v) => !v); if (showCustomRange) { setFromDate(""); setToDate(""); } setDateWindow("all"); }}
-                    style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${showCustomRange || hasCustomRange ? "var(--foreground)" : "var(--border-strong)"}`, background: showCustomRange || hasCustomRange ? "var(--foreground)" : "transparent", color: showCustomRange || hasCustomRange ? "var(--background)" : "inherit", fontSize: 13, fontWeight: showCustomRange || hasCustomRange ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
-                  >
-                    Custom
-                  </button>
-                </div>
-                {(showCustomRange || hasCustomRange) && (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="date"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      style={{ flex: 1, padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit", boxSizing: "border-box" }}
-                    />
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      style={{ flex: 1, padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit", boxSizing: "border-box" }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Distance */}
-              <div style={{ display: "grid", gap: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Distance</span>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {(["near_me", "5km", "10km", "25km"] as const).map((d) => {
-                    const labels: Record<string, string> = { near_me: "Near me", "5km": "5 km", "10km": "10 km", "25km": "25 km" };
-                    const active = distance === d;
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setDistance(active ? null : d)}
-                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
-                      >
-                        {labels[d]}
                       </button>
                     );
                   })}
@@ -1193,8 +1105,7 @@ export function EventsList() {
               <div style={{ display: "grid", gap: 12 }}>
                 <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Category</span>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {(["party", "food_drinks", "culture", "outdoor", "music"] as const).map((c) => {
-                    const labels: Record<string, string> = { party: "Party", food_drinks: "Food & Drinks", culture: "Culture", outdoor: "Outdoor", music: "Music" };
+                  {(["party", "drinks", "music", "food", "outdoor", "culture", "social"] as const).map((c) => {
                     const active = sheetCategory === c;
                     return (
                       <button
@@ -1203,64 +1114,38 @@ export function EventsList() {
                         onClick={() => setSheetCategory(active ? null : c)}
                         style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
                       >
-                        {labels[c]}
+                        {SHEET_CATEGORY_LABELS[c]}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Price */}
-              <div style={{ display: "grid", gap: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Price</span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["free", "paid"] as const).map((p) => {
-                    const active = price === p;
+              {/* Type */}
+              <div style={{ display: "grid", gap: 12, paddingBottom: 24 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Type</span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {(["public", "private"] as const).map((t) => {
+                    const labels: Record<string, string> = { public: "Public events", private: "Private events" };
+                    const active = typeFilter === t;
                     return (
                       <button
-                        key={p}
+                        key={t}
                         type="button"
-                        onClick={() => setPrice(active ? null : p)}
+                        onClick={() => setTypeFilter(active ? "all" : t)}
                         style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
                       >
-                        {p === "free" ? "Free" : "Paid"}
+                        {labels[t]}
                       </button>
                     );
                   })}
                 </div>
-              </div>
-
-              {/* Availability */}
-              <div style={{ display: "grid", gap: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Availability</span>
-                <button
-                  type="button"
-                  onClick={() => setSpotsLeft((v) => !v)}
-                  style={{ alignSelf: "start", padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${spotsLeft ? "var(--foreground)" : "var(--border-strong)"}`, background: spotsLeft ? "var(--foreground)" : "transparent", color: spotsLeft ? "var(--background)" : "inherit", fontSize: 13, fontWeight: spotsLeft ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  Spots left
-                </button>
-              </div>
-
-              {/* Venue */}
-              <div style={{ display: "grid", gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Venue</span>
-                <select
-                  value={venueId}
-                  onChange={(e) => setVenueId(e.target.value)}
-                  style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
-                >
-                  <option value="">All venues</option>
-                  {venues.map((v) => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
               </div>
 
             </div>
 
             {/* Sticky footer */}
-            <div style={{ padding: "12px 20px 24px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+            <div style={{ padding: "12px 20px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
@@ -1269,6 +1154,7 @@ export function EventsList() {
                 {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
               </button>
             </div>
+
           </div>
         </div>
       )}
