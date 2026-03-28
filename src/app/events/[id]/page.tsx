@@ -11,6 +11,7 @@ import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton } from "./ShareButton";
 import { CopyInviteLink } from "./CopyInviteLink";
+import { BackButton } from "./BackButton";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -329,21 +330,19 @@ export default async function EventPage({
               zIndex: 1,
             }}
           >
-            <Link
-              href="/events"
-              aria-label="Back to events"
+            <BackButton
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: 40, height: 40, borderRadius: "50%",
                 background: "rgba(0,0,0,0.38)",
                 border: "1px solid rgba(255,255,255,0.2)",
-                textDecoration: "none", color: "#fff", flexShrink: 0,
+                cursor: "pointer", color: "#fff", flexShrink: 0,
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
-            </Link>
+            </BackButton>
             <EventOwnerActions
               compact
               eventId={id}
@@ -435,13 +434,13 @@ export default async function EventPage({
 
             {/* RSVP */}
             <div style={{ paddingTop: 44, paddingBottom: 4 }}>
-            <ActionBar
-              eventId={id}
-              initialCounts={rsvpCounts}
-              sourceUrl={null}
-              visibility="private"
-            />
-          </div>
+              <ActionBar
+                eventId={id}
+                initialCounts={rsvpCounts}
+                sourceUrl={null}
+                visibility="private"
+              />
+            </div>
 
           {/* ④ Guest preview */}
           <div
@@ -616,9 +615,7 @@ export default async function EventPage({
       )}
       {/* Nav row: back (left) + share (right) */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Link
-          href="/events"
-          aria-label="Back to events"
+        <BackButton
           style={{
             display: "flex",
             alignItems: "center",
@@ -627,7 +624,8 @@ export default async function EventPage({
             height: 40,
             borderRadius: 12,
             border: "1px solid var(--border-strong)",
-            textDecoration: "none",
+            background: "none",
+            cursor: "pointer",
             color: "inherit",
             opacity: 0.7,
             flexShrink: 0,
@@ -636,7 +634,7 @@ export default async function EventPage({
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
-        </Link>
+        </BackButton>
         <ShareButton title={event.title} />
       </div>
 
