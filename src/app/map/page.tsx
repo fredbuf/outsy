@@ -163,6 +163,34 @@ export default function MapPage() {
                 boxShadow: "0 -4px 32px rgba(0,0,0,0.14)",
               }}
             >
+              {/* Close button */}
+              <button
+                type="button"
+                aria-label="Close preview"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelected(null); }}
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  right: 14,
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "var(--btn-bg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "inherit",
+                  opacity: 0.6,
+                  touchAction: "manipulation",
+                }}
+              >
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
               {/* Thumbnail */}
               {selected.image_url ? (
                 <img
