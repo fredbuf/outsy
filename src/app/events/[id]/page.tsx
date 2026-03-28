@@ -294,11 +294,20 @@ export default async function EventPage({
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
     return (
-      <main style={{ padding: 0 }}>
+      <main style={{ padding: 0, background: "#111110" }}>
 
-        {/* ── Image section ────────────────────────────────────────────────
-             Clean full-width crop. Nav controls float over the top.      */}
-        <div style={{ position: "relative" }}>
+        {/* ── Top card: full-bleed image with info overlay ──────────────────
+             Single unified container — image defines height, title/date/
+             location sit on a warm gradient at the bottom of the image.
+             Rounded bottom corners give the Apple Invites "card" feel.   */}
+        <div
+          style={{
+            position: "relative",
+            borderRadius: "0 0 28px 28px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Image — defines the card height via aspectRatio */}
           {event.image_url ? (
             <img
               src={event.image_url}
@@ -306,38 +315,37 @@ export default async function EventPage({
               style={{
                 display: "block",
                 width: "100%",
-                aspectRatio: "4/3",
+                aspectRatio: "3/4",
                 objectFit: "cover",
               }}
             />
           ) : (
-            <div style={{ width: "100%", aspectRatio: "4/3", background: categoryBg(event.category_primary) }} />
+            <div
+              style={{
+                width: "100%",
+                aspectRatio: "3/4",
+                background: categoryBg(event.category_primary),
+              }}
+            />
           )}
 
-          {/* Subtle top scrim so nav buttons read on any image */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 22%)",
-            }}
-          />
-
-          {/* Nav controls */}
+          {/* Nav controls — float over the top of the image */}
           <div
             style={{
               position: "absolute", top: 20, left: 16, right: 16,
               display: "flex", justifyContent: "space-between", alignItems: "center",
-              zIndex: 1,
+              zIndex: 2,
             }}
           >
             <BackButton
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: 40, height: 40, borderRadius: "50%",
-                background: "rgba(0,0,0,0.38)",
-                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(0,0,0,0.32)",
+                border: "1px solid rgba(255,255,255,0.15)",
                 cursor: "pointer", color: "#fff", flexShrink: 0,
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -351,63 +359,36 @@ export default async function EventPage({
               source={event.source}
             />
           </div>
-        </div>
 
-        {/* ── Info section ─────────────────────────────────────────────────
-             Sits flush under the image. The blurred image is used as a
-             local backdrop behind the text, creating continuity between
-             the two sections without a global dark gradient.              */}
-        <div style={{ position: "relative", overflow: "hidden" }}>
-          {/* Blurred image backdrop — local to this section only */}
-          {event.image_url ? (
-            <img
-              aria-hidden="true"
-              src={event.image_url}
-              alt=""
-              style={{
-                position: "absolute", inset: 0,
-                width: "100%", height: "100%",
-                objectFit: "cover",
-                filter: "blur(40px) saturate(1.5)",
-                transform: "scale(1.15)",
-                pointerEvents: "none",
-              }}
-            />
-          ) : (
-            <div style={{ position: "absolute", inset: 0, background: categoryBg(event.category_primary) }} />
-          )}
-          {/* Dark tint over the blur */}
+          {/* Warm gradient + info text — overlaid on the bottom of the image */}
           <div
-            aria-hidden="true"
-            style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.60)", pointerEvents: "none" }}
-          />
-          {/* Text */}
-          <div style={{ position: "relative", zIndex: 1, padding: "28px 24px 32px", textAlign: "center" }}>
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              padding: "90px 28px 40px",
+              textAlign: "center",
+              background: "linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
+              zIndex: 1,
+            }}
+          >
             <h1
               style={{
-                color: "#fff", fontSize: 26, fontWeight: 800,
-                lineHeight: 1.2, letterSpacing: "-0.02em", margin: "0 0 12px",
+                color: "#fff",
+                fontSize: 32,
+                fontWeight: 800,
+                lineHeight: 1.15,
+                letterSpacing: "-0.02em",
+                margin: "0 0 10px",
               }}
             >
               {event.title}
             </h1>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.75)", fontSize: 14, fontWeight: 500, marginBottom: address ? 6 : 0 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
+            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 3px" }}>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
-            </div>
+            </p>
             {address && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
+              <p style={{ color: "rgba(255,255,255,0.52)", fontSize: 14, margin: 0 }}>
                 {address}
-              </div>
+              </p>
             )}
           </div>
         </div>
@@ -431,7 +412,7 @@ export default async function EventPage({
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
             {/* RSVP */}
-            <div style={{ paddingTop: 44, paddingBottom: 4 }}>
+            <div style={{ paddingTop: 32, paddingBottom: 4 }}>
               <ActionBar
                 eventId={id}
                 initialCounts={rsvpCounts}
