@@ -294,7 +294,31 @@ export default async function EventPage({
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
     return (
-      <main style={{ padding: "16px 0 0", background: "#111110" }}>
+      <main style={{ padding: "16px 0 0", position: "relative", minHeight: "100dvh" }}>
+
+        {/* ── Ambient background: blurred image tones fill the full page ── */}
+        {event.image_url ? (
+          <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
+            <img
+              src={event.image_url}
+              alt=""
+              width={800}
+              height={800}
+              style={{
+                position: "absolute", inset: 0,
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                filter: "blur(80px) saturate(1.6) brightness(0.22)",
+                transform: "scale(1.15)",
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+        ) : (
+          <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "#111110", pointerEvents: "none" }} />
+        )}
+
+        <div style={{ position: "relative", zIndex: 1 }}>
 
         {/* ── Top card: full-bleed image with info overlay ──────────────────
              Single unified container — image defines height, title/date/
@@ -406,14 +430,14 @@ export default async function EventPage({
              (ActionBar, CopyInviteLink, AttendeeList, etc.) automatically
              uses dark-appropriate colours without per-component changes.  */}
         <div style={{
-          background: "#111110",
+          background: "transparent",
           color: "#eae8e4",
           "--border":        "rgba(255,255,255,0.10)",
           "--border-strong": "rgba(255,255,255,0.18)",
           "--btn-bg":        "rgba(255,255,255,0.07)",
           "--btn-bg-active": "rgba(255,255,255,0.13)",
           "--surface-subtle":"rgba(255,255,255,0.04)",
-          "--background":    "#111110",
+          "--background":    "rgba(20,11,7,0.70)",
           "--foreground":    "#eae8e4",
           "--accent":        "#a78bfa",
         } as React.CSSProperties}>
@@ -556,6 +580,7 @@ export default async function EventPage({
 
           </div>{/* inner maxWidth div */}
         </div>{/* content gradient wrapper */}
+        </div>{/* z-index wrapper */}
       </main>
     );
   }
