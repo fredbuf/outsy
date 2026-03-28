@@ -395,7 +395,7 @@ export default async function EventPage({
           />
 
           {/* Title + metadata */}
-          <div style={{ padding: "32px 24px 32px", textAlign: "center" }}>
+          <div style={{ padding: "25px 24px 25px", textAlign: "center" }}>
             <h1
               style={{
                 color: "#fff", fontSize: 28, fontWeight: 800,
@@ -424,16 +424,14 @@ export default async function EventPage({
             )}
           </div>
 
-          {/* ↓ Gradient into page — dark at band bottom, transparent downward */}
+          {/* ↓ Gradient — contained within band bottom, no overlap into content */}
           <div
             aria-hidden="true"
             style={{
               position: "absolute", left: 0, right: 0,
-              bottom: 0, height: 100,
-              transform: "translateY(100%)",
-              background: "linear-gradient(to bottom, #0d0d0d 0%, transparent 100%)",
+              bottom: 0, height: 50,
+              background: "linear-gradient(to bottom, transparent 0%, #0d0d0d 100%)",
               pointerEvents: "none",
-              zIndex: 1,
             }}
           />
         </div>
