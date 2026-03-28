@@ -29,6 +29,9 @@ type EventRow = {
 type SuggestionItem = { id: string; title: string };
 type VenueItem = { id: string; name: string };
 type DateWindow = "all" | "today" | "this_week" | "weekend";
+type Distance = "near_me" | "5km" | "10km" | "25km";
+type SheetCategory = "party" | "food_drinks" | "culture" | "outdoor" | "music";
+type Price = "free" | "paid";
 
 // ─── Timezone helpers ────────────────────────────────────────────────────────
 
@@ -443,12 +446,34 @@ export function EventsList() {
   const [weekBounds] = useState(() => thisWeekBoundsIso());
   const [showCustomRange, setShowCustomRange] = useState(false);
 
+  const [distance, setDistance] = useState<Distance | null>(null);
+  const [sheetCategory, setSheetCategory] = useState<SheetCategory | null>(null);
+  const [price, setPrice] = useState<Price | null>(null);
+  const [spotsLeft, setSpotsLeft] = useState(false);
+
   const hasCustomRange = fromDate !== "" || toDate !== "";
   const activeFilterCount = [
     source !== "all",
     venueId !== "",
     hasCustomRange || dateWindow !== "all",
+    distance !== null,
+    sheetCategory !== null,
+    price !== null,
+    spotsLeft,
   ].filter(Boolean).length;
+
+  function handleResetFilters() {
+    setSource("all");
+    setVenueId("");
+    setDateWindow("all");
+    setFromDate("");
+    setToDate("");
+    setShowCustomRange(false);
+    setDistance(null);
+    setSheetCategory(null);
+    setPrice(null);
+    setSpotsLeft(false);
+  }
   const genRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -603,9 +628,11 @@ export function EventsList() {
       if (category !== "all" && e.category_primary !== category) return false;
       if (source !== "all" && e.source !== source) return false;
       if (!hasCustomRange && !isInDateWindow(e.start_at, dateWindow)) return false;
+      if (price === "free" && e.min_price !== null && e.min_price > 0) return false;
+      if (price === "paid" && (e.min_price === null || e.min_price === 0)) return false;
       return true;
     });
-  }, [events, category, source, dateWindow, hasCustomRange]);
+  }, [events, category, source, dateWindow, hasCustomRange, price]);
 
   // Suggestions: top-5 titles from the pool, shown only when search returned nothing.
   // Fast path: word overlap. Fallback: fuzzy (Levenshtein) when overlap finds nothing.
@@ -709,20 +736,33 @@ export function EventsList() {
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
+          aria-label="Filters"
           style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: `1px solid ${activeFilterCount > 0 ? "var(--border-strong)" : "var(--border)"}`,
-            background: activeFilterCount > 0 ? "var(--btn-bg)" : "transparent",
-            fontWeight: activeFilterCount > 0 ? 700 : 400,
+            width: 42,
+            height: 42,
+            borderRadius: "50%",
+            border: `1.5px solid ${activeFilterCount > 0 ? "var(--foreground)" : "var(--border-strong)"}`,
+            background: activeFilterCount > 0 ? "var(--btn-bg-active)" : "transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             cursor: "pointer",
-            fontSize: 13,
-            whiteSpace: "nowrap",
-            flexShrink: 0,
             color: "inherit",
+            flexShrink: 0,
+            position: "relative",
           }}
         >
-          {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : "Filters"}
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+            <circle cx="9" cy="6" r="2.3" fill="var(--background)" stroke="currentColor" strokeWidth="2" />
+            <circle cx="16" cy="12" r="2.3" fill="var(--background)" stroke="currentColor" strokeWidth="2" />
+            <circle cx="11" cy="18" r="2.3" fill="var(--background)" stroke="currentColor" strokeWidth="2" />
+          </svg>
+          {activeFilterCount > 0 && (
+            <span style={{ position: "absolute", top: 2, right: 2, width: 8, height: 8, borderRadius: "50%", background: "var(--foreground)", border: "2px solid var(--background)" }} />
+          )}
         </button>
       </div>
 
@@ -1061,173 +1101,170 @@ export function EventsList() {
         </div>
       )}
 
-      {/* Filters modal */}
+      {/* Filters bottom sheet */}
       {filtersOpen && (
         <div
-          className="filters-overlay"
           onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            zIndex: 200,
-            display: "flex",
-          }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
         >
-          <div
-            className="filters-sheet"
-            style={{
-              background: "var(--background)",
-              border: "1px solid var(--border)",
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {/* Fixed header: × | Filters | Clear all */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 20px",
-                borderBottom: "1px solid var(--border)",
-                flexShrink: 0,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                aria-label="Close"
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.4, padding: 0, color: "inherit" }}
-              >
-                ×
-              </button>
-              <h3 style={{ fontSize: 15, fontWeight: 700 }}>Filters</h3>
+          <div style={{ background: "var(--background)", width: "100%", maxHeight: "85dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column" }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px", flexShrink: 0 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Filters</h3>
               <button
                 type="button"
                 disabled={activeFilterCount === 0}
-                onClick={() => {
-                  setSource("all");
-                  setVenueId("");
-                  setDateWindow("all");
-                  setFromDate("");
-                  setToDate("");
-                  setShowCustomRange(false);
-                }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  cursor: activeFilterCount > 0 ? "pointer" : "default",
-                  fontSize: 13,
-                  opacity: activeFilterCount > 0 ? 0.7 : 0.3,
-                  color: "inherit",
-                  fontWeight: 500,
-                }}
+                onClick={handleResetFilters}
+                style={{ background: "none", border: "none", cursor: activeFilterCount > 0 ? "pointer" : "default", fontSize: 14, opacity: activeFilterCount > 0 ? 0.75 : 0.3, color: "inherit", fontWeight: 500, padding: 0 }}
               >
-                Clear all
+                Reset
               </button>
             </div>
 
             {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 20px 0", display: "grid", gap: 10, alignContent: "start" }}>
-              {/* Source */}
-              <label style={{ display: "grid", gap: 3 }}>
-                <span style={{ fontSize: 11, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Source</span>
-                <select
-                  value={source}
-                  onChange={(e) => setSource(e.target.value as SourceType | "all")}
-                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 24px", display: "grid", gap: 28, alignContent: "start" }}>
+
+              {/* Date */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Date</span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {(["today", "this_week", "weekend"] as const).map((w) => {
+                    const labels: Record<string, string> = { today: "Today", this_week: "This week", weekend: "This weekend" };
+                    const active = !showCustomRange && !hasCustomRange && dateWindow === w;
+                    return (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => { setShowCustomRange(false); setFromDate(""); setToDate(""); setDateWindow(active ? "all" : w); }}
+                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
+                      >
+                        {labels[w]}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => { setShowCustomRange((v) => !v); if (showCustomRange) { setFromDate(""); setToDate(""); } setDateWindow("all"); }}
+                    style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${showCustomRange || hasCustomRange ? "var(--foreground)" : "var(--border-strong)"}`, background: showCustomRange || hasCustomRange ? "var(--foreground)" : "transparent", color: showCustomRange || hasCustomRange ? "var(--background)" : "inherit", fontSize: 13, fontWeight: showCustomRange || hasCustomRange ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    Custom
+                  </button>
+                </div>
+                {(showCustomRange || hasCustomRange) && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      style={{ flex: 1, padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit", boxSizing: "border-box" }}
+                    />
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      style={{ flex: 1, padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Distance */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Distance</span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {(["near_me", "5km", "10km", "25km"] as const).map((d) => {
+                    const labels: Record<string, string> = { near_me: "Near me", "5km": "5 km", "10km": "10 km", "25km": "25 km" };
+                    const active = distance === d;
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setDistance(active ? null : d)}
+                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
+                      >
+                        {labels[d]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Category */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Category</span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {(["party", "food_drinks", "culture", "outdoor", "music"] as const).map((c) => {
+                    const labels: Record<string, string> = { party: "Party", food_drinks: "Food & Drinks", culture: "Culture", outdoor: "Outdoor", music: "Music" };
+                    const active = sheetCategory === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setSheetCategory(active ? null : c)}
+                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
+                      >
+                        {labels[c]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Price */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Price</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["free", "paid"] as const).map((p) => {
+                    const active = price === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPrice(active ? null : p)}
+                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
+                      >
+                        {p === "free" ? "Free" : "Paid"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Availability */}
+              <div style={{ display: "grid", gap: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Availability</span>
+                <button
+                  type="button"
+                  onClick={() => setSpotsLeft((v) => !v)}
+                  style={{ alignSelf: "start", padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${spotsLeft ? "var(--foreground)" : "var(--border-strong)"}`, background: spotsLeft ? "var(--foreground)" : "transparent", color: spotsLeft ? "var(--background)" : "inherit", fontSize: 13, fontWeight: spotsLeft ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
                 >
-                  <option value="all">All sources</option>
-                  <option value="ticketmaster">Ticketmaster</option>
-                  <option value="manual">Community</option>
-                </select>
-              </label>
+                  Spots left
+                </button>
+              </div>
 
               {/* Venue */}
-              <label style={{ display: "grid", gap: 3 }}>
-                <span style={{ fontSize: 11, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Venue</span>
+              <div style={{ display: "grid", gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Venue</span>
                 <select
                   value={venueId}
                   onChange={(e) => setVenueId(e.target.value)}
-                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
+                  style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
                 >
                   <option value="">All venues</option>
                   {venues.map((v) => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
                 </select>
-              </label>
+              </div>
 
-              {/* Date window */}
-              <label style={{ display: "grid", gap: 3 }}>
-                <span style={{ fontSize: 11, opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>Date</span>
-                <select
-                  value={(showCustomRange || hasCustomRange) ? "custom" : dateWindow}
-                  onChange={(e) => {
-                    if (e.target.value === "custom") {
-                      setShowCustomRange(true);
-                    } else {
-                      setShowCustomRange(false);
-                      setFromDate("");
-                      setToDate("");
-                      setDateWindow(e.target.value as DateWindow);
-                    }
-                  }}
-                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--background)", color: "inherit" }}
-                >
-                  <option value="all">Any date</option>
-                  <option value="today">Today</option>
-                  <option value="this_week">This week</option>
-                  <option value="weekend">Weekend</option>
-                  <option value="custom">Custom range</option>
-                </select>
-              </label>
-
-              {/* Custom date inputs — only shown when "Custom range" is selected */}
-              {(showCustomRange || hasCustomRange) && (
-                <div style={{ display: "grid", gap: 8, paddingBottom: 12 }}>
-                  <div className="date-range-row">
-                    <label style={{ display: "grid", gap: 3, flex: 1 }}>
-                      <span style={{ fontSize: 11, opacity: 0.5 }}>From</span>
-                      <input
-                        type="date"
-                        value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
-                        style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
-                      />
-                    </label>
-                    <label style={{ display: "grid", gap: 3, flex: 1 }}>
-                      <span style={{ fontSize: 11, opacity: 0.5 }}>To</span>
-                      <input
-                        type="date"
-                        value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
-                        style={{ padding: "9px 10px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, width: "100%", boxSizing: "border-box" }}
-                      />
-                    </label>
-                  </div>
-                  {hasCustomRange && (
-                    <button
-                      type="button"
-                      onClick={() => { setFromDate(""); setToDate(""); setShowCustomRange(false); }}
-                      style={{ alignSelf: "start", padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "transparent", cursor: "pointer", fontSize: 13, color: "inherit" }}
-                    >
-                      Clear dates
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
 
-            {/* Sticky footer CTA */}
-            <div className="filters-sheet-footer">
+            {/* Sticky footer */}
+            <div style={{ padding: "12px 20px 24px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                style={{ width: "100%", padding: "12px", borderRadius: 12, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+                style={{ width: "100%", padding: "13px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
               >
                 {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
               </button>
