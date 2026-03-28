@@ -142,6 +142,20 @@ export function Header() {
             Events
           </Link>
 
+          <Link
+            href="/map"
+            style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
+          >
+            <span className="nav-label">Map</span>
+            <span className="nav-icon" aria-hidden>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                <line x1="9" y1="3" x2="9" y2="18" />
+                <line x1="15" y1="6" x2="15" y2="21" />
+              </svg>
+            </span>
+          </Link>
+
           {!loading && user && (
             <Link
               href="/events/new"
