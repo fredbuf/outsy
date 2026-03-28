@@ -401,6 +401,18 @@ export default async function EventPage({
             )}
           </div>
 
+          {/* ↓ Gradient into page — dark at band bottom, transparent downward */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute", left: 0, right: 0,
+              bottom: 0, height: 100,
+              transform: "translateY(100%)",
+              background: "linear-gradient(to bottom, #0d0d0d 0%, transparent 100%)",
+              pointerEvents: "none",
+              zIndex: 1,
+            }}
+          />
         </div>
 
         {/* ── Content area — forced dark surface ───────────────────────
@@ -422,7 +434,7 @@ export default async function EventPage({
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
             {/* RSVP */}
-            <div style={{ paddingTop: 20, paddingBottom: 4 }}>
+            <div style={{ paddingTop: 44, paddingBottom: 4 }}>
             <ActionBar
               eventId={id}
               initialCounts={rsvpCounts}
