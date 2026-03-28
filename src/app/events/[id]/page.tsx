@@ -294,7 +294,7 @@ export default async function EventPage({
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
     return (
-      <main style={{ padding: 0, background: "#111110" }}>
+      <main style={{ padding: "16px 0 0", background: "#111110" }}>
 
         {/* ── Top card: full-bleed image with info overlay ──────────────────
              Single unified container — image defines height, title/date/
@@ -303,8 +303,9 @@ export default async function EventPage({
         <div
           style={{
             position: "relative",
-            borderRadius: "0 0 28px 28px",
+            borderRadius: 24,
             overflow: "hidden",
+            margin: "0 0 0 0",
           }}
         >
           {/* Image — defines the card height via aspectRatio */}
@@ -346,9 +347,10 @@ export default async function EventPage({
                 cursor: "pointer", color: "#fff", flexShrink: 0,
                 backdropFilter: "blur(10px)",
                 WebkitBackdropFilter: "blur(10px)",
+                touchAction: "manipulation",
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </BackButton>
@@ -377,16 +379,22 @@ export default async function EventPage({
                 fontWeight: 800,
                 lineHeight: 1.15,
                 letterSpacing: "-0.02em",
-                margin: "0 0 10px",
-              }}
+                margin: "0 0 12px",
+                textWrap: "balance",
+              } as React.CSSProperties}
             >
               {event.title}
             </h1>
-            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 3px" }}>
+            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 2px" }}>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </p>
+            {venue?.name && (
+              <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: "0 0 2px" }}>
+                {venue.name}
+              </p>
+            )}
             {address && (
-              <p style={{ color: "rgba(255,255,255,0.52)", fontSize: 14, margin: 0 }}>
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: 0 }}>
                 {address}
               </p>
             )}
@@ -460,6 +468,8 @@ export default async function EventPage({
                       <img
                         src={item.avatar_url}
                         alt={item.display_name ?? ""}
+                        width={28}
+                        height={28}
                         style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
                       />
                     ) : (
@@ -501,6 +511,8 @@ export default async function EventPage({
                 <img
                   src={creator.avatar_url}
                   alt={creator.display_name ?? ""}
+                  width={32}
+                  height={32}
                   style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
                 />
               ) : (
