@@ -399,7 +399,7 @@ function CalendarGrid({
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function SchedulePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, session } = useAuth();
 
   const [tab, setTab] = useState<Tab>("upcoming");
 
@@ -453,36 +453,65 @@ export default function SchedulePage() {
   }, [user]);
 
   // ── Fetch: hosting (events created by user) ──────────────────────────────────
+  // Uses /api/profile (service-role key) to bypass RLS, which would otherwise
+  // block the browser anon client from reading the user's own non-public events.
+  // The profile API already returns json.events = all events where creator_id = me.
   useEffect(() => {
-    if (!user) return;
+    if (!session?.access_token) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetchingHosting(true);
-    supabaseBrowser()
-      .from("events")
-      .select("id, title, start_at, image_url, visibility, is_approved, venues(name, city)")
-      .eq("creator_id", user.id)
-      .gte("start_at", new Date().toISOString())
-      .order("start_at", { ascending: true })
-      .then(({ data }) => {
-        const rows: UserEvent[] = (data ?? []).map((ev) => {
-          const venue = Array.isArray(ev.venues) ? ev.venues[0] : ev.venues;
-          return {
+
+    fetch("/api/profile", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) {
+          console.debug("[schedule/hosting] profile API returned not-ok:", json);
+          setFetchingHosting(false);
+          return;
+        }
+
+        const rawEvents: {
+          id: string;
+          title: string;
+          start_at: string;
+          image_url: string | null;
+          visibility: string;
+          is_approved: boolean;
+          status: string;
+        }[] = json.events ?? [];
+
+        console.debug("[schedule/hosting] raw events from API:", rawEvents.length, rawEvents.map((e) => e.id));
+
+        const now  = new Date().toISOString();
+        const rows: UserEvent[] = rawEvents
+          // upcoming only
+          .filter((ev) => ev.start_at >= now)
+          .map((ev) => ({
             id:          ev.id,
             title:       ev.title,
             start_at:    ev.start_at,
             image_url:   ev.image_url,
             visibility:  ev.visibility as "public" | "private",
-            venue_name:  venue?.name  ?? null,
-            venue_city:  venue?.city  ?? null,
-            role:        "hosting",
+            // /api/profile doesn't join venues — resolved separately below
+            venue_name:  null,
+            venue_city:  null,
+            role:        "hosting" as const,
             response:    null,
-            is_approved: ev.is_approved as boolean,
-          };
-        });
+            is_approved: ev.is_approved,
+          }));
+
+        rows.sort((a, b) => a.start_at.localeCompare(b.start_at));
+        console.debug("[schedule/hosting] upcoming hosted events:", rows.length);
         setHostingEvents(rows);
         setFetchingHosting(false);
+      })
+      .catch((err) => {
+        console.error("[schedule/hosting] fetch error:", err);
+        setFetchingHosting(false);
       });
-  }, [user]);
+  }, [session?.access_token]);
 
   // ── Derived: all user events, deduped by id, for the calendar ────────────────
   // When a user hosts an event they also RSVPd to, hosting badge takes priority.
