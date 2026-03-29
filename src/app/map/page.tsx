@@ -300,6 +300,110 @@ function formatEventDate(iso: string): string {
   });
 }
 
+// ── Shared event card used in both single-card and carousel modes ─────────────
+function EventCard({ event, avatars }: { event: MapEvent; avatars: TileAvatar[] }) {
+  return (
+    <div style={{ position: "relative", width: "100%", paddingBottom: "62%", background: "#1a1020" }}>
+      {event.image_url && (
+        <img
+          src={event.image_url}
+          alt=""
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      )}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)",
+        }}
+      />
+
+      {/* Star badge */}
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          width: 30,
+          height: 30,
+          borderRadius: "50%",
+          background: "rgba(0,0,0,0.42)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+        </svg>
+      </div>
+
+      {/* Attendee avatars */}
+      {avatars.length > 0 && (
+        <div style={{ position: "absolute", bottom: 10, right: 10, display: "flex", flexDirection: "row-reverse" }}>
+          {avatars.map((a, i) =>
+            a.url ? (
+              <img
+                key={i}
+                src={a.url}
+                alt=""
+                style={{
+                  width: 22, height: 22, borderRadius: "50%", objectFit: "cover",
+                  border: "2px solid rgba(0,0,0,0.5)", marginLeft: i > 0 ? -6 : 0,
+                }}
+              />
+            ) : (
+              <div
+                key={i}
+                style={{
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: getAvatarColor(a.name),
+                  border: "2px solid rgba(0,0,0,0.5)", marginLeft: i > 0 ? -6 : 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 8, fontWeight: 700, color: "#fff",
+                }}
+              >
+                {getInitials(a.name)}
+              </div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* Text overlay */}
+      <div
+        style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 2,
+        }}
+      >
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+          {formatEventDate(event.start_at)}
+        </div>
+        <div
+          style={{
+            fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}
+        >
+          {event.title}
+        </div>
+        {event.venues?.name && (
+          <div
+            style={{
+              fontSize: 12, color: "rgba(255,255,255,0.55)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}
+          >
+            {event.venues.name}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function MapPage() {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -333,7 +437,7 @@ export default function MapPage() {
   // 1. 14-day window; if < 12 events, expand to 30 days.
   // 2. Sort by distance (if location known), then by start_at ascending.
   // 3. Venue-dedupe: keep only the soonest event per exact lat/lng pair.
-  const { defaultEvents, displayLabel } = useMemo(() => {
+  const { defaultEvents, displayLabel, displayDays } = useMemo(() => {
     const now = new Date();
 
     function withinDays(e: MapEvent, days: number): boolean {
@@ -394,6 +498,7 @@ export default function MapPage() {
     return {
       defaultEvents: deduped,
       displayLabel: `Next ${days} days`,
+      displayDays: days,
     };
   }, [events, userPos]);
 
@@ -444,6 +549,74 @@ export default function MapPage() {
 
     return result;
   }, [events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
+
+  // All events at the selected venue within the active result set (no dedup).
+  // In the default state this uses the same time window as defaultEvents but without
+  // venue-dedup so all events at a venue are surfaced in the carousel.
+  const venueEvents = useMemo(() => {
+    if (!selected) return [];
+    const selLat = selected.venues?.lat;
+    const selLng = selected.venues?.lng;
+    if (typeof selLat !== "number" || typeof selLng !== "number") return [selected];
+    const venueKey = `${selLat.toFixed(5)},${selLng.toFixed(5)}`;
+
+    const isDefault =
+      !searchQuery.trim() &&
+      selectedCategory === "all" &&
+      dateFilter === "all" &&
+      timeFilter === "all" &&
+      typeFilter === "all";
+
+    let pool: MapEvent[];
+
+    if (isDefault) {
+      const cutoff = new Date(Date.now() + displayDays * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      pool = events.filter((e) => {
+        const d = new Date(e.start_at);
+        return d >= now && d <= cutoff;
+      });
+    } else {
+      pool = [...events];
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        pool = pool.filter(
+          (e) =>
+            e.title.toLowerCase().includes(q) ||
+            (e.venues?.name?.toLowerCase().includes(q) ?? false),
+        );
+      }
+      if (dateFilter !== "all")
+        pool = pool.filter((e) => isInDateWindow(e.start_at, dateFilter, pickedDate));
+      if (timeFilter !== "all") {
+        pool = pool.filter((e) => {
+          const h = new Date(e.start_at).getHours();
+          if (timeFilter === "morning")   return h >= 6  && h < 12;
+          if (timeFilter === "afternoon") return h >= 12 && h < 18;
+          return h >= 18;
+        });
+      }
+      if (selectedCategory !== "all")
+        pool = pool.filter((e) => normalizeCategory(e.category_primary) === selectedCategory);
+      if (typeFilter !== "all")
+        pool = pool.filter((e) =>
+          typeFilter === "private" ? e.source === "manual" : e.source !== "manual",
+        );
+    }
+
+    return pool
+      .filter((e) => {
+        const eLat = e.venues?.lat;
+        const eLng = e.venues?.lng;
+        return (
+          typeof eLat === "number" &&
+          typeof eLng === "number" &&
+          `${eLat.toFixed(5)},${eLng.toFixed(5)}` === venueKey
+        );
+      })
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   const mapSuggestions = useMemo(() => {
     if (!searchQuery.trim() || suggestionsDismissed) return [];
@@ -980,12 +1153,10 @@ export default function MapPage() {
           </button>
         )}
 
-        {/* Event preview card — centered floating tile */}
-        {selected && (
-          <Link
-            href={`/events/${selected.id}`}
-            style={{ textDecoration: "none", color: "inherit" }}
-          >
+        {/* Event preview — single card or venue carousel */}
+        {selected && venueEvents.length === 1 && (
+          /* ── Single event: existing centered card ─────────────────────── */
+          <Link href={`/events/${selected.id}`} style={{ textDecoration: "none", color: "inherit" }}>
             <div
               style={{
                 position: "absolute",
@@ -1000,153 +1171,86 @@ export default function MapPage() {
                 boxShadow: "0 8px 40px rgba(0,0,0,0.32)",
               }}
             >
-              {/* Image with gradient overlay */}
-              <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  paddingBottom: "62%",
-                  background: "#1a1020",
-                }}
-              >
-                {selected.image_url && (
-                  <img
-                    src={selected.image_url}
-                    alt=""
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                )}
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)",
-                  }}
-                />
-
-                {/* Star — top-right */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    width: 30,
-                    height: 30,
-                    borderRadius: "50%",
-                    background: "rgba(0,0,0,0.42)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                </div>
-
-                {/* Attendee avatars — bottom-right stacked row */}
-                {selectedAvatars.length > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 10,
-                      right: 10,
-                      display: "flex",
-                      flexDirection: "row-reverse",
-                    }}
-                  >
-                    {selectedAvatars.map((a, i) =>
-                      a.url ? (
-                        <img
-                          key={i}
-                          src={a.url}
-                          alt=""
-                          style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            border: "2px solid rgba(0,0,0,0.5)",
-                            marginLeft: i > 0 ? -6 : 0,
-                          }}
-                        />
-                      ) : (
-                        <div
-                          key={i}
-                          style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: "50%",
-                            background: getAvatarColor(a.name),
-                            border: "2px solid rgba(0,0,0,0.5)",
-                            marginLeft: i > 0 ? -6 : 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 8,
-                            fontWeight: 700,
-                            color: "#fff",
-                          }}
-                        >
-                          {getInitials(a.name)}
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-
-                {/* Text overlay */}
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    padding: "8px 12px 12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 2,
-                  }}
-                >
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
-                    {formatEventDate(selected.start_at)}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      color: "#fff",
-                      lineHeight: 1.25,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {selected.title}
-                  </div>
-                  {selected.venues?.name && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.55)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {selected.venues.name}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <EventCard event={selected} avatars={selectedAvatars} />
             </div>
           </Link>
+        )}
+
+        {selected && venueEvents.length > 1 && (
+          /* ── Multi-event venue carousel ───────────────────────────────── */
+          <div
+            style={{
+              position: "absolute",
+              bottom: "calc(26px + env(safe-area-inset-bottom, 0px))",
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {/* Venue pill header */}
+            {selected.venues?.name && (
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                <div
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: 20,
+                    background: "rgba(255,255,255,0.88)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#1c1917",
+                    boxShadow: "0 1px 6px rgba(0,0,0,0.14)",
+                    maxWidth: "calc(100% - 48px)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {selected.venues.name}
+                  <span style={{ fontWeight: 400, opacity: 0.55, marginLeft: 6 }}>
+                    {venueEvents.length} upcoming
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Scrollable row of event cards */}
+            <div
+              className="chip-row"
+              style={{
+                display: "flex",
+                gap: 10,
+                overflowX: "auto",
+                padding: "0 16px 2px",
+              }}
+            >
+              {venueEvents.map((evt, i) => (
+                <Link
+                  key={evt.id}
+                  href={`/events/${evt.id}`}
+                  style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
+                >
+                  <div
+                    style={{
+                      width: "min(72vw, 230px)",
+                      borderRadius: 14,
+                      overflow: "hidden",
+                      boxShadow: "0 6px 28px rgba(0,0,0,0.30)",
+                    }}
+                  >
+                    <EventCard
+                      event={evt}
+                      avatars={i === 0 ? selectedAvatars : []}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
