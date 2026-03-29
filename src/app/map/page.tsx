@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -70,6 +70,8 @@ type MapEvent = {
   title: string;
   start_at: string;
   image_url: string | null;
+  source: string;
+  category_primary: string;
   venues: { lat: number | null; lng: number | null; name: string | null } | null;
 };
 
@@ -92,6 +94,70 @@ function getInitials(name: string | null): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
+}
+
+// ── Filter types + constants ───────────────────────────────────────────────────
+
+type MapCategory = "all" | "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
+type DateFilter  = "all" | "today" | "this_week" | "weekend";
+type TypeFilter  = "all" | "public" | "private";
+
+const MAP_CATEGORIES: { id: MapCategory; label: string }[] = [
+  { id: "all",          label: "All" },
+  { id: "concerts",     label: "Concerts" },
+  { id: "nightlife",    label: "Nightlife" },
+  { id: "arts_culture", label: "Arts & Culture" },
+  { id: "comedy",       label: "Comedy" },
+  { id: "sports",       label: "Sports" },
+  { id: "family",       label: "Family" },
+];
+
+const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
+  { id: "all",       label: "Any date" },
+  { id: "today",     label: "Today" },
+  { id: "this_week", label: "This week" },
+  { id: "weekend",   label: "This weekend" },
+];
+
+const TYPE_OPTIONS: { id: TypeFilter; label: string }[] = [
+  { id: "all",     label: "All" },
+  { id: "public",  label: "Public" },
+  { id: "private", label: "Private" },
+];
+
+function isInDateWindow(iso: string, window: DateFilter): boolean {
+  if (window === "all") return true;
+  const now = new Date();
+  const d   = new Date(iso);
+  const tz  = "America/Toronto";
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz });
+  const eventStr = d.toLocaleDateString("en-CA",   { timeZone: tz });
+
+  if (window === "today") return eventStr === todayStr;
+
+  if (window === "this_week") {
+    const day = now.getDay(); // 0 = Sun
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - day);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    return d >= weekStart && d < weekEnd;
+  }
+
+  if (window === "weekend") {
+    const nowDay = now.getDay();
+    // Offset to the most-recent (or current) Saturday
+    const satOffset = nowDay === 0 ? -1 : 6 - nowDay;
+    const thisSat = new Date(now);
+    thisSat.setDate(now.getDate() + satOffset);
+    thisSat.setHours(0, 0, 0, 0);
+    const nextMon = new Date(thisSat);
+    nextMon.setDate(thisSat.getDate() + 2);
+    return d >= thisSat && d < nextMon;
+  }
+
+  return true;
 }
 
 function formatEventDate(iso: string): string {
@@ -132,12 +198,44 @@ export default function MapPage() {
   const [selected, setSelected] = useState<MapEvent | null>(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [selectedAvatars, setSelectedAvatars] = useState<TileAvatar[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<MapCategory>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  const filterActive = dateFilter !== "all" || typeFilter !== "all";
+
+  const filteredEvents = useMemo(() => {
+    let result = events;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          (e.venues?.name?.toLowerCase().includes(q) ?? false)
+      );
+    }
+
+    if (dateFilter !== "all") {
+      result = result.filter((e) => isInDateWindow(e.start_at, dateFilter));
+    }
+
+    if (typeFilter !== "all") {
+      result = result.filter((e) =>
+        typeFilter === "private" ? e.source === "manual" : e.source !== "manual"
+      );
+    }
+
+    return result;
+  }, [events, searchQuery, dateFilter, typeFilter]);
 
   // Fetch upcoming public events that have venue coordinates
   useEffect(() => {
     supabaseBrowser()
       .from("events")
-      .select("id,title,start_at,image_url,venues(lat,lng,name)")
+      .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name)")
       .eq("city_normalized", "montreal")
       .in("status", ["scheduled", "announced"])
       .eq("is_approved", true)
@@ -254,7 +352,7 @@ export default function MapPage() {
     markersRef.current = new Map();
     prevSelectedIdRef.current = null;
 
-    events.forEach((event) => {
+    filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
       const lng = event.venues?.lng;
       if (typeof lat !== "number" || typeof lng !== "number") return;
@@ -274,7 +372,7 @@ export default function MapPage() {
 
       markersRef.current.set(event.id, marker);
     });
-  }, [events, mapsLoaded]);
+  }, [filteredEvents, mapsLoaded]);
 
   // Swap marker icon when selected event changes
   useEffect(() => {
@@ -307,31 +405,128 @@ export default function MapPage() {
         {/* Google Maps canvas */}
         <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
 
-        {/* Back button — top-left */}
-        <BackButton
+        {/* Top overlay — back + search + filter button (row 1) + category chips (row 2) */}
+        <div
           style={{
             position: "absolute",
-            top: 16,
+            top: 12,
             left: 12,
+            right: 12,
             zIndex: 9,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 44,
-            height: 44,
-            borderRadius: "50%",
-            border: "none",
-            background: "#fff",
-            boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
-            cursor: "pointer",
-            color: "#444",
-            touchAction: "manipulation",
+            flexDirection: "column",
+            gap: 8,
           }}
         >
-          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </BackButton>
+          {/* Row 1: back · search · filter */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <BackButton
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                border: "none",
+                background: "#fff",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+                cursor: "pointer",
+                color: "#444",
+                touchAction: "manipulation",
+              }}
+            >
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </BackButton>
+
+            <input
+              type="search"
+              placeholder="Search events or venues"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                flex: 1,
+                height: 44,
+                borderRadius: 22,
+                border: "none",
+                padding: "0 16px",
+                fontSize: 14,
+                background: "#fff",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
+                outline: "none",
+                minWidth: 0,
+              }}
+            />
+
+            <button
+              type="button"
+              aria-label="Open filters"
+              onClick={() => setFilterOpen(true)}
+              style={{
+                flexShrink: 0,
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                border: "none",
+                background: filterActive ? "#7c3aed" : "#fff",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: filterActive ? "#fff" : "#444",
+                touchAction: "manipulation",
+              }}
+            >
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="8" y1="12" x2="20" y2="12" />
+                <line x1="12" y1="18" x2="20" y2="18" />
+                <circle cx="4" cy="12" r="2" fill="currentColor" stroke="none" />
+                <circle cx="8" cy="6"  r="2" fill="currentColor" stroke="none" />
+                <circle cx="12" cy="18" r="2" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Row 2: category chips */}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              WebkitOverflowScrolling: "touch",
+              paddingBottom: 2,
+            }}
+          >
+            {MAP_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                style={{
+                  flexShrink: 0,
+                  padding: "7px 14px",
+                  borderRadius: 20,
+                  border: "none",
+                  background: selectedCategory === cat.id ? "#7c3aed" : "#fff",
+                  color: selectedCategory === cat.id ? "#fff" : "#333",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+                  touchAction: "manipulation",
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Recenter button — shifts up when preview card is visible */}
         {mapsLoaded && (
@@ -534,6 +729,121 @@ export default function MapPage() {
           </Link>
         )}
       </div>
+
+      {/* Filter bottom sheet */}
+      {filterOpen && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setFilterOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "flex-end",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--background)",
+              width: "100%",
+              borderRadius: "16px 16px 0 0",
+              padding: "20px 20px calc(20px + env(safe-area-inset-bottom, 0px))",
+              display: "flex",
+              flexDirection: "column",
+              gap: 24,
+            }}
+          >
+            {/* Sheet header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.5, lineHeight: 1, padding: 4 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Date */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                Date
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {DATE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDateFilter(opt.id)}
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: 20,
+                      border: "none",
+                      background: dateFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
+                      color: dateFilter === opt.id ? "#fff" : "inherit",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Type */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                Type
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTypeFilter(opt.id)}
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: 20,
+                      border: "none",
+                      background: typeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
+                      color: typeFilter === opt.id ? "#fff" : "inherit",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Clear button — only shown when filters are active */}
+            {filterActive && (
+              <button
+                type="button"
+                onClick={() => { setDateFilter("all"); setTypeFilter("all"); }}
+                style={{
+                  padding: "10px",
+                  borderRadius: 10,
+                  border: "1px solid var(--border-strong)",
+                  background: "none",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  opacity: 0.6,
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
