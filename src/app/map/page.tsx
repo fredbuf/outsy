@@ -418,6 +418,7 @@ export default function MapPage() {
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [selectedAvatars, setSelectedAvatars] = useState<TileAvatar[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<MapCategory>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [pickedDate, setPickedDate] = useState("");
@@ -428,6 +429,20 @@ export default function MapPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
+  // Tracks the last set of event IDs sent to the marker creation effect so we can
+  // skip the full teardown/rebuild when the dataset hasn't actually changed.
+  const prevMarkerKeyRef = useRef("");
+  // Always-current ref to venueLeaderMap so the marker effect can read it
+  // without needing it as a React dependency (they share the same filter deps
+  // and change in lockstep, so the ref is always up to date when the effect runs).
+  const venueLeaderMapRef = useRef<Map<string, MapEvent>>(new Map());
+
+  // Debounce search so filteredEvents / venueLeaderMap don't recompute on every keystroke.
+  // mapSuggestions and the input value still use the raw searchQuery for instant feedback.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearchQuery(searchQuery), 200);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
 
   const filterActive =
     dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
@@ -506,7 +521,7 @@ export default function MapPage() {
     // When filters/search are active, apply them against the full event pool.
     // When everything is default ("All"), use the ranked default set.
     const isDefault =
-      !searchQuery.trim() &&
+      !debouncedSearchQuery.trim() &&
       selectedCategory === "all" &&
       dateFilter === "all" &&
       timeFilter === "all" &&
@@ -514,8 +529,8 @@ export default function MapPage() {
 
     let result = isDefault ? defaultEvents : events;
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase();
       result = result.filter(
         (e) =>
           e.title.toLowerCase().includes(q) ||
@@ -548,7 +563,7 @@ export default function MapPage() {
     }
 
     return result;
-  }, [events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
+  }, [events, defaultEvents, debouncedSearchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   // All events at the selected venue within the active result set (no dedup).
   // In the default state this uses the same time window as defaultEvents but without
@@ -561,7 +576,7 @@ export default function MapPage() {
     const venueKey = `${selLat.toFixed(5)},${selLng.toFixed(5)}`;
 
     const isDefault =
-      !searchQuery.trim() &&
+      !debouncedSearchQuery.trim() &&
       selectedCategory === "all" &&
       dateFilter === "all" &&
       timeFilter === "all" &&
@@ -578,8 +593,8 @@ export default function MapPage() {
       });
     } else {
       pool = [...events];
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearchQuery.trim()) {
+        const q = debouncedSearchQuery.toLowerCase();
         pool = pool.filter(
           (e) =>
             e.title.toLowerCase().includes(q) ||
@@ -616,13 +631,13 @@ export default function MapPage() {
       })
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
+  }, [selected, events, defaultEvents, debouncedSearchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   // Maps each venue key to the soonest upcoming event at that venue in the
   // active pool — used so marker images always match the first carousel card.
   const venueLeaderMap = useMemo(() => {
     const isDefault =
-      !searchQuery.trim() &&
+      !debouncedSearchQuery.trim() &&
       selectedCategory === "all" &&
       dateFilter === "all" &&
       timeFilter === "all" &&
@@ -639,8 +654,8 @@ export default function MapPage() {
       });
     } else {
       pool = [...events];
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearchQuery.trim()) {
+        const q = debouncedSearchQuery.toLowerCase();
         pool = pool.filter(
           (e) =>
             e.title.toLowerCase().includes(q) ||
@@ -678,7 +693,7 @@ export default function MapPage() {
     }
     return leaders;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
+  }, [events, defaultEvents, debouncedSearchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   const mapSuggestions = useMemo(() => {
     if (!searchQuery.trim() || suggestionsDismissed) return [];
@@ -840,10 +855,21 @@ export default function MapPage() {
     );
   }, [placeUserMarker]);
 
+  // Keep venueLeaderMapRef in sync so the marker effect can read it without
+  // being a React dep (venueLeaderMap and filteredEvents share the same filter
+  // deps and always change together, so the ref is always current when the effect runs).
+  venueLeaderMapRef.current = venueLeaderMap;
+
   // Place markers whenever events data or map readiness changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapsLoaded) return;
+
+    // Skip full rebuild when the event set hasn't changed (e.g. userPos update
+    // that only affects defaultEvents sort order but not the visible event IDs).
+    const markerKey = filteredEvents.map((e) => e.id).join(",");
+    if (markerKey === prevMarkerKeyRef.current) return;
+    prevMarkerKeyRef.current = markerKey;
 
     // Remove previous markers
     markersRef.current.forEach((m) => m.setMap(null));
@@ -864,7 +890,7 @@ export default function MapPage() {
       // Use the soonest event at this venue as the visual source for the marker,
       // so the marker image always matches the first card in the venue carousel.
       const venueKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
-      const leader   = venueLeaderMap.get(venueKey) ?? event;
+      const leader   = venueLeaderMapRef.current.get(venueKey) ?? event;
 
       let marker;
 
@@ -894,7 +920,7 @@ export default function MapPage() {
 
       markersRef.current.set(event.id, marker);
     });
-  }, [filteredEvents, venueLeaderMap, mapsLoaded]);
+  }, [filteredEvents, mapsLoaded]);
 
   // Swap marker icon when selected event changes
   useEffect(() => {
