@@ -70,11 +70,11 @@ const MARKER_SELECTED: google.maps.Symbol = {
 };
 
 // ── Advanced marker helpers ────────────────────────────────────────────────────
-// AdvancedMarkerElement no longer requires a Map ID (requirement relaxed 2023).
-// We always prefer it when the `marker` library is loaded; legacy Marker is
-// the true last-resort fallback for environments where the library is absent.
+// AdvancedMarkerElement requires a mapId on the Map instance.
+// Wire NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID in .env.local to enable image markers.
+// Without it, the code falls back to legacy google.maps.Marker (plain circles).
 
-// Per-category fallback background when an event has no image.
+// Per-category fallback background used when an event has no image.
 const CATEGORY_COLORS: Record<string, string> = {
   concerts:     "#4c1d95",
   nightlife:    "#1e1b4b",
@@ -88,6 +88,9 @@ function markerBg(category: string): string {
   return CATEGORY_COLORS[category] ?? "#4c1d95";
 }
 
+// Single-element circle — AdvancedMarkerElement anchors at bottom-center of the
+// content element, so one div is correct; wrapping with translate(-50%,-50%)
+// conflicts with the API's own positioning and must not be added.
 function createMarkerEl(imageUrl: string | null, selected: boolean, category = ""): HTMLElement {
   const size   = selected ? 52 : 40;
   const border = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
@@ -95,12 +98,8 @@ function createMarkerEl(imageUrl: string | null, selected: boolean, category = "
     ? "0 0 0 2px #7c3aed, 0 4px 20px rgba(0,0,0,0.40)"
     : "0 1px 8px rgba(0,0,0,0.30)";
 
-  // Outer wrapper: positions the circle center at the map coordinate.
-  const wrapper = document.createElement("div");
-  wrapper.style.cssText = "transform:translate(-50%,-50%);cursor:pointer;";
-
-  const circle = document.createElement("div");
-  circle.style.cssText = [
+  const el = document.createElement("div");
+  el.style.cssText = [
     `width:${size}px`,
     `height:${size}px`,
     "border-radius:50%",
@@ -108,6 +107,7 @@ function createMarkerEl(imageUrl: string | null, selected: boolean, category = "
     `border:${border}`,
     `box-shadow:${shadow}`,
     `background:${markerBg(category)}`,
+    "cursor:pointer",
     "transition:width 0.15s ease,height 0.15s ease,box-shadow 0.15s ease,border 0.15s ease",
   ].join(";");
 
@@ -115,20 +115,17 @@ function createMarkerEl(imageUrl: string | null, selected: boolean, category = "
     const img = document.createElement("img");
     img.src = imageUrl;
     img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;";
-    circle.appendChild(img);
+    el.appendChild(img);
   }
 
-  wrapper.appendChild(circle);
-  return wrapper;
+  return el;
 }
 
-function updateMarkerEl(wrapper: HTMLElement, selected: boolean): void {
-  const circle = wrapper.firstElementChild as HTMLElement | null;
-  if (!circle) return;
-  circle.style.width     = selected ? "52px" : "40px";
-  circle.style.height    = selected ? "52px" : "40px";
-  circle.style.border    = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
-  circle.style.boxShadow = selected
+function updateMarkerEl(el: HTMLElement, selected: boolean): void {
+  el.style.width     = selected ? "52px" : "40px";
+  el.style.height    = selected ? "52px" : "40px";
+  el.style.border    = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
+  el.style.boxShadow = selected
     ? "0 0 0 2px #7c3aed, 0 4px 20px rgba(0,0,0,0.40)"
     : "0 1px 8px rgba(0,0,0,0.30)";
 }
@@ -538,10 +535,11 @@ export default function MapPage() {
     markersRef.current = new Map();
     prevSelectedIdRef.current = null;
 
-    // Use AdvancedMarkerElement whenever available (no Map ID required since 2023).
-    // Fall back to legacy Marker only if the library wasn't loaded at all.
-    const AdvancedMarker =
-      (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null;
+    // AdvancedMarkerElement requires a mapId on the Map instance.
+    // Only enable it when MAP_ID is configured; otherwise fall back to legacy Marker.
+    const AdvancedMarker = MAP_ID
+      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
+      : null;
 
     filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
