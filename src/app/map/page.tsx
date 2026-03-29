@@ -9,6 +9,61 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 const MONTREAL = { lat: 45.5017, lng: -73.5673 };
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
+// ── Custom map style ──────────────────────────────────────────────────────────
+// Warm off-white base, muted POIs, soft roads — clean and readable.
+const MAP_STYLES: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry",                           stylers: [{ color: "#faf8f5" }] },
+  { elementType: "labels.text.stroke",                 stylers: [{ color: "#faf8f5" }] },
+  { elementType: "labels.text.fill",                   stylers: [{ color: "#7a7570" }] },
+  // Water
+  { featureType: "water", elementType: "geometry",     stylers: [{ color: "#c8d8ea" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#8fa8c2" }] },
+  // Landscape
+  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f2ed" }] },
+  // Parks — keep readable, soft sage
+  { featureType: "poi.park", elementType: "geometry",          stylers: [{ color: "#daebd2" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill",  stylers: [{ color: "#6d956a" }] },
+  { featureType: "poi.park", elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
+  // POIs — hide icons and business clutter
+  { featureType: "poi",          elementType: "labels.icon",      stylers: [{ visibility: "off" }] },
+  { featureType: "poi.business",                                   stylers: [{ visibility: "off" }] },
+  { featureType: "poi",          elementType: "labels.text.fill",  stylers: [{ color: "#b0aba6" }] },
+  // Roads
+  { featureType: "road",          elementType: "geometry",          stylers: [{ color: "#ffffff" }] },
+  { featureType: "road.arterial", elementType: "geometry",          stylers: [{ color: "#ede9e4" }] },
+  { featureType: "road.highway",  elementType: "geometry",          stylers: [{ color: "#e5e0d8" }] },
+  { featureType: "road.highway",  elementType: "geometry.stroke",   stylers: [{ color: "#d8d3cb" }] },
+  { featureType: "road",          elementType: "labels.text.fill",  stylers: [{ color: "#8a8580" }] },
+  { featureType: "road",          elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
+  // Transit — minimal
+  { featureType: "transit",         elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
+  { featureType: "transit.line",    elementType: "geometry",          stylers: [{ color: "#ddd8d0" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill",  stylers: [{ color: "#a09890" }] },
+  // Administrative
+  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#666260" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#9a9490" }] },
+];
+
+// ── Event marker icons ────────────────────────────────────────────────────────
+// path: 0 === google.maps.SymbolPath.CIRCLE (numeric value, safe at module level)
+const MARKER_DEFAULT: google.maps.Symbol = {
+  path: 0 as google.maps.SymbolPath,
+  scale: 7,
+  fillColor: "#7c3aed",
+  fillOpacity: 1,
+  strokeColor: "#ffffff",
+  strokeWeight: 1.5,
+};
+
+const MARKER_SELECTED: google.maps.Symbol = {
+  path: 0 as google.maps.SymbolPath,
+  scale: 11,
+  fillColor: "#7c3aed",
+  fillOpacity: 1,
+  strokeColor: "#ffffff",
+  strokeWeight: 3,
+};
+
 type MapEvent = {
   id: string;
   title: string;
@@ -47,7 +102,10 @@ function formatEventDate(iso: string): string {
 export default function MapPage() {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const prevSelectedIdRef = useRef<string | null>(null);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const userPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [selected, setSelected] = useState<MapEvent | null>(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
@@ -68,6 +126,32 @@ export default function MapPage() {
       .then(({ data }) => setEvents((data ?? []) as unknown as MapEvent[]));
   }, []);
 
+  // Shared helper: store position, pan map, place/update the blue dot
+  const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
+    const pos = { lat, lng };
+    userPosRef.current = pos;
+    map.panTo(pos);
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setPosition(pos);
+    } else {
+      userMarkerRef.current = new google.maps.Marker({
+        map,
+        position: pos,
+        title: "Your location",
+        zIndex: 999,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: "#4285F4",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2.5,
+        },
+      });
+    }
+  }, []);
+
   // Initialize map — called once by next/script onLoad
   const initMap = useCallback(() => {
     if (!mapDivRef.current) return;
@@ -81,6 +165,7 @@ export default function MapPage() {
       zoomControlOptions: {
         position: google.maps.ControlPosition.RIGHT_CENTER,
       },
+      styles: MAP_STYLES,
     });
 
     mapRef.current = map;
@@ -88,15 +173,32 @@ export default function MapPage() {
     // Tapping the map background dismisses the preview card
     map.addListener("click", () => setSelected(null));
 
-    // Pan to user location if permission is granted; fallback stays Montréal
+    // Show user location dot and pan to it if permission is granted
     navigator.geolocation?.getCurrentPosition(
-      ({ coords }) =>
-        map.panTo({ lat: coords.latitude, lng: coords.longitude }),
-      () => {}
+      ({ coords }) => placeUserMarker(map, coords.latitude, coords.longitude),
+      () => {} // Permission denied — map stays centered on Montréal
     );
 
     setMapsLoaded(true);
-  }, []);
+  }, [placeUserMarker]);
+
+  // Recenter button handler
+  const handleRecenter = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (userPosRef.current) {
+      // Location already known — smooth pan
+      map.panTo(userPosRef.current);
+      return;
+    }
+
+    // Location not yet fetched — request it now
+    navigator.geolocation?.getCurrentPosition(
+      ({ coords }) => placeUserMarker(map, coords.latitude, coords.longitude),
+      () => {} // Still denied — do nothing
+    );
+  }, [placeUserMarker]);
 
   // Place markers whenever events data or map readiness changes
   useEffect(() => {
@@ -105,7 +207,8 @@ export default function MapPage() {
 
     // Remove previous markers
     markersRef.current.forEach((m) => m.setMap(null));
-    markersRef.current = [];
+    markersRef.current = new Map();
+    prevSelectedIdRef.current = null;
 
     events.forEach((event) => {
       const lat = event.venues?.lat;
@@ -116,6 +219,8 @@ export default function MapPage() {
         map,
         position: { lat, lng },
         title: event.title,
+        icon: MARKER_DEFAULT,
+        zIndex: 1,
       });
 
       marker.addListener("click", () => {
@@ -123,9 +228,26 @@ export default function MapPage() {
         map.panTo({ lat, lng });
       });
 
-      markersRef.current.push(marker);
+      markersRef.current.set(event.id, marker);
     });
   }, [events, mapsLoaded]);
+
+  // Swap marker icon when selected event changes
+  useEffect(() => {
+    const prevId = prevSelectedIdRef.current;
+    const nextId = selected?.id ?? null;
+    if (prevId === nextId) return;
+
+    if (prevId) {
+      markersRef.current.get(prevId)?.setIcon(MARKER_DEFAULT);
+      markersRef.current.get(prevId)?.setZIndex(1);
+    }
+    if (nextId) {
+      markersRef.current.get(nextId)?.setIcon(MARKER_SELECTED);
+      markersRef.current.get(nextId)?.setZIndex(10);
+    }
+    prevSelectedIdRef.current = nextId;
+  }, [selected]);
 
   return (
     <>
@@ -140,6 +262,39 @@ export default function MapPage() {
 
         {/* Google Maps canvas */}
         <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
+
+        {/* Recenter button — shifts up when preview card is visible */}
+        {mapsLoaded && (
+          <button
+            type="button"
+            aria-label="Center on my location"
+            onClick={handleRecenter}
+            style={{
+              position: "absolute",
+              right: 12,
+              bottom: selected ? 148 : 24,
+              transition: "bottom 0.2s ease",
+              zIndex: 9,
+              width: 44,
+              height: 44,
+              borderRadius: "50%",
+              border: "none",
+              background: "#fff",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "#444",
+              touchAction: "manipulation",
+            }}
+          >
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+          </button>
+        )}
 
         {/* Event preview card — slides up from bottom on marker tap */}
         {selected && (
