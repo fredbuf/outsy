@@ -421,6 +421,7 @@ export default function MapPage() {
           {/* Row 1: back · search · filter */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <BackButton
+              className="map-overlay-btn"
               style={{
                 flexShrink: 0,
                 display: "flex",
@@ -430,10 +431,12 @@ export default function MapPage() {
                 height: 44,
                 borderRadius: "50%",
                 border: "none",
-                background: "#fff",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+                background: "rgba(255,255,255,0.88)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
                 cursor: "pointer",
-                color: "#444",
+                color: "#333",
                 touchAction: "manipulation",
               }}
             >
@@ -444,9 +447,11 @@ export default function MapPage() {
 
             <input
               type="search"
+              aria-label="Search events or venues"
               placeholder="Search events or venues"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="map-search-input"
               style={{
                 flex: 1,
                 height: 44,
@@ -454,10 +459,12 @@ export default function MapPage() {
                 border: "none",
                 padding: "0 16px",
                 fontSize: 16,
-                background: "#fff",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
-                outline: "none",
+                background: "rgba(255,255,255,0.92)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
                 minWidth: 0,
+                color: "#1c1917",
               }}
             />
 
@@ -465,19 +472,24 @@ export default function MapPage() {
               type="button"
               aria-label="Open filters"
               onClick={() => setFilterOpen(true)}
+              className="map-overlay-btn"
               style={{
                 flexShrink: 0,
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
                 border: "none",
-                background: filterActive ? "#7c3aed" : "#fff",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+                background: filterActive ? "#7c3aed" : "rgba(255,255,255,0.88)",
+                backdropFilter: filterActive ? "none" : "blur(12px)",
+                WebkitBackdropFilter: filterActive ? "none" : "blur(12px)",
+                boxShadow: filterActive
+                  ? "0 2px 12px rgba(124,58,237,0.35)"
+                  : "0 2px 12px rgba(0,0,0,0.16)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
-                color: filterActive ? "#fff" : "#444",
+                color: filterActive ? "#fff" : "#333",
                 touchAction: "manipulation",
               }}
             >
@@ -494,37 +506,39 @@ export default function MapPage() {
 
           {/* Row 2: category chips */}
           <div
-            style={{
-              display: "flex",
-              gap: 8,
-              overflowX: "auto",
-              scrollbarWidth: "none",
-              WebkitOverflowScrolling: "touch",
-              paddingBottom: 2,
-            }}
+            className="chip-row"
+            style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}
           >
-            {MAP_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setSelectedCategory(cat.id)}
-                style={{
-                  flexShrink: 0,
-                  padding: "7px 14px",
-                  borderRadius: 20,
-                  border: "none",
-                  background: selectedCategory === cat.id ? "#7c3aed" : "#fff",
-                  color: selectedCategory === cat.id ? "#fff" : "#333",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-                  touchAction: "manipulation",
-                }}
-              >
-                {cat.label}
-              </button>
-            ))}
+            {MAP_CATEGORIES.map((cat) => {
+              const isActive = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className="map-overlay-btn"
+                  style={{
+                    flexShrink: 0,
+                    padding: "7px 14px",
+                    borderRadius: 20,
+                    border: "none",
+                    background: isActive ? "#7c3aed" : "rgba(255,255,255,0.88)",
+                    backdropFilter: isActive ? "none" : "blur(8px)",
+                    WebkitBackdropFilter: isActive ? "none" : "blur(8px)",
+                    color: isActive ? "#fff" : "#1c1917",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    boxShadow: isActive
+                      ? "0 2px 8px rgba(124,58,237,0.30)"
+                      : "0 1px 6px rgba(0,0,0,0.14)",
+                    touchAction: "manipulation",
+                  }}
+                >
+                  {cat.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -534,6 +548,7 @@ export default function MapPage() {
             type="button"
             aria-label="Center on my location"
             onClick={handleRecenter}
+            className="map-overlay-btn"
             style={{
               position: "absolute",
               right: 12,
@@ -544,13 +559,15 @@ export default function MapPage() {
               height: 44,
               borderRadius: "50%",
               border: "none",
-              background: "#fff",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+              background: "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "#444",
+              color: "#333",
               touchAction: "manipulation",
             }}
           >
@@ -577,7 +594,7 @@ export default function MapPage() {
                 zIndex: 10,
                 borderRadius: 16,
                 overflow: "hidden",
-                boxShadow: "0 4px 32px rgba(0,0,0,0.26)",
+                boxShadow: "0 8px 40px rgba(0,0,0,0.32)",
               }}
             >
               {/* Image with gradient overlay */}
@@ -747,20 +764,25 @@ export default function MapPage() {
             style={{
               background: "var(--background)",
               width: "100%",
-              borderRadius: "16px 16px 0 0",
-              padding: "20px 20px calc(20px + env(safe-area-inset-bottom, 0px))",
+              borderRadius: "20px 20px 0 0",
+              padding: "12px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
               display: "flex",
               flexDirection: "column",
               gap: 24,
             }}
           >
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: -8 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+            </div>
+
             {/* Sheet header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
               <button
                 type="button"
                 onClick={() => setFilterOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.5, lineHeight: 1, padding: 4 }}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
               >
                 ×
               </button>
@@ -777,6 +799,7 @@ export default function MapPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => setDateFilter(opt.id)}
+                    className="map-overlay-btn"
                     style={{
                       padding: "7px 14px",
                       borderRadius: 20,
@@ -805,6 +828,7 @@ export default function MapPage() {
                     key={opt.id}
                     type="button"
                     onClick={() => setTypeFilter(opt.id)}
+                    className="map-overlay-btn"
                     style={{
                       padding: "7px 14px",
                       borderRadius: 20,

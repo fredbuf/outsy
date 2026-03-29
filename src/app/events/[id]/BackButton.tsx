@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation";
 
 export function BackButton({
   style,
+  className,
   children,
 }: {
   style?: React.CSSProperties;
+  className?: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -25,6 +27,7 @@ export function BackButton({
       aria-label="Go back"
       onClick={handleBack}
       style={style}
+      className={className}
     >
       {children}
     </button>

@@ -93,9 +93,30 @@ body {
 /* ── Chip row: hide scrollbar ──────────────────────────────────────────── */
 .chip-row {
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 .chip-row::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Map page overlay controls ─────────────────────────────────────────── */
+.map-overlay-btn {
+  transition: box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.map-overlay-btn:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.28) !important;
+}
+.map-overlay-btn:active {
+  transform: scale(0.94);
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
+}
+.map-search-input {
+  transition: box-shadow 0.15s ease;
+}
+.map-search-input:focus {
+  outline: 2px solid #7c3aed;
+  outline-offset: 0;
+  box-shadow: 0 2px 16px rgba(124,58,237,0.18) !important;
 }
 
 
