@@ -206,6 +206,8 @@ export default function MapPage() {
       streetViewControl: false,
       fullscreenControl: false,
       zoomControl: false,
+      rotateControl: false,
+      cameraControl: false,
       clickableIcons: false,
       styles: MAP_STYLES,
     });
