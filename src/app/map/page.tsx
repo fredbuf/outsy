@@ -309,6 +309,7 @@ export default function MapPage() {
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const userPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [events, setEvents] = useState<MapEvent[]>([]);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [selected, setSelected] = useState<MapEvent | null>(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [selectedAvatars, setSelectedAvatars] = useState<TileAvatar[]>([]);
@@ -327,8 +328,86 @@ export default function MapPage() {
   const filterActive =
     dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
 
+  // ── Default "All" ranking ──────────────────────────────────────────────────
+  // Applied only when no user filters are active and search is empty.
+  // 1. 14-day window; if < 12 events, expand to 30 days.
+  // 2. Sort by distance (if location known), then by start_at ascending.
+  // 3. Venue-dedupe: keep only the soonest event per exact lat/lng pair.
+  const { defaultEvents, displayLabel } = useMemo(() => {
+    const now = new Date();
+
+    function withinDays(e: MapEvent, days: number): boolean {
+      const cutoff = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      const d = new Date(e.start_at);
+      return d >= now && d <= cutoff;
+    }
+
+    function haversineKm(
+      lat1: number, lng1: number,
+      lat2: number, lng2: number,
+    ): number {
+      const R = 6371;
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLng / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // Step 1: time window with auto-expand fallback
+    const window14 = events.filter((e) => withinDays(e, 14));
+    const days   = window14.length >= 12 ? 14 : 30;
+    const pool   = days === 14 ? window14 : events.filter((e) => withinDays(e, 30));
+
+    // Step 2: sort — distance first (if location known), then soonest
+    const sorted = [...pool].sort((a, b) => {
+      if (userPos) {
+        const aLat = a.venues?.lat, aLng = a.venues?.lng;
+        const bLat = b.venues?.lat, bLng = b.venues?.lng;
+        if (typeof aLat === "number" && typeof aLng === "number" &&
+            typeof bLat === "number" && typeof bLng === "number") {
+          const dA = haversineKm(userPos.lat, userPos.lng, aLat, aLng);
+          const dB = haversineKm(userPos.lat, userPos.lng, bLat, bLng);
+          if (Math.abs(dA - dB) > 0.1) return dA - dB;
+        }
+      }
+      return new Date(a.start_at).getTime() - new Date(b.start_at).getTime();
+    });
+
+    // Step 3: venue-dedupe — keep soonest event per unique lat/lng
+    const seenVenues = new Set<string>();
+    const deduped: MapEvent[] = [];
+    for (const e of sorted) {
+      const lat = e.venues?.lat, lng = e.venues?.lng;
+      const key = typeof lat === "number" && typeof lng === "number"
+        ? `${lat.toFixed(5)},${lng.toFixed(5)}`
+        : e.id; // no venue coords: always include
+      if (!seenVenues.has(key)) {
+        seenVenues.add(key);
+        deduped.push(e);
+      }
+    }
+
+    return {
+      defaultEvents: deduped,
+      displayLabel: `Next ${days} days`,
+    };
+  }, [events, userPos]);
+
   const filteredEvents = useMemo(() => {
-    let result = events;
+    // When filters/search are active, apply them against the full event pool.
+    // When everything is default ("All"), use the ranked default set.
+    const isDefault =
+      !searchQuery.trim() &&
+      selectedCategory === "all" &&
+      dateFilter === "all" &&
+      timeFilter === "all" &&
+      typeFilter === "all";
+
+    let result = isDefault ? defaultEvents : events;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -364,7 +443,7 @@ export default function MapPage() {
     }
 
     return result;
-  }, [events, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
+  }, [events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   const mapSuggestions = useMemo(() => {
     if (!searchQuery.trim() || suggestionsDismissed) return [];
@@ -452,6 +531,7 @@ export default function MapPage() {
   const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
     const pos = { lat, lng };
     userPosRef.current = pos;
+    setUserPos(pos); // expose to useMemo so distance-sort updates
     map.panTo(pos);
 
     if (userMarkerRef.current) {
@@ -841,6 +921,28 @@ export default function MapPage() {
               );
             })}
           </div>
+
+          {/* Contextual window label — only shown in default "All" state */}
+          {!filterActive && !searchQuery.trim() && selectedCategory === "all" && (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <div
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.78)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#78716c",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {displayLabel}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Recenter button — shifts up when preview card is visible */}
