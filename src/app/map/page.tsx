@@ -342,7 +342,7 @@ export default function MapPage() {
             style={{
               position: "absolute",
               right: 12,
-              bottom: selected ? 240 : 24,
+              bottom: selected ? 250 : 24,
               transition: "bottom 0.2s ease",
               zIndex: 9,
               width: 44,
@@ -374,7 +374,7 @@ export default function MapPage() {
             <div
               style={{
                 position: "absolute",
-                bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+                bottom: "calc(26px + env(safe-area-inset-bottom, 0px))",
                 left: "50%",
                 transform: "translateX(-50%)",
                 width: "calc(100% - 48px)",
