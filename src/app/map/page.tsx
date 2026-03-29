@@ -217,6 +217,20 @@ function isInDateWindow(iso: string, window: DateFilter, pickedDate?: string): b
   return true;
 }
 
+// ── Category normalization ─────────────────────────────────────────────────────
+// A small number of legacy DB rows have "music" or "art" instead of the
+// canonical values. Normalise client-side so chip filtering is consistent.
+const CATEGORY_ALIAS: Record<string, MapCategory> = {
+  music: "concerts",
+  art:   "arts_culture",
+};
+
+function normalizeCategory(raw: string): MapCategory {
+  const known: MapCategory[] = ["concerts", "nightlife", "arts_culture", "comedy", "sports", "family"];
+  if (known.includes(raw as MapCategory)) return raw as MapCategory;
+  return CATEGORY_ALIAS[raw] ?? "concerts";
+}
+
 // ── Search suggestion helpers ──────────────────────────────────────────────────
 
 function normalizeStr(s: string): string {
@@ -317,6 +331,10 @@ export default function MapPage() {
       });
     }
 
+    if (selectedCategory !== "all") {
+      result = result.filter((e) => normalizeCategory(e.category_primary) === selectedCategory);
+    }
+
     if (typeFilter !== "all") {
       result = result.filter((e) =>
         typeFilter === "private" ? e.source === "manual" : e.source !== "manual"
@@ -324,7 +342,7 @@ export default function MapPage() {
     }
 
     return result;
-  }, [events, searchQuery, dateFilter, pickedDate, timeFilter, typeFilter]);
+  }, [events, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   const mapSuggestions = useMemo(() => {
     if (!searchQuery.trim() || suggestionsDismissed) return [];
@@ -339,6 +357,13 @@ export default function MapPage() {
       .slice(0, 5)
       .map((x) => x.event);
   }, [events, searchQuery, suggestionsDismissed]);
+
+  // Close preview card when the selected event is filtered out
+  useEffect(() => {
+    if (selected && !filteredEvents.some((e) => e.id === selected.id)) {
+      setSelected(null);
+    }
+  }, [filteredEvents, selected]);
 
   // Fetch upcoming public events that have venue coordinates
   useEffect(() => {
