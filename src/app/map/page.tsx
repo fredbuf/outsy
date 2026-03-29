@@ -73,6 +73,27 @@ type MapEvent = {
   venues: { lat: number | null; lng: number | null; name: string | null } | null;
 };
 
+type TileAvatar = { url: string | null; name: string | null };
+
+const AVATAR_COLORS = [
+  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+];
+
+function getAvatarColor(name: string | null): string {
+  if (!name) return AVATAR_COLORS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string | null): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 function formatEventDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -110,6 +131,7 @@ export default function MapPage() {
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [selected, setSelected] = useState<MapEvent | null>(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
+  const [selectedAvatars, setSelectedAvatars] = useState<TileAvatar[]>([]);
 
   // Fetch upcoming public events that have venue coordinates
   useEffect(() => {
@@ -126,6 +148,26 @@ export default function MapPage() {
       .limit(200)
       .then(({ data }) => setEvents((data ?? []) as unknown as MapEvent[]));
   }, []);
+
+  // Fetch up to 3 attendee avatars whenever the selected event changes
+  useEffect(() => {
+    if (!selected) { setSelectedAvatars([]); return; }
+    type RsvpRow = { profiles: { display_name: string | null; avatar_url: string | null } | { display_name: string | null; avatar_url: string | null }[] | null };
+    supabaseBrowser()
+      .from("rsvps")
+      .select("profiles(display_name,avatar_url)")
+      .eq("event_id", selected.id)
+      .in("response", ["going", "maybe"])
+      .limit(3)
+      .then(({ data }) => {
+        const avatars: TileAvatar[] = ((data as RsvpRow[]) ?? []).map((row) => {
+          const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+          return { url: p?.avatar_url ?? null, name: p?.display_name ?? null };
+        });
+        setSelectedAvatars(avatars.slice(0, 3));
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
 
   // Shared helper: store position, pan map, place/update the blue dot
   const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
@@ -300,7 +342,7 @@ export default function MapPage() {
             style={{
               position: "absolute",
               right: 12,
-              bottom: selected ? 220 : 24,
+              bottom: selected ? 240 : 24,
               transition: "bottom 0.2s ease",
               zIndex: 9,
               width: 44,
@@ -323,7 +365,7 @@ export default function MapPage() {
           </button>
         )}
 
-        {/* Event preview card — floating tile matching /events tile design */}
+        {/* Event preview card — centered floating tile */}
         {selected && (
           <Link
             href={`/events/${selected.id}`}
@@ -333,8 +375,10 @@ export default function MapPage() {
               style={{
                 position: "absolute",
                 bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
-                left: 16,
-                right: 16,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "calc(100% - 48px)",
+                maxWidth: 340,
                 zIndex: 10,
                 borderRadius: 16,
                 overflow: "hidden",
@@ -346,7 +390,7 @@ export default function MapPage() {
                 style={{
                   position: "relative",
                   width: "100%",
-                  paddingBottom: "52%",
+                  paddingBottom: "62%",
                   background: "#1a1020",
                 }}
               >
@@ -391,6 +435,57 @@ export default function MapPage() {
                   </svg>
                 </div>
 
+                {/* Attendee avatars — bottom-right stacked row */}
+                {selectedAvatars.length > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 10,
+                      right: 10,
+                      display: "flex",
+                      flexDirection: "row-reverse",
+                    }}
+                  >
+                    {selectedAvatars.map((a, i) =>
+                      a.url ? (
+                        <img
+                          key={i}
+                          src={a.url}
+                          alt=""
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            border: "2px solid rgba(0,0,0,0.5)",
+                            marginLeft: i > 0 ? -6 : 0,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          key={i}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: "50%",
+                            background: getAvatarColor(a.name),
+                            border: "2px solid rgba(0,0,0,0.5)",
+                            marginLeft: i > 0 ? -6 : 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 8,
+                            fontWeight: 700,
+                            color: "#fff",
+                          }}
+                        >
+                          {getInitials(a.name)}
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+
                 {/* Text overlay */}
                 <div
                   style={{
@@ -423,32 +518,14 @@ export default function MapPage() {
                   {selected.venues?.name && (
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.55)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {/* Placeholder avatar */}
-                      <div
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: "50%",
-                          background: "rgba(255,255,255,0.25)",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "rgba(255,255,255,0.55)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {selected.venues.name}
-                      </div>
+                      {selected.venues.name}
                     </div>
                   )}
                 </div>
