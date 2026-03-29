@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -10,69 +10,57 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Tab = "upcoming" | "hosting" | "calendar";
 
-type AttendingEvent = {
+/**
+ * Single unified event shape used across all three tabs.
+ * role = "attending" → user RSVPd going/maybe
+ * role = "hosting"   → user created the event
+ * When an event is both hosted AND attended, it appears once per role in the
+ * source arrays but is deduped in the calendar (allUserEvents).
+ */
+type UserEvent = {
   id: string;
   title: string;
   start_at: string;
   image_url: string | null;
   visibility: "public" | "private";
-  response: "going" | "maybe";
   venue_name: string | null;
   venue_city: string | null;
+  role: "attending" | "hosting";
+  response: "going" | "maybe" | null; // attending only
+  is_approved: boolean;               // hosting only (true for attending rows)
 };
 
-type HostingEvent = {
-  id: string;
-  title: string;
-  start_at: string;
-  image_url: string | null;
-  visibility: "public" | "private";
-  is_approved: boolean;
-  status: string;
-  venue_name: string | null;
-  venue_city: string | null;
-};
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
+// ── Date / format helpers ──────────────────────────────────────────────────────
 
 const TZ = "America/Toronto";
 
+/** "YYYY-MM-DD" key in Toronto time */
+function dateKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
+}
+
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
-    timeZone: TZ,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
+    timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true,
   });
 }
 
 function formatDateHeading(iso: string): string {
   const d   = new Date(iso);
   const now = new Date();
-
   const todayStr    = now.toLocaleDateString("en-CA", { timeZone: TZ });
-  const tomorrowD   = new Date(now);
-  tomorrowD.setDate(now.getDate() + 1);
-  const tomorrowStr = tomorrowD.toLocaleDateString("en-CA", { timeZone: TZ });
+  const tom         = new Date(now); tom.setDate(now.getDate() + 1);
+  const tomorrowStr = tom.toLocaleDateString("en-CA", { timeZone: TZ });
   const eventStr    = d.toLocaleDateString("en-CA",   { timeZone: TZ });
-
   if (eventStr === todayStr)    return "Today";
   if (eventStr === tomorrowStr) return "Tomorrow";
-
   return d.toLocaleDateString("en-US", {
-    timeZone: TZ,
-    weekday: "long",
-    month:   "long",
-    day:     "numeric",
+    timeZone: TZ, weekday: "long", month: "long", day: "numeric",
   });
 }
 
-function dateKey(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ });
-}
-
-function groupByDate<T extends { start_at: string }>(events: T[]) {
-  const sections: { heading: string; dateStr: string; events: T[] }[] = [];
+function groupByDate(events: UserEvent[]) {
+  const sections: { heading: string; dateStr: string; events: UserEvent[] }[] = [];
   for (const e of events) {
     const key  = dateKey(e.start_at);
     const last = sections.at(-1);
@@ -123,7 +111,23 @@ function CalendarIcon({ size = 40 }: { size?: number }) {
   );
 }
 
-// ── Shared skeleton rows ───────────────────────────────────────────────────────
+function ChevronLeft() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+// ── Shared UI ──────────────────────────────────────────────────────────────────
 
 function SkeletonRows({ count = 4 }: { count?: number }) {
   return (
@@ -142,202 +146,252 @@ function SkeletonRows({ count = 4 }: { count?: number }) {
   );
 }
 
-// ── Thumbnail ──────────────────────────────────────────────────────────────────
-
 function Thumbnail({ src }: { src: string | null }) {
   if (src) {
-    return (
-      <img
-        src={src}
-        alt=""
-        style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover", display: "block" }}
-      />
-    );
+    return <img src={src} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: "cover", display: "block" }} />;
   }
   return (
-    <div
-      style={{
-        width: 64,
-        height: 64,
-        borderRadius: 10,
-        background: "var(--surface-raised)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: 0.35,
-      }}
-    >
+    <div style={{ width: 64, height: 64, borderRadius: 10, background: "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.35 }}>
       <CalendarIcon size={22} />
     </div>
   );
 }
 
+function EmptyState({ message, cta }: { message: string; cta?: React.ReactNode }) {
+  return (
+    <div style={{ padding: "48px 24px", textAlign: "center", borderRadius: 16, border: "1px dashed var(--border-strong)" }}>
+      <div style={{ opacity: 0.2, marginBottom: 14, display: "flex", justifyContent: "center" }}>
+        <CalendarIcon size={40} />
+      </div>
+      <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>{message}</p>
+      {cta}
+    </div>
+  );
+}
+
+// ── Unified event row ──────────────────────────────────────────────────────────
+// Handles both attending and hosting layouts from a single component.
+
+function EventRow({ event }: { event: UserEvent }) {
+  const location  = [event.venue_name, event.venue_city].filter(Boolean).join(" · ");
+  const isPrivate = event.visibility === "private";
+
+  return (
+    <Link href={`/events/${event.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+      <div style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start", cursor: "pointer" }}>
+        <div style={{ flexShrink: 0 }}><Thumbnail src={event.image_url} /></div>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3, paddingTop: 1 }}>
+
+          {/* Badges */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+            {event.role === "attending" && event.response && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                padding: "2px 6px", borderRadius: 20,
+                background: event.response === "going" ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)",
+                color:      event.response === "going" ? "#10b981"               : "#f59e0b",
+                border:    `1px solid ${event.response === "going" ? "rgba(16,185,129,0.20)" : "rgba(245,158,11,0.20)"}`,
+              }}>
+                {event.response === "going" ? <CheckIcon /> : <StarIcon />}
+                {event.response === "going" ? "Going" : "Interested"}
+              </span>
+            )}
+            {event.role === "hosting" && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                padding: "2px 6px", borderRadius: 20,
+                background: "rgba(99,102,241,0.10)", color: "#6366f1",
+                border: "1px solid rgba(99,102,241,0.18)",
+              }}>
+                Hosting
+              </span>
+            )}
+            {event.role === "hosting" && !event.is_approved && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                padding: "2px 6px", borderRadius: 20,
+                background: "rgba(245,158,11,0.12)", color: "#f59e0b",
+                border: "1px solid rgba(245,158,11,0.20)",
+              }}>
+                Pending review
+              </span>
+            )}
+            {isPrivate && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                padding: "2px 6px", borderRadius: 20,
+                background: "rgba(124,58,237,0.10)", color: "var(--accent)",
+                border: "1px solid rgba(124,58,237,0.15)",
+              }}>
+                Private
+              </span>
+            )}
+          </div>
+
+          <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {event.title}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.55, display: "flex", flexDirection: "column", gap: 1, marginTop: 1 }}>
+            <span>{formatTime(event.start_at)}</span>
+            {location && (
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <PinIcon />{location}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 // ── Date-section list ──────────────────────────────────────────────────────────
 
-function DateSections<T extends { start_at: string; id: string }>({
-  events,
-  renderRow,
-}: {
-  events: T[];
-  renderRow: (event: T) => React.ReactNode;
-}) {
+function DateSections({ events }: { events: UserEvent[] }) {
   const sections = groupByDate(events);
   return (
     <div>
       {sections.map((section) => (
         <section key={section.dateStr} style={{ marginBottom: 28 }}>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.06em",
-              opacity: 0.4,
-              textTransform: "uppercase",
-              paddingBottom: 6,
-              borderBottom: "1px solid var(--border)",
-              marginBottom: 2,
-            }}
-          >
+          <div style={{
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+            opacity: 0.4, textTransform: "uppercase",
+            paddingBottom: 6, borderBottom: "1px solid var(--border)", marginBottom: 2,
+          }}>
             {section.heading}
           </div>
-          {section.events.map((e) => renderRow(e))}
+          {section.events.map((e) => <EventRow key={`${e.role}-${e.id}`} event={e} />)}
         </section>
       ))}
     </div>
   );
 }
 
-// ── Attending row ──────────────────────────────────────────────────────────────
+// ── Calendar grid ──────────────────────────────────────────────────────────────
 
-function AttendingRow({ event }: { event: AttendingEvent }) {
-  const isGoing   = event.response === "going";
-  const isPrivate = event.visibility === "private";
-  const location  = [event.venue_name, event.venue_city].filter(Boolean).join(" · ");
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+
+function CalendarGrid({
+  year,
+  month,
+  eventsByDate,
+  selectedDate,
+  onSelectDate,
+  onPrev,
+  onNext,
+}: {
+  year: number;
+  month: number;   // 0-indexed
+  eventsByDate: Map<string, UserEvent[]>;
+  selectedDate: string | null;
+  onSelectDate: (key: string | null) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth    = new Date(year, month + 1, 0).getDate();
+  const todayKey       = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+
+  // Build flat cell array: null = empty leading cell, number = day-of-month
+  const cells: (number | null)[] = [
+    ...Array<null>(firstDayOfWeek).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+
+  function cellDateKey(day: number): string {
+    return new Date(year, month, day).toLocaleDateString("en-CA", { timeZone: TZ });
+  }
 
   return (
-    <Link href={`/events/${event.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-      <div style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start", cursor: "pointer" }}>
-        <div style={{ flexShrink: 0 }}><Thumbnail src={event.image_url} /></div>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3, paddingTop: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-            <span
+    <div>
+      {/* Month navigation */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={onPrev}
+          aria-label="Previous month"
+          style={{ background: "var(--btn-bg)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
+          <ChevronLeft />
+        </button>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>
+          {MONTH_NAMES[month]} {year}
+        </span>
+        <button
+          type="button"
+          onClick={onNext}
+          aria-label="Next month"
+          style={{ background: "var(--btn-bg)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center" }}
+        >
+          <ChevronRight />
+        </button>
+      </div>
+
+      {/* Weekday headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+        {WEEKDAYS.map((d) => (
+          <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, opacity: 0.4, letterSpacing: "0.04em", padding: "4px 0" }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`empty-${i}`} />;
+
+          const key     = cellDateKey(day);
+          const count   = eventsByDate.get(key)?.length ?? 0;
+          const isToday = key === todayKey;
+          const isSel   = key === selectedDate;
+
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelectDate(isSel ? null : key)}
               style={{
-                display: "inline-flex", alignItems: "center", gap: 3,
-                fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
-                padding: "2px 6px", borderRadius: 20,
-                background: isGoing ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.12)",
-                color:      isGoing ? "#10b981"               : "#f59e0b",
-                border:     `1px solid ${isGoing ? "rgba(16,185,129,0.20)" : "rgba(245,158,11,0.20)"}`,
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "6px 2px 8px",
+                borderRadius: 8,
+                border: "none",
+                cursor: count > 0 || isToday ? "pointer" : "default",
+                background: isSel
+                  ? "var(--accent)"
+                  : isToday
+                  ? "var(--accent-subtle)"
+                  : "transparent",
+                color: isSel ? "#fff" : "inherit",
+                fontWeight: isToday || isSel ? 700 : 400,
               }}
             >
-              {isGoing ? <CheckIcon /> : <StarIcon />}
-              {isGoing ? "Going" : "Interested"}
-            </span>
-            {isPrivate && (
-              <span
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 3,
-                  fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
-                  padding: "2px 6px", borderRadius: 20,
-                  background: "rgba(124,58,237,0.10)", color: "var(--accent)",
-                  border: "1px solid rgba(124,58,237,0.15)",
-                }}
-              >
-                Private
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {event.title}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.55, display: "flex", flexDirection: "column", gap: 1, marginTop: 1 }}>
-            <span>{formatTime(event.start_at)}</span>
-            {location && (
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <PinIcon />{location}
-              </span>
-            )}
-          </div>
-        </div>
+              <span style={{ fontSize: 14, lineHeight: 1 }}>{day}</span>
+              {count > 0 && (
+                <span style={{
+                  marginTop: 3,
+                  width: 5, height: 5,
+                  borderRadius: "50%",
+                  background: isSel ? "rgba(255,255,255,0.85)" : "var(--accent)",
+                  flexShrink: 0,
+                }} />
+              )}
+            </button>
+          );
+        })}
       </div>
-    </Link>
-  );
-}
-
-// ── Hosting row ────────────────────────────────────────────────────────────────
-
-function HostingRow({ event }: { event: HostingEvent }) {
-  const isPrivate = event.visibility === "private";
-  const isPending = !event.is_approved;
-  const location  = [event.venue_name, event.venue_city].filter(Boolean).join(" · ");
-
-  return (
-    <Link href={`/events/${event.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-      <div style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start", cursor: "pointer" }}>
-        <div style={{ flexShrink: 0 }}><Thumbnail src={event.image_url} /></div>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3, paddingTop: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-            {isPending && (
-              <span
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 3,
-                  fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
-                  padding: "2px 6px", borderRadius: 20,
-                  background: "rgba(245,158,11,0.12)", color: "#f59e0b",
-                  border: "1px solid rgba(245,158,11,0.20)",
-                }}
-              >
-                Pending review
-              </span>
-            )}
-            {isPrivate && (
-              <span
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 3,
-                  fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
-                  padding: "2px 6px", borderRadius: 20,
-                  background: "rgba(124,58,237,0.10)", color: "var(--accent)",
-                  border: "1px solid rgba(124,58,237,0.15)",
-                }}
-              >
-                Private
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-            {event.title}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.55, display: "flex", flexDirection: "column", gap: 1, marginTop: 1 }}>
-            <span>{formatTime(event.start_at)}</span>
-            {location && (
-              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <PinIcon />{location}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// ── Empty state ────────────────────────────────────────────────────────────────
-
-function EmptyState({ message, cta }: { message: string; cta?: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        padding: "48px 24px",
-        textAlign: "center",
-        borderRadius: 16,
-        border: "1px dashed var(--border-strong)",
-      }}
-    >
-      <div style={{ opacity: 0.2, marginBottom: 14, display: "flex", justifyContent: "center" }}>
-        <CalendarIcon size={40} />
-      </div>
-      <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>{message}</p>
-      {cta}
     </div>
   );
 }
@@ -349,77 +403,122 @@ export default function SchedulePage() {
 
   const [tab, setTab] = useState<Tab>("upcoming");
 
-  const [attending,        setAttending]        = useState<AttendingEvent[]>([]);
-  const [hosting,          setHosting]          = useState<HostingEvent[]>([]);
-  const [fetchingAttend,   setFetchingAttend]   = useState(false);
-  const [fetchingHosting,  setFetchingHosting]  = useState(false);
+  // ── Unified fetch state ──────────────────────────────────────────────────────
+  // Two queries, same UserEvent shape. Both fire on mount; tabs read from these.
+  const [attendingEvents, setAttendingEvents] = useState<UserEvent[]>([]);
+  const [hostingEvents,   setHostingEvents]   = useState<UserEvent[]>([]);
+  const [fetchingAttend,  setFetchingAttend]  = useState(false);
+  const [fetchingHosting, setFetchingHosting] = useState(false);
 
-  // Fetch events the user is attending (going / maybe RSVPs)
+  // ── Calendar UI state ────────────────────────────────────────────────────────
+  const now = new Date();
+  const [calYear,  setCalYear]  = useState(now.getFullYear());
+  const [calMonth, setCalMonth] = useState(now.getMonth());    // 0-indexed
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // ── Fetch: attending (going / maybe RSVPs) ───────────────────────────────────
   useEffect(() => {
     if (!user) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetchingAttend(true);
     supabaseBrowser()
       .from("rsvps")
-      .select("response, events(id, title, start_at, image_url, visibility, source_url, source, venues(name, city))")
+      .select("response, events(id, title, start_at, image_url, visibility, venues(name, city))")
       .eq("user_id", user.id)
       .in("response", ["going", "maybe"])
       .then(({ data }) => {
-        const now  = new Date().toISOString();
-        const rows: AttendingEvent[] = [];
+        const cutoff = new Date().toISOString();
+        const rows: UserEvent[] = [];
         for (const row of data ?? []) {
           const ev = Array.isArray(row.events) ? row.events[0] : row.events;
-          if (!ev || ev.start_at < now) continue;
+          if (!ev || ev.start_at < cutoff) continue;
           const venue = Array.isArray(ev.venues) ? ev.venues[0] : ev.venues;
           rows.push({
-            id:         ev.id,
-            title:      ev.title,
-            start_at:   ev.start_at,
-            image_url:  ev.image_url,
-            visibility: ev.visibility as "public" | "private",
-            response:   row.response as "going" | "maybe",
-            venue_name: venue?.name ?? null,
-            venue_city: venue?.city ?? null,
+            id:          ev.id,
+            title:       ev.title,
+            start_at:    ev.start_at,
+            image_url:   ev.image_url,
+            visibility:  ev.visibility as "public" | "private",
+            venue_name:  venue?.name  ?? null,
+            venue_city:  venue?.city  ?? null,
+            role:        "attending",
+            response:    row.response as "going" | "maybe",
+            is_approved: true,
           });
         }
         rows.sort((a, b) => a.start_at.localeCompare(b.start_at));
-        setAttending(rows);
+        setAttendingEvents(rows);
         setFetchingAttend(false);
       });
   }, [user]);
 
-  // Fetch events the user created
+  // ── Fetch: hosting (events created by user) ──────────────────────────────────
   useEffect(() => {
     if (!user) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetchingHosting(true);
     supabaseBrowser()
       .from("events")
-      .select("id, title, start_at, image_url, visibility, is_approved, status, venues(name, city)")
+      .select("id, title, start_at, image_url, visibility, is_approved, venues(name, city)")
       .eq("creator_id", user.id)
       .gte("start_at", new Date().toISOString())
       .order("start_at", { ascending: true })
       .then(({ data }) => {
-        const rows: HostingEvent[] = (data ?? []).map((ev) => {
+        const rows: UserEvent[] = (data ?? []).map((ev) => {
           const venue = Array.isArray(ev.venues) ? ev.venues[0] : ev.venues;
           return {
-            id:         ev.id,
-            title:      ev.title,
-            start_at:   ev.start_at,
-            image_url:  ev.image_url,
-            visibility: ev.visibility as "public" | "private",
+            id:          ev.id,
+            title:       ev.title,
+            start_at:    ev.start_at,
+            image_url:   ev.image_url,
+            visibility:  ev.visibility as "public" | "private",
+            venue_name:  venue?.name  ?? null,
+            venue_city:  venue?.city  ?? null,
+            role:        "hosting",
+            response:    null,
             is_approved: ev.is_approved as boolean,
-            status:     ev.status,
-            venue_name: venue?.name ?? null,
-            venue_city: venue?.city ?? null,
           };
         });
-        setHosting(rows);
+        setHostingEvents(rows);
         setFetchingHosting(false);
       });
   }, [user]);
 
-  // ── Auth loading ─────────────────────────────────────────────────────────────
+  // ── Derived: all user events, deduped by id, for the calendar ────────────────
+  // When a user hosts an event they also RSVPd to, hosting badge takes priority.
+  const allUserEvents = useMemo<UserEvent[]>(() => {
+    const seen = new Map<string, UserEvent>();
+    // Hosting takes priority — add first so attending doesn't overwrite
+    for (const e of hostingEvents)   seen.set(e.id, e);
+    for (const e of attendingEvents) { if (!seen.has(e.id)) seen.set(e.id, e); }
+    return Array.from(seen.values()).sort((a, b) => a.start_at.localeCompare(b.start_at));
+  }, [attendingEvents, hostingEvents]);
+
+  // ── Derived: events keyed by YYYY-MM-DD for the calendar ─────────────────────
+  const eventsByDate = useMemo<Map<string, UserEvent[]>>(() => {
+    const map = new Map<string, UserEvent[]>();
+    for (const e of allUserEvents) {
+      const key = dateKey(e.start_at);
+      const arr = map.get(key) ?? [];
+      arr.push(e);
+      map.set(key, arr);
+    }
+    return map;
+  }, [allUserEvents]);
+
+  // ── Calendar navigation ───────────────────────────────────────────────────────
+  function prevMonth() {
+    if (calMonth === 0) { setCalYear((y) => y - 1); setCalMonth(11); }
+    else                  setCalMonth((m) => m - 1);
+    setSelectedDate(null);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalYear((y) => y + 1); setCalMonth(0); }
+    else                   setCalMonth((m) => m + 1);
+    setSelectedDate(null);
+  }
+
+  // ── Auth loading ──────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
       <main className="page-main" style={{ padding: "24px 20px", maxWidth: 600, margin: "0 auto" }}>
@@ -444,15 +543,7 @@ export default function SchedulePage() {
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent("outsy:open-signin"))}
-          style={{
-            padding: "10px 24px",
-            borderRadius: 10,
-            border: "1px solid var(--border-strong)",
-            background: "var(--btn-bg)",
-            fontWeight: 600,
-            fontSize: 14,
-            cursor: "pointer",
-          }}
+          style={{ padding: "10px 24px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--btn-bg)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
         >
           Sign in
         </button>
@@ -460,11 +551,11 @@ export default function SchedulePage() {
     );
   }
 
-  // ── Tab content ───────────────────────────────────────────────────────────────
+  // ── Tab renderers ─────────────────────────────────────────────────────────────
 
   function renderUpcoming() {
     if (fetchingAttend) return <SkeletonRows />;
-    if (attending.length === 0) {
+    if (attendingEvents.length === 0) {
       return (
         <EmptyState
           message="Nothing coming up yet"
@@ -474,18 +565,7 @@ export default function SchedulePage() {
               <br />
               <Link
                 href="/events"
-                style={{
-                  display: "inline-block",
-                  marginTop: 12,
-                  padding: "9px 20px",
-                  borderRadius: 10,
-                  border: "1px solid var(--border-strong)",
-                  background: "var(--btn-bg)",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  textDecoration: "none",
-                  color: "inherit",
-                }}
+                style={{ display: "inline-block", marginTop: 12, padding: "9px 20px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--btn-bg)", fontWeight: 600, fontSize: 14, textDecoration: "none", color: "inherit" }}
               >
                 Explore events
               </Link>
@@ -494,34 +574,19 @@ export default function SchedulePage() {
         />
       );
     }
-    return (
-      <DateSections
-        events={attending}
-        renderRow={(e) => <AttendingRow key={e.id} event={e} />}
-      />
-    );
+    return <DateSections events={attendingEvents} />;
   }
 
   function renderHosting() {
     if (fetchingHosting) return <SkeletonRows />;
-    if (hosting.length === 0) {
+    if (hostingEvents.length === 0) {
       return (
         <EmptyState
-          message="No upcoming events you're hosting"
+          message="You're not hosting anything yet"
           cta={
             <Link
               href="/events/new"
-              style={{
-                display: "inline-block",
-                padding: "9px 20px",
-                borderRadius: 10,
-                border: "1px solid var(--border-strong)",
-                background: "var(--btn-bg)",
-                fontWeight: 600,
-                fontSize: 14,
-                textDecoration: "none",
-                color: "inherit",
-              }}
+              style={{ display: "inline-block", padding: "9px 20px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--btn-bg)", fontWeight: 600, fontSize: 14, textDecoration: "none", color: "inherit" }}
             >
               Create an event
             </Link>
@@ -529,65 +594,84 @@ export default function SchedulePage() {
         />
       );
     }
-    return (
-      <DateSections
-        events={hosting}
-        renderRow={(e) => <HostingRow key={e.id} event={e} />}
-      />
-    );
+    return <DateSections events={hostingEvents} />;
   }
 
   function renderCalendar() {
+    const fetching = fetchingAttend || fetchingHosting;
+    const selectedEvents = selectedDate ? (eventsByDate.get(selectedDate) ?? []) : [];
+
     return (
-      <div
-        style={{
-          padding: "48px 24px",
-          textAlign: "center",
-          borderRadius: 16,
-          border: "1px dashed var(--border-strong)",
-        }}
-      >
-        <div style={{ opacity: 0.2, marginBottom: 14, display: "flex", justifyContent: "center" }}>
-          <CalendarIcon size={40} />
-        </div>
-        <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Calendar view coming soon</p>
-        <p style={{ fontSize: 14, opacity: 0.5, lineHeight: 1.6 }}>
-          A monthly calendar with your events is on the way.
-        </p>
+      <div>
+        {fetching ? (
+          <div style={{ height: 280, borderRadius: 12, background: "var(--surface-raised)" }} />
+        ) : (
+          <CalendarGrid
+            year={calYear}
+            month={calMonth}
+            eventsByDate={eventsByDate}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            onPrev={prevMonth}
+            onNext={nextMonth}
+          />
+        )}
+
+        {/* Selected-day event list */}
+        {selectedDate && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+              opacity: 0.4, textTransform: "uppercase",
+              paddingBottom: 6, borderBottom: "1px solid var(--border)", marginBottom: 2,
+            }}>
+              {formatDateHeading(selectedDate + "T12:00:00")}
+            </div>
+            {selectedEvents.length === 0 ? (
+              <p style={{ fontSize: 14, opacity: 0.45, padding: "20px 0", textAlign: "center" }}>
+                No events on this day
+              </p>
+            ) : (
+              selectedEvents.map((e) => <EventRow key={`${e.role}-${e.id}`} event={e} />)
+            )}
+          </div>
+        )}
+
+        {!fetching && allUserEvents.length === 0 && !selectedDate && (
+          <EmptyState
+            message="No events on your calendar yet"
+            cta={
+              <Link
+                href="/events"
+                style={{ display: "inline-block", marginTop: 8, padding: "9px 20px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--btn-bg)", fontWeight: 600, fontSize: 14, textDecoration: "none", color: "inherit" }}
+              >
+                Explore events
+              </Link>
+            }
+          />
+        )}
       </div>
     );
   }
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: "upcoming",  label: "Upcoming"  },
-    { id: "hosting",   label: "Hosting"   },
-    { id: "calendar",  label: "Calendar"  },
+    { id: "upcoming", label: "Upcoming" },
+    { id: "hosting",  label: "Hosting"  },
+    { id: "calendar", label: "Calendar" },
   ];
 
   return (
-    <main
-      className="page-main"
-      style={{ padding: "24px 20px 56px", maxWidth: 600, margin: "0 auto" }}
-    >
-      {/* Page heading — centered */}
+    <main className="page-main" style={{ padding: "24px 20px 56px", maxWidth: 600, margin: "0 auto" }}>
+      {/* Centered heading */}
       <header style={{ textAlign: "center", marginBottom: 20 }}>
-        <h1 className="page-h1" style={{ fontSize: 28, fontWeight: 700 }}>
-          Schedule
-        </h1>
+        <h1 className="page-h1" style={{ fontSize: 28, fontWeight: 700 }}>Schedule</h1>
       </header>
 
       {/* Segmented control */}
       <div
         role="tablist"
         aria-label="Schedule views"
-        style={{
-          display: "flex",
-          background: "var(--btn-bg)",
-          borderRadius: 12,
-          padding: 3,
-          gap: 2,
-          marginBottom: 28,
-        }}
+        style={{ display: "flex", background: "var(--btn-bg)", borderRadius: 12, padding: 3, gap: 2, marginBottom: 28 }}
       >
         {TABS.map(({ id, label }) => {
           const active = tab === id;
@@ -599,13 +683,9 @@ export default function SchedulePage() {
               type="button"
               onClick={() => setTab(id)}
               style={{
-                flex: 1,
-                padding: "8px 4px",
-                borderRadius: 9,
-                border: "none",
+                flex: 1, padding: "8px 4px", borderRadius: 9, border: "none",
                 background: active ? "var(--background)" : "transparent",
-                fontWeight: active ? 700 : 400,
-                fontSize: 13,
+                fontWeight: active ? 700 : 400, fontSize: 13,
                 color: active ? "var(--accent)" : "inherit",
                 cursor: "pointer",
                 boxShadow: active ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
@@ -618,10 +698,10 @@ export default function SchedulePage() {
         })}
       </div>
 
-      {/* Tab panels */}
-      {tab === "upcoming"  && renderUpcoming()}
-      {tab === "hosting"   && renderHosting()}
-      {tab === "calendar"  && renderCalendar()}
+      {/* Panels */}
+      {tab === "upcoming" && renderUpcoming()}
+      {tab === "hosting"  && renderHosting()}
+      {tab === "calendar" && renderCalendar()}
     </main>
   );
 }
