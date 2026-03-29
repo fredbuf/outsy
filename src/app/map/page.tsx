@@ -205,10 +205,8 @@ export default function MapPage() {
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
+      zoomControl: false,
       clickableIcons: false,
-      zoomControlOptions: {
-        position: google.maps.ControlPosition.RIGHT_CENTER,
-      },
       styles: MAP_STYLES,
     });
 
