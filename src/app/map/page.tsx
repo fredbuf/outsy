@@ -69,43 +69,68 @@ const MARKER_SELECTED: google.maps.Symbol = {
   strokeWeight: 3,
 };
 
-// ── Advanced marker helpers (used when MAP_ID is available) ───────────────────
+// ── Advanced marker helpers ────────────────────────────────────────────────────
+// AdvancedMarkerElement no longer requires a Map ID (requirement relaxed 2023).
+// We always prefer it when the `marker` library is loaded; legacy Marker is
+// the true last-resort fallback for environments where the library is absent.
 
-function createMarkerEl(imageUrl: string | null, selected: boolean): HTMLElement {
-  const size   = selected ? 54 : 44;
-  const border = selected ? 3   : 2.5;
+// Per-category fallback background when an event has no image.
+const CATEGORY_COLORS: Record<string, string> = {
+  concerts:     "#4c1d95",
+  nightlife:    "#1e1b4b",
+  arts_culture: "#7c2d12",
+  comedy:       "#713f12",
+  sports:       "#14532d",
+  family:       "#164e63",
+};
+
+function markerBg(category: string): string {
+  return CATEGORY_COLORS[category] ?? "#4c1d95";
+}
+
+function createMarkerEl(imageUrl: string | null, selected: boolean, category = ""): HTMLElement {
+  const size   = selected ? 52 : 40;
+  const border = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
   const shadow = selected
-    ? "0 0 0 2.5px #7c3aed, 0 4px 16px rgba(0,0,0,0.35)"
-    : "0 2px 10px rgba(0,0,0,0.28)";
+    ? "0 0 0 2px #7c3aed, 0 4px 20px rgba(0,0,0,0.40)"
+    : "0 1px 8px rgba(0,0,0,0.30)";
 
-  const el = document.createElement("div");
-  el.style.cssText = `
-    width:${size}px;height:${size}px;
-    border-radius:50%;overflow:hidden;
-    border:${border}px solid #fff;
-    box-shadow:${shadow};
-    background:#7c3aed;
-    cursor:pointer;
-    transition:width 0.15s ease,height 0.15s ease,box-shadow 0.15s ease;
-  `;
+  // Outer wrapper: positions the circle center at the map coordinate.
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = "transform:translate(-50%,-50%);cursor:pointer;";
+
+  const circle = document.createElement("div");
+  circle.style.cssText = [
+    `width:${size}px`,
+    `height:${size}px`,
+    "border-radius:50%",
+    "overflow:hidden",
+    `border:${border}`,
+    `box-shadow:${shadow}`,
+    `background:${markerBg(category)}`,
+    "transition:width 0.15s ease,height 0.15s ease,box-shadow 0.15s ease,border 0.15s ease",
+  ].join(";");
 
   if (imageUrl) {
     const img = document.createElement("img");
     img.src = imageUrl;
     img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;";
-    el.appendChild(img);
+    circle.appendChild(img);
   }
 
-  return el;
+  wrapper.appendChild(circle);
+  return wrapper;
 }
 
-function updateMarkerEl(el: HTMLElement, selected: boolean): void {
-  el.style.width     = selected ? "54px" : "44px";
-  el.style.height    = selected ? "54px" : "44px";
-  el.style.border    = selected ? "3px solid #fff" : "2.5px solid #fff";
-  el.style.boxShadow = selected
-    ? "0 0 0 2.5px #7c3aed, 0 4px 16px rgba(0,0,0,0.35)"
-    : "0 2px 10px rgba(0,0,0,0.28)";
+function updateMarkerEl(wrapper: HTMLElement, selected: boolean): void {
+  const circle = wrapper.firstElementChild as HTMLElement | null;
+  if (!circle) return;
+  circle.style.width     = selected ? "52px" : "40px";
+  circle.style.height    = selected ? "52px" : "40px";
+  circle.style.border    = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
+  circle.style.boxShadow = selected
+    ? "0 0 0 2px #7c3aed, 0 4px 20px rgba(0,0,0,0.40)"
+    : "0 1px 8px rgba(0,0,0,0.30)";
 }
 
 type MapEvent = {
@@ -513,9 +538,10 @@ export default function MapPage() {
     markersRef.current = new Map();
     prevSelectedIdRef.current = null;
 
-    const AdvancedMarker = MAP_ID
-      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement
-      : null;
+    // Use AdvancedMarkerElement whenever available (no Map ID required since 2023).
+    // Fall back to legacy Marker only if the library wasn't loaded at all.
+    const AdvancedMarker =
+      (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null;
 
     filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
@@ -525,16 +551,15 @@ export default function MapPage() {
       let marker;
 
       if (AdvancedMarker) {
-        // Round image marker via AdvancedMarkerElement
         marker = new AdvancedMarker({
           map,
           position: { lat, lng },
-          content: createMarkerEl(event.image_url, false),
+          content: createMarkerEl(event.image_url, false, event.category_primary),
           title: event.title,
           zIndex: 1,
         });
       } else {
-        // Fallback: legacy purple circle (no MAP_ID configured)
+        // True last-resort fallback (marker library absent)
         marker = new google.maps.Marker({
           map,
           position: { lat, lng },
