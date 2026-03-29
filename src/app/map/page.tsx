@@ -299,7 +299,7 @@ export default function MapPage() {
             style={{
               position: "absolute",
               right: 12,
-              bottom: selected ? 148 : 24,
+              bottom: selected ? 252 : 24,
               transition: "bottom 0.2s ease",
               zIndex: 9,
               width: 44,
@@ -322,7 +322,7 @@ export default function MapPage() {
           </button>
         )}
 
-        {/* Event preview card — slides up from bottom on marker tap */}
+        {/* Event preview card — floating tile matching /events tile design */}
         {selected && (
           <Link
             href={`/events/${selected.id}`}
@@ -331,95 +331,88 @@ export default function MapPage() {
             <div
               style={{
                 position: "absolute",
-                bottom: 0,
-                left: 0,
-                right: 0,
+                bottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
+                left: 16,
+                right: 16,
                 zIndex: 10,
-                background: "var(--background)",
-                borderRadius: "16px 16px 0 0",
-                padding: "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))",
-                display: "flex",
-                gap: 12,
-                alignItems: "center",
-                boxShadow: "0 -4px 32px rgba(0,0,0,0.14)",
+                borderRadius: 16,
+                overflow: "hidden",
+                boxShadow: "0 4px 32px rgba(0,0,0,0.26)",
               }}
             >
-              {/* Thumbnail — matches tile aspect ratio and border radius */}
-              {selected.image_url ? (
-                <img
-                  src={selected.image_url}
-                  alt=""
-                  width={64}
-                  height={64}
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 10,
-                    objectFit: "cover",
-                    flexShrink: 0,
-                  }}
-                />
-              ) : (
+              {/* Image with gradient overlay */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  paddingBottom: "62%",
+                  background: "#1a1020",
+                }}
+              >
+                {selected.image_url && (
+                  <img
+                    src={selected.image_url}
+                    alt=""
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                )}
                 <div
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 10,
-                    background: "var(--surface-raised)",
-                    flexShrink: 0,
+                    position: "absolute",
+                    inset: 0,
+                    background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)",
                   }}
                 />
-              )}
-
-              {/* Info — font sizes match tile text hierarchy */}
-              <div style={{ minWidth: 0, flex: 1 }}>
+                {/* Text overlay */}
                 <div
                   style={{
-                    fontSize: 15,
-                    fontWeight: 700,
-                    margin: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    lineHeight: 1.25,
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: "10px 14px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 3,
                   }}
                 >
-                  {selected.title}
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.6, margin: "4px 0 0" }}>
-                  {formatEventDate(selected.start_at)}
-                </div>
-                {selected.venues?.name && (
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+                    {formatEventDate(selected.start_at)}
+                  </div>
                   <div
                     style={{
-                      fontSize: 12,
-                      opacity: 0.45,
-                      margin: "3px 0 0",
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: "#fff",
+                      lineHeight: 1.25,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {selected.venues.name}
+                    {selected.title}
                   </div>
-                )}
+                  {selected.venues?.name && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(255,255,255,0.55)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {selected.venues.name}
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {/* Chevron hint */}
-              <svg
-                aria-hidden="true"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ opacity: 0.3, flexShrink: 0 }}
-              >
-                <path d="M9 18l6-6-6-6" />
-              </svg>
             </div>
           </Link>
         )}
