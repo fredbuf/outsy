@@ -286,6 +286,7 @@ export default function MapPage() {
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const filterActive =
     dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
@@ -1046,48 +1047,56 @@ export default function MapPage() {
                 Date
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {DATE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setDateFilter(opt.id)}
-                    className="map-overlay-btn"
-                    style={{
-                      padding: "7px 14px",
-                      borderRadius: 20,
-                      border: "none",
-                      background: dateFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
-                      color: dateFilter === opt.id ? "#fff" : "inherit",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                {DATE_OPTIONS.map((opt) => {
+                  const isPickDate = opt.id === "pick_date";
+                  const isActive = dateFilter === opt.id;
+                  // For the "Pick a date" chip, show the formatted picked date when one is selected
+                  const label =
+                    isPickDate && isActive && pickedDate
+                      ? new Date(pickedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                      : opt.label;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        setDateFilter(opt.id);
+                        if (isPickDate) {
+                          // Open the native date picker via the hidden input
+                          setTimeout(() => {
+                            try { dateInputRef.current?.showPicker(); }
+                            catch { dateInputRef.current?.click(); }
+                          }, 0);
+                        }
+                      }}
+                      className="map-overlay-btn"
+                      style={{
+                        padding: "7px 14px",
+                        borderRadius: 20,
+                        border: "none",
+                        background: isActive ? "#7c3aed" : "var(--surface-raised)",
+                        color: isActive ? "#fff" : "inherit",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Native date picker — shown only when "Pick a date" is selected */}
-              {dateFilter === "pick_date" && (
-                <input
-                  type="date"
-                  value={pickedDate}
-                  onChange={(e) => setPickedDate(e.target.value)}
-                  style={{
-                    marginTop: 12,
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border: "1.5px solid var(--border-strong)",
-                    background: "var(--surface-subtle)",
-                    fontSize: 15,
-                    color: "inherit",
-                    boxSizing: "border-box",
-                    cursor: "pointer",
-                  }}
-                />
-              )}
+              {/* Hidden date input — triggered programmatically by the "Pick a date" chip */}
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={pickedDate}
+                onChange={(e) => setPickedDate(e.target.value)}
+                style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}
+                tabIndex={-1}
+                aria-hidden="true"
+              />
             </div>
 
             {/* Time */}
