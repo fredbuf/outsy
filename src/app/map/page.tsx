@@ -1050,25 +1050,58 @@ export default function MapPage() {
                 {DATE_OPTIONS.map((opt) => {
                   const isPickDate = opt.id === "pick_date";
                   const isActive = dateFilter === opt.id;
-                  // For the "Pick a date" chip, show the formatted picked date when one is selected
                   const label =
-                    isPickDate && isActive && pickedDate
+                    isPickDate && pickedDate
                       ? new Date(pickedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                       : opt.label;
+
+                  if (isPickDate) {
+                    // Overlay a transparent <input type="date"> directly on the chip.
+                    // The user's tap lands on the native input in the same gesture —
+                    // no programmatic showPicker() call needed, so no gesture-context issues.
+                    return (
+                      <div key={opt.id} style={{ position: "relative", display: "inline-block" }}>
+                        <div
+                          className="map-overlay-btn"
+                          style={{
+                            padding: "7px 14px",
+                            borderRadius: 20,
+                            background: isActive ? "#7c3aed" : "var(--surface-raised)",
+                            color: isActive ? "#fff" : "inherit",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            userSelect: "none",
+                          }}
+                        >
+                          {label}
+                        </div>
+                        <input
+                          ref={dateInputRef}
+                          type="date"
+                          value={pickedDate}
+                          onChange={(e) => {
+                            setPickedDate(e.target.value);
+                            setDateFilter("pick_date");
+                          }}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            opacity: 0,
+                            cursor: "pointer",
+                            width: "100%",
+                            height: "100%",
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+
                   return (
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => {
-                        setDateFilter(opt.id);
-                        if (isPickDate) {
-                          // Open the native date picker via the hidden input
-                          setTimeout(() => {
-                            try { dateInputRef.current?.showPicker(); }
-                            catch { dateInputRef.current?.click(); }
-                          }, 0);
-                        }
-                      }}
+                      onClick={() => setDateFilter(opt.id)}
                       className="map-overlay-btn"
                       style={{
                         padding: "7px 14px",
@@ -1086,17 +1119,6 @@ export default function MapPage() {
                   );
                 })}
               </div>
-
-              {/* Hidden date input — triggered programmatically by the "Pick a date" chip */}
-              <input
-                ref={dateInputRef}
-                type="date"
-                value={pickedDate}
-                onChange={(e) => setPickedDate(e.target.value)}
-                style={{ position: "absolute", width: 0, height: 0, opacity: 0, pointerEvents: "none" }}
-                tabIndex={-1}
-                aria-hidden="true"
-              />
             </div>
 
             {/* Time */}
