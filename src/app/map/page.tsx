@@ -163,6 +163,7 @@ export default function MapPage() {
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
+      clickableIcons: false,
       zoomControlOptions: {
         position: google.maps.ControlPosition.RIGHT_CENTER,
       },
@@ -299,7 +300,7 @@ export default function MapPage() {
             style={{
               position: "absolute",
               right: 12,
-              bottom: selected ? 252 : 24,
+              bottom: selected ? 220 : 24,
               transition: "bottom 0.2s ease",
               zIndex: 9,
               width: 44,
@@ -345,7 +346,7 @@ export default function MapPage() {
                 style={{
                   position: "relative",
                   width: "100%",
-                  paddingBottom: "62%",
+                  paddingBottom: "52%",
                   background: "#1a1020",
                 }}
               >
@@ -369,6 +370,27 @@ export default function MapPage() {
                     background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)",
                   }}
                 />
+
+                {/* Star — top-right */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 8,
+                    right: 8,
+                    width: 30,
+                    height: 30,
+                    borderRadius: "50%",
+                    background: "rgba(0,0,0,0.42)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </div>
+
                 {/* Text overlay */}
                 <div
                   style={{
@@ -376,10 +398,10 @@ export default function MapPage() {
                     bottom: 0,
                     left: 0,
                     right: 0,
-                    padding: "10px 14px 14px",
+                    padding: "8px 12px 12px",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 3,
+                    gap: 2,
                   }}
                 >
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
@@ -401,14 +423,32 @@ export default function MapPage() {
                   {selected.venues?.name && (
                     <div
                       style={{
-                        fontSize: 12,
-                        color: "rgba(255,255,255,0.55)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
                       }}
                     >
-                      {selected.venues.name}
+                      {/* Placeholder avatar */}
+                      <div
+                        style={{
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.25)",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.55)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {selected.venues.name}
+                      </div>
                     </div>
                   )}
                 </div>
