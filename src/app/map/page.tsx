@@ -453,7 +453,7 @@ export default function MapPage() {
                 borderRadius: 22,
                 border: "none",
                 padding: "0 16px",
-                fontSize: 14,
+                fontSize: 16,
                 background: "#fff",
                 boxShadow: "0 2px 10px rgba(0,0,0,0.18)",
                 outline: "none",
