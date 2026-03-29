@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { BackButton } from "../events/[id]/BackButton";
 
 const MONTREAL = { lat: 45.5017, lng: -73.5673 };
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -263,6 +264,32 @@ export default function MapPage() {
         {/* Google Maps canvas */}
         <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
 
+        {/* Back button — top-left */}
+        <BackButton
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 12,
+            zIndex: 9,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            border: "none",
+            background: "#fff",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.22)",
+            cursor: "pointer",
+            color: "#444",
+            touchAction: "manipulation",
+          }}
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </BackButton>
+
         {/* Recenter button — shifts up when preview card is visible */}
         {mapsLoaded && (
           <button
@@ -289,9 +316,8 @@ export default function MapPage() {
               touchAction: "manipulation",
             }}
           >
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2 L4.5 20.5 L12 17 L19.5 20.5 Z" />
             </svg>
           </button>
         )}
@@ -310,53 +336,25 @@ export default function MapPage() {
                 right: 0,
                 zIndex: 10,
                 background: "var(--background)",
-                borderRadius: "20px 20px 0 0",
-                padding: "20px 20px calc(20px + env(safe-area-inset-bottom, 0px))",
+                borderRadius: "16px 16px 0 0",
+                padding: "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))",
                 display: "flex",
-                gap: 14,
+                gap: 12,
                 alignItems: "center",
                 boxShadow: "0 -4px 32px rgba(0,0,0,0.14)",
               }}
             >
-              {/* Close button */}
-              <button
-                type="button"
-                aria-label="Close preview"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setSelected(null); }}
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 14,
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  border: "none",
-                  background: "var(--btn-bg)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "inherit",
-                  opacity: 0.6,
-                  touchAction: "manipulation",
-                }}
-              >
-                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-              {/* Thumbnail */}
+              {/* Thumbnail — matches tile aspect ratio and border radius */}
               {selected.image_url ? (
                 <img
                   src={selected.image_url}
                   alt=""
-                  width={68}
-                  height={68}
+                  width={64}
+                  height={64}
                   style={{
-                    width: 68,
-                    height: 68,
-                    borderRadius: 12,
+                    width: 64,
+                    height: 64,
+                    borderRadius: 10,
                     objectFit: "cover",
                     flexShrink: 0,
                   }}
@@ -364,60 +362,61 @@ export default function MapPage() {
               ) : (
                 <div
                   style={{
-                    width: 68,
-                    height: 68,
-                    borderRadius: 12,
+                    width: 64,
+                    height: 64,
+                    borderRadius: 10,
                     background: "var(--surface-raised)",
                     flexShrink: 0,
                   }}
                 />
               )}
 
-              {/* Info */}
+              {/* Info — font sizes match tile text hierarchy */}
               <div style={{ minWidth: 0, flex: 1 }}>
-                <p
+                <div
                   style={{
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: 700,
                     margin: 0,
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
+                    lineHeight: 1.25,
                   }}
                 >
                   {selected.title}
-                </p>
-                <p style={{ fontSize: 13, opacity: 0.6, margin: "4px 0 0" }}>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.6, margin: "4px 0 0" }}>
                   {formatEventDate(selected.start_at)}
-                </p>
+                </div>
                 {selected.venues?.name && (
-                  <p
+                  <div
                     style={{
                       fontSize: 12,
                       opacity: 0.45,
-                      margin: "2px 0 0",
+                      margin: "3px 0 0",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
                     {selected.venues.name}
-                  </p>
+                  </div>
                 )}
               </div>
 
               {/* Chevron hint */}
               <svg
                 aria-hidden="true"
-                width="18"
-                height="18"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ opacity: 0.35, flexShrink: 0 }}
+                style={{ opacity: 0.3, flexShrink: 0 }}
               >
                 <path d="M9 18l6-6-6-6" />
               </svg>
