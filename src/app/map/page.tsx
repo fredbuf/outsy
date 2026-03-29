@@ -142,8 +142,9 @@ function getInitials(name: string | null): string {
 // ── Filter types + constants ───────────────────────────────────────────────────
 
 type MapCategory = "all" | "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
-type DateFilter  = "all" | "today" | "this_week" | "weekend";
+type DateFilter  = "all" | "today" | "this_week" | "weekend" | "pick_date";
 type TypeFilter  = "all" | "public" | "private";
+type TimeFilter  = "all" | "morning" | "afternoon" | "evening";
 
 const MAP_CATEGORIES: { id: MapCategory; label: string }[] = [
   { id: "all",          label: "All" },
@@ -160,6 +161,14 @@ const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
   { id: "today",     label: "Today" },
   { id: "this_week", label: "This week" },
   { id: "weekend",   label: "This weekend" },
+  { id: "pick_date", label: "Pick a date" },
+];
+
+const TIME_OPTIONS: { id: TimeFilter; label: string }[] = [
+  { id: "all",       label: "Any time" },
+  { id: "morning",   label: "Morning" },
+  { id: "afternoon", label: "Afternoon" },
+  { id: "evening",   label: "Evening" },
 ];
 
 const TYPE_OPTIONS: { id: TypeFilter; label: string }[] = [
@@ -168,13 +177,18 @@ const TYPE_OPTIONS: { id: TypeFilter; label: string }[] = [
   { id: "private", label: "Private" },
 ];
 
-function isInDateWindow(iso: string, window: DateFilter): boolean {
+function isInDateWindow(iso: string, window: DateFilter, pickedDate?: string): boolean {
   if (window === "all") return true;
   const now = new Date();
   const d   = new Date(iso);
   const tz  = "America/Toronto";
   const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz });
   const eventStr = d.toLocaleDateString("en-CA",   { timeZone: tz });
+
+  if (window === "pick_date") {
+    if (!pickedDate) return true;
+    return eventStr === pickedDate;
+  }
 
   if (window === "today") return eventStr === todayStr;
 
@@ -265,12 +279,16 @@ export default function MapPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<MapCategory>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [pickedDate, setPickedDate] = useState("");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 
-  const filterActive = dateFilter !== "all" || typeFilter !== "all";
+  const filterActive =
+    dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
 
   const filteredEvents = useMemo(() => {
     let result = events;
@@ -285,7 +303,17 @@ export default function MapPage() {
     }
 
     if (dateFilter !== "all") {
-      result = result.filter((e) => isInDateWindow(e.start_at, dateFilter));
+      result = result.filter((e) => isInDateWindow(e.start_at, dateFilter, pickedDate));
+    }
+
+    if (timeFilter !== "all") {
+      result = result.filter((e) => {
+        const hour = new Date(e.start_at).getHours();
+        if (timeFilter === "morning")   return hour >= 6  && hour < 12;
+        if (timeFilter === "afternoon") return hour >= 12 && hour < 18;
+        if (timeFilter === "evening")   return hour >= 18;
+        return true;
+      });
     }
 
     if (typeFilter !== "all") {
@@ -295,7 +323,7 @@ export default function MapPage() {
     }
 
     return result;
-  }, [events, searchQuery, dateFilter, typeFilter]);
+  }, [events, searchQuery, dateFilter, pickedDate, timeFilter, typeFilter]);
 
   const mapSuggestions = useMemo(() => {
     if (!searchQuery.trim() || suggestionsDismissed) return [];
@@ -347,11 +375,12 @@ export default function MapPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
 
-  // Select a suggestion: pan to it, open preview, clear query
+  // Select a suggestion: pan to it, open preview, clear query, hide keyboard
   const handleSuggestionSelect = useCallback((event: MapEvent) => {
     setSuggestionsDismissed(true);
     setSearchQuery("");
     setSelected(event);
+    searchInputRef.current?.blur();
     const lat = event.venues?.lat;
     const lng = event.venues?.lng;
     if (mapRef.current && typeof lat === "number" && typeof lng === "number") {
@@ -583,6 +612,7 @@ export default function MapPage() {
 
             <div ref={searchWrapperRef} style={{ flex: 1, minWidth: 0, position: "relative" }}>
               <input
+                ref={searchInputRef}
                 type="search"
                 aria-label="Search events or venues"
                 placeholder="Search events or venues"
@@ -1037,6 +1067,56 @@ export default function MapPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Native date picker — shown only when "Pick a date" is selected */}
+              {dateFilter === "pick_date" && (
+                <input
+                  type="date"
+                  value={pickedDate}
+                  onChange={(e) => setPickedDate(e.target.value)}
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "1.5px solid var(--border-strong)",
+                    background: "var(--surface-subtle)",
+                    fontSize: 15,
+                    color: "inherit",
+                    boxSizing: "border-box",
+                    cursor: "pointer",
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Time */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                Time
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {TIME_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setTimeFilter(opt.id)}
+                    className="map-overlay-btn"
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: 20,
+                      border: "none",
+                      background: timeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
+                      color: timeFilter === opt.id ? "#fff" : "inherit",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Type */}
@@ -1072,7 +1152,7 @@ export default function MapPage() {
             {filterActive && (
               <button
                 type="button"
-                onClick={() => { setDateFilter("all"); setTypeFilter("all"); }}
+                onClick={() => { setDateFilter("all"); setPickedDate(""); setTimeFilter("all"); setTypeFilter("all"); }}
                 style={{
                   padding: "10px",
                   borderRadius: 10,
