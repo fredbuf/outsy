@@ -618,6 +618,68 @@ export default function MapPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
 
+  // Maps each venue key to the soonest upcoming event at that venue in the
+  // active pool — used so marker images always match the first carousel card.
+  const venueLeaderMap = useMemo(() => {
+    const isDefault =
+      !searchQuery.trim() &&
+      selectedCategory === "all" &&
+      dateFilter === "all" &&
+      timeFilter === "all" &&
+      typeFilter === "all";
+
+    let pool: MapEvent[];
+
+    if (isDefault) {
+      const now    = new Date();
+      const cutoff = new Date(now.getTime() + displayDays * 24 * 60 * 60 * 1000);
+      pool = events.filter((e) => {
+        const d = new Date(e.start_at);
+        return d >= now && d <= cutoff;
+      });
+    } else {
+      pool = [...events];
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        pool = pool.filter(
+          (e) =>
+            e.title.toLowerCase().includes(q) ||
+            (e.venues?.name?.toLowerCase().includes(q) ?? false),
+        );
+      }
+      if (dateFilter !== "all")
+        pool = pool.filter((e) => isInDateWindow(e.start_at, dateFilter, pickedDate));
+      if (timeFilter !== "all") {
+        pool = pool.filter((e) => {
+          const h = new Date(e.start_at).getHours();
+          if (timeFilter === "morning")   return h >= 6  && h < 12;
+          if (timeFilter === "afternoon") return h >= 12 && h < 18;
+          return h >= 18;
+        });
+      }
+      if (selectedCategory !== "all")
+        pool = pool.filter((e) => normalizeCategory(e.category_primary) === selectedCategory);
+      if (typeFilter !== "all")
+        pool = pool.filter((e) =>
+          typeFilter === "private" ? e.source === "manual" : e.source !== "manual",
+        );
+    }
+
+    // Pure time-ascending sort: first event per venue = soonest upcoming
+    pool.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+
+    const leaders = new Map<string, MapEvent>();
+    for (const e of pool) {
+      const lat = e.venues?.lat;
+      const lng = e.venues?.lng;
+      if (typeof lat !== "number" || typeof lng !== "number") continue;
+      const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+      if (!leaders.has(key)) leaders.set(key, e);
+    }
+    return leaders;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, defaultEvents, searchQuery, selectedCategory, dateFilter, pickedDate, timeFilter, typeFilter]);
+
   const mapSuggestions = useMemo(() => {
     if (!searchQuery.trim() || suggestionsDismissed) return [];
     return events
@@ -799,14 +861,19 @@ export default function MapPage() {
       const lng = event.venues?.lng;
       if (typeof lat !== "number" || typeof lng !== "number") return;
 
+      // Use the soonest event at this venue as the visual source for the marker,
+      // so the marker image always matches the first card in the venue carousel.
+      const venueKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+      const leader   = venueLeaderMap.get(venueKey) ?? event;
+
       let marker;
 
       if (AdvancedMarker) {
         marker = new AdvancedMarker({
           map,
           position: { lat, lng },
-          content: createMarkerEl(event.image_url, false, event.category_primary),
-          title: event.title,
+          content: createMarkerEl(leader.image_url, false, leader.category_primary),
+          title: leader.title,
           zIndex: 1,
         });
       } else {
@@ -814,20 +881,20 @@ export default function MapPage() {
         marker = new google.maps.Marker({
           map,
           position: { lat, lng },
-          title: event.title,
+          title: leader.title,
           icon: MARKER_DEFAULT,
           zIndex: 1,
         });
       }
 
       marker.addListener("click", () => {
-        setSelected(event);
+        setSelected(event); // keep filteredEvents id so icon-swap + dismiss logic works
         map.panTo({ lat, lng });
       });
 
       markersRef.current.set(event.id, marker);
     });
-  }, [filteredEvents, mapsLoaded]);
+  }, [filteredEvents, venueLeaderMap, mapsLoaded]);
 
   // Swap marker icon when selected event changes
   useEffect(() => {
