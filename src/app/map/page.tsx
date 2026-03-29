@@ -203,6 +203,26 @@ function isInDateWindow(iso: string, window: DateFilter): boolean {
   return true;
 }
 
+// ── Search suggestion helpers ──────────────────────────────────────────────────
+
+function normalizeStr(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+}
+
+function wordOverlapScore(query: string, candidate: string): number {
+  const qNorm = normalizeStr(query);
+  const tNorm = normalizeStr(candidate);
+  const qWords = qNorm.split(/\s+/).filter((w) => w.length >= 3);
+  if (qWords.length === 0) return 0;
+  const tWordSet = new Set(tNorm.split(/\s+/).filter(Boolean));
+  let score = 0;
+  for (const w of qWords) {
+    if (tWordSet.has(w)) score += 2;
+    else if (tNorm.includes(w)) score += 1;
+  }
+  return score;
+}
+
 function formatEventDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -247,6 +267,8 @@ export default function MapPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   const filterActive = dateFilter !== "all" || typeFilter !== "all";
 
@@ -274,6 +296,20 @@ export default function MapPage() {
 
     return result;
   }, [events, searchQuery, dateFilter, typeFilter]);
+
+  const mapSuggestions = useMemo(() => {
+    if (!searchQuery.trim() || suggestionsDismissed) return [];
+    return events
+      .map((e) => {
+        const candidateText = [e.title, e.venues?.name ?? ""].join(" ");
+        const score = wordOverlapScore(searchQuery, candidateText);
+        return { event: e, score };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((x) => x.event);
+  }, [events, searchQuery, suggestionsDismissed]);
 
   // Fetch upcoming public events that have venue coordinates
   useEffect(() => {
@@ -310,6 +346,30 @@ export default function MapPage() {
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
+
+  // Select a suggestion: pan to it, open preview, clear query
+  const handleSuggestionSelect = useCallback((event: MapEvent) => {
+    setSuggestionsDismissed(true);
+    setSearchQuery("");
+    setSelected(event);
+    const lat = event.venues?.lat;
+    const lng = event.venues?.lng;
+    if (mapRef.current && typeof lat === "number" && typeof lng === "number") {
+      mapRef.current.panTo({ lat, lng });
+    }
+  }, []);
+
+  // Dismiss suggestions when clicking outside the search wrapper
+  useEffect(() => {
+    if (mapSuggestions.length === 0) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
+        setSuggestionsDismissed(true);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [mapSuggestions.length]);
 
   // Shared helper: store position, pan map, place/update the blue dot
   const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
@@ -521,28 +581,114 @@ export default function MapPage() {
               </svg>
             </BackButton>
 
-            <input
-              type="search"
-              aria-label="Search events or venues"
-              placeholder="Search events or venues"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="map-search-input"
-              style={{
-                flex: 1,
-                height: 44,
-                borderRadius: 22,
-                border: "none",
-                padding: "0 16px",
-                fontSize: 16,
-                background: "rgba(255,255,255,0.92)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
-                minWidth: 0,
-                color: "#1c1917",
-              }}
-            />
+            <div ref={searchWrapperRef} style={{ flex: 1, minWidth: 0, position: "relative" }}>
+              <input
+                type="search"
+                aria-label="Search events or venues"
+                placeholder="Search events or venues"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSuggestionsDismissed(false); }}
+                onFocus={() => setSuggestionsDismissed(false)}
+                className="map-search-input"
+                style={{
+                  width: "100%",
+                  height: 44,
+                  borderRadius: mapSuggestions.length > 0 ? "22px 22px 0 0" : 22,
+                  border: "none",
+                  padding: "0 16px",
+                  fontSize: 16,
+                  background: "rgba(255,255,255,0.92)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
+                  color: "#1c1917",
+                  boxSizing: "border-box",
+                }}
+              />
+
+              {/* Suggestion dropdown */}
+              {mapSuggestions.length > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    background: "rgba(255,255,255,0.96)",
+                    backdropFilter: "blur(16px)",
+                    WebkitBackdropFilter: "blur(16px)",
+                    borderRadius: "0 0 16px 16px",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                    overflow: "hidden",
+                    zIndex: 20,
+                  }}
+                >
+                  {mapSuggestions.map((evt) => (
+                    <button
+                      key={evt.id}
+                      type="button"
+                      onMouseDown={(e) => { e.preventDefault(); handleSuggestionSelect(evt); }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      {evt.image_url ? (
+                        <img
+                          src={evt.image_url}
+                          alt=""
+                          style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 8,
+                            background: "#7c3aed",
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#1c1917",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {evt.title}
+                        </div>
+                        {evt.venues?.name && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#78716c",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {evt.venues.name}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"
