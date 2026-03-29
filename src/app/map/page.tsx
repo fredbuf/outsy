@@ -9,6 +9,10 @@ import { BackButton } from "../events/[id]/BackButton";
 
 const MONTREAL = { lat: 45.5017, lng: -73.5673 };
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+// Required for AdvancedMarkerElement (round image markers).
+// Create a Map ID in Google Cloud Console → Maps → Manage Map IDs,
+// then add NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID to .env.local.
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 // ── Custom map style ──────────────────────────────────────────────────────────
 // Warm off-white base, muted POIs, soft roads — clean and readable.
@@ -45,7 +49,7 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#9a9490" }] },
 ];
 
-// ── Event marker icons ────────────────────────────────────────────────────────
+// ── Legacy circle icons (fallback when MAP_ID is not set) ─────────────────────
 // path: 0 === google.maps.SymbolPath.CIRCLE (numeric value, safe at module level)
 const MARKER_DEFAULT: google.maps.Symbol = {
   path: 0 as google.maps.SymbolPath,
@@ -64,6 +68,45 @@ const MARKER_SELECTED: google.maps.Symbol = {
   strokeColor: "#ffffff",
   strokeWeight: 3,
 };
+
+// ── Advanced marker helpers (used when MAP_ID is available) ───────────────────
+
+function createMarkerEl(imageUrl: string | null, selected: boolean): HTMLElement {
+  const size   = selected ? 54 : 44;
+  const border = selected ? 3   : 2.5;
+  const shadow = selected
+    ? "0 0 0 2.5px #7c3aed, 0 4px 16px rgba(0,0,0,0.35)"
+    : "0 2px 10px rgba(0,0,0,0.28)";
+
+  const el = document.createElement("div");
+  el.style.cssText = `
+    width:${size}px;height:${size}px;
+    border-radius:50%;overflow:hidden;
+    border:${border}px solid #fff;
+    box-shadow:${shadow};
+    background:#7c3aed;
+    cursor:pointer;
+    transition:width 0.15s ease,height 0.15s ease,box-shadow 0.15s ease;
+  `;
+
+  if (imageUrl) {
+    const img = document.createElement("img");
+    img.src = imageUrl;
+    img.style.cssText = "width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;";
+    el.appendChild(img);
+  }
+
+  return el;
+}
+
+function updateMarkerEl(el: HTMLElement, selected: boolean): void {
+  el.style.width     = selected ? "54px" : "44px";
+  el.style.height    = selected ? "54px" : "44px";
+  el.style.border    = selected ? "3px solid #fff" : "2.5px solid #fff";
+  el.style.boxShadow = selected
+    ? "0 0 0 2.5px #7c3aed, 0 4px 16px rgba(0,0,0,0.35)"
+    : "0 2px 10px rgba(0,0,0,0.28)";
+}
 
 type MapEvent = {
   id: string;
@@ -190,7 +233,8 @@ function formatEventDate(iso: string): string {
 export default function MapPage() {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const markersRef = useRef<Map<string, any>>(new Map());
   const prevSelectedIdRef = useRef<string | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const userPosRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -307,7 +351,9 @@ export default function MapPage() {
       rotateControl: false,
       cameraControl: false,
       clickableIcons: false,
-      styles: MAP_STYLES,
+      // mapId is needed for AdvancedMarkerElement (round image markers).
+      // styles is used when no mapId is set; on vector maps it is ignored.
+      ...(MAP_ID ? { mapId: MAP_ID } : { styles: MAP_STYLES }),
     });
 
     mapRef.current = map;
@@ -352,18 +398,36 @@ export default function MapPage() {
     markersRef.current = new Map();
     prevSelectedIdRef.current = null;
 
+    const AdvancedMarker = MAP_ID
+      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement
+      : null;
+
     filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
       const lng = event.venues?.lng;
       if (typeof lat !== "number" || typeof lng !== "number") return;
 
-      const marker = new google.maps.Marker({
-        map,
-        position: { lat, lng },
-        title: event.title,
-        icon: MARKER_DEFAULT,
-        zIndex: 1,
-      });
+      let marker;
+
+      if (AdvancedMarker) {
+        // Round image marker via AdvancedMarkerElement
+        marker = new AdvancedMarker({
+          map,
+          position: { lat, lng },
+          content: createMarkerEl(event.image_url, false),
+          title: event.title,
+          zIndex: 1,
+        });
+      } else {
+        // Fallback: legacy purple circle (no MAP_ID configured)
+        marker = new google.maps.Marker({
+          map,
+          position: { lat, lng },
+          title: event.title,
+          icon: MARKER_DEFAULT,
+          zIndex: 1,
+        });
+      }
 
       marker.addListener("click", () => {
         setSelected(event);
@@ -381,12 +445,24 @@ export default function MapPage() {
     if (prevId === nextId) return;
 
     if (prevId) {
-      markersRef.current.get(prevId)?.setIcon(MARKER_DEFAULT);
-      markersRef.current.get(prevId)?.setZIndex(1);
+      const m = markersRef.current.get(prevId);
+      if (m?.content instanceof HTMLElement) {
+        updateMarkerEl(m.content, false);
+        m.zIndex = 1;
+      } else {
+        m?.setIcon?.(MARKER_DEFAULT);
+        m?.setZIndex?.(1);
+      }
     }
     if (nextId) {
-      markersRef.current.get(nextId)?.setIcon(MARKER_SELECTED);
-      markersRef.current.get(nextId)?.setZIndex(10);
+      const m = markersRef.current.get(nextId);
+      if (m?.content instanceof HTMLElement) {
+        updateMarkerEl(m.content, true);
+        m.zIndex = 10;
+      } else {
+        m?.setIcon?.(MARKER_SELECTED);
+        m?.setZIndex?.(10);
+      }
     }
     prevSelectedIdRef.current = nextId;
   }, [selected]);
@@ -394,7 +470,7 @@ export default function MapPage() {
   return (
     <>
       <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${API_KEY}`}
+        src={`https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker`}
         strategy="afterInteractive"
         onLoad={initMap}
       />
