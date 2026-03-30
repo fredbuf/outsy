@@ -10,24 +10,25 @@ async function getAuthUser(req: Request) {
   return user;
 }
 
-export type ActivityItemFriendRequest = {
-  type: "friend_request";
-  id: string;           // friendship row id
-  from: {
-    id: string;
-    display_name: string | null;
-    username: string | null;
-    avatar_url: string | null;
-  };
+export type ActivityActor = {
+  id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+};
+
+export type ActivityItem = {
+  id: string;                       // notification id
+  type: "friend_request_received" | "friend_request_accepted";
+  actor: ActivityActor;
+  entity_id: string | null;         // friendship id
+  friendshipPending: boolean;       // true if friendship is still pending (receive type only)
+  read: boolean;
   created_at: string;
 };
 
-export type ActivityItem = ActivityItemFriendRequest;
-
 // GET /api/social/activity
-// Returns activity items for the authenticated user, newest first.
-// V1 scope: incoming pending friend requests only.
-// Event invites / event updates require a dedicated notifications table (future).
+// Returns notifications for the authenticated user, newest first.
 export async function GET(req: Request) {
   const user = await getAuthUser(req);
   if (!user) {
@@ -36,12 +37,10 @@ export async function GET(req: Request) {
 
   const supabase = supabaseServer();
 
-  // Incoming pending friend requests — rows where I am the recipient
-  const { data: incoming, error } = await supabase
-    .from("friendships")
-    .select("id,requester_id,created_at,profiles!requester_id(id,display_name,username,avatar_url)")
-    .eq("recipient_id", user.id)
-    .eq("status", "pending")
+  const { data: notifs, error } = await supabase
+    .from("notifications")
+    .select("id,type,actor_id,entity_id,read,created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -49,19 +48,67 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const items: ActivityItem[] = (incoming ?? []).map((row) => {
-    const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-    const profile = p as { id: string; display_name: string | null; username: string | null; avatar_url: string | null } | null;
+  if (!notifs || notifs.length === 0) {
+    return NextResponse.json({ ok: true, items: [] });
+  }
+
+  // Fetch actor profiles in one query
+  const actorIds = [
+    ...new Set(
+      notifs.map((n) => n.actor_id as string | null).filter((id): id is string => id != null)
+    ),
+  ];
+  const profilesMap = new Map<string, ActivityActor>();
+  if (actorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id,display_name,username,avatar_url")
+      .in("id", actorIds);
+    for (const p of profiles ?? []) {
+      profilesMap.set(p.id as string, {
+        id: p.id as string,
+        display_name: p.display_name as string | null,
+        username: p.username as string | null,
+        avatar_url: p.avatar_url as string | null,
+      });
+    }
+  }
+
+  // For friend_request_received, check which friendships are still pending
+  const receivedEntityIds = notifs
+    .filter((n) => n.type === "friend_request_received" && n.entity_id)
+    .map((n) => n.entity_id as string);
+  const pendingSet = new Set<string>();
+  if (receivedEntityIds.length > 0) {
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select("id,status")
+      .in("id", receivedEntityIds);
+    for (const f of friendships ?? []) {
+      if ((f.status as string) === "pending") pendingSet.add(f.id as string);
+    }
+  }
+
+  const items: ActivityItem[] = notifs.map((n) => {
+    const actorId = n.actor_id as string | null;
+    const actor: ActivityActor = (actorId ? profilesMap.get(actorId) : undefined) ?? {
+      id: actorId ?? "",
+      display_name: null,
+      username: null,
+      avatar_url: null,
+    };
+    const entityId = n.entity_id as string | null;
     return {
-      type: "friend_request" as const,
-      id: row.id,
-      from: {
-        id: profile?.id ?? row.requester_id,
-        display_name: profile?.display_name ?? null,
-        username: profile?.username ?? null,
-        avatar_url: profile?.avatar_url ?? null,
-      },
-      created_at: row.created_at,
+      id: n.id as string,
+      type: n.type as ActivityItem["type"],
+      actor,
+      entity_id: entityId,
+      friendshipPending:
+        n.type === "friend_request_received" && entityId != null
+          ? pendingSet.has(entityId)
+          : false,
+      read: n.read as boolean,
+      created_at: n.created_at as string,
     };
   });
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { createNotification } from "@/lib/notifications";
 
 async function getAuthUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -84,16 +85,35 @@ export async function POST(req: Request) {
     if (updateError) {
       return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
     }
+
+    // Notify the original requester that their request was accepted
+    await createNotification({
+      userId: existing.requester_id as string,
+      type: "friend_request_accepted",
+      actorId: user.id,
+      entityId: existing.id as string,
+    });
+
     return NextResponse.json({ ok: true, friendshipStatus: "friends" });
   }
 
   // No existing row → create new pending request
-  const { error: insertError } = await supabase
+  const { data: inserted, error: insertError } = await supabase
     .from("friendships")
-    .insert({ requester_id: user.id, recipient_id: recipientId, status: "pending" });
+    .insert({ requester_id: user.id, recipient_id: recipientId, status: "pending" })
+    .select("id")
+    .single();
   if (insertError) {
     return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
   }
+
+  // Notify the recipient of the new friend request
+  await createNotification({
+    userId: recipientId,
+    type: "friend_request_received",
+    actorId: user.id,
+    entityId: inserted.id as string,
+  });
 
   return NextResponse.json({ ok: true, friendshipStatus: "sent" });
 }

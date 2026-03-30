@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { createNotification } from "@/lib/notifications";
 
 async function getAuthUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   // Verify the row exists and current user is the recipient
   const { data: friendship } = await supabase
     .from("friendships")
-    .select("id,recipient_id,status")
+    .select("id,requester_id,recipient_id,status")
     .eq("id", friendshipId)
     .maybeSingle();
 
@@ -62,6 +63,15 @@ export async function POST(req: Request) {
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+
+    // Notify the requester that their friend request was accepted
+    await createNotification({
+      userId: friendship.requester_id as string,
+      type: "friend_request_accepted",
+      actorId: user.id,
+      entityId: friendshipId,
+    });
+
     return NextResponse.json({ ok: true, result: "accepted" });
   }
 

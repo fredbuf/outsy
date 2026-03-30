@@ -75,16 +75,19 @@ function AvatarCircle({
 
 type RequestRowState = "idle" | "accepting" | "ignoring" | "accepted" | "ignored";
 
-function FriendRequestRow({
+function FriendRequestReceivedRow({
   item,
   token,
 }: {
   item: ActivityItem;
   token: string;
 }) {
-  const [state, setState] = useState<RequestRowState>("idle");
+  const [state, setState] = useState<RequestRowState>(
+    item.friendshipPending ? "idle" : "accepted"
+  );
 
   async function respond(action: "accept" | "ignore") {
+    if (!item.entity_id) return;
     setState(action === "accept" ? "accepting" : "ignoring");
     try {
       const res = await fetch("/api/social/activity/respond", {
@@ -93,7 +96,7 @@ function FriendRequestRow({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ friendshipId: item.id, action }),
+        body: JSON.stringify({ friendshipId: item.entity_id, action }),
       });
       const data = (await res.json()) as { ok: boolean };
       if (data.ok) {
@@ -106,13 +109,13 @@ function FriendRequestRow({
     }
   }
 
-  const name = item.from.display_name ?? item.from.username ?? "Someone";
+  const name = item.actor.display_name ?? item.actor.username ?? "Someone";
 
   if (state === "accepted") {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-        <Link href={`/profile/${item.from.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
-          <AvatarCircle avatarUrl={item.from.avatar_url} name={name} />
+        <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
+          <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
         </Link>
         <div style={{ flex: 1, fontSize: 14 }}>
           <span style={{ fontWeight: 600 }}>{name}</span> and you are now friends.
@@ -123,13 +126,13 @@ function FriendRequestRow({
   }
 
   if (state === "ignored") {
-    return null; // disappear cleanly
+    return null;
   }
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-      <Link href={`/profile/${item.from.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
-        <AvatarCircle avatarUrl={item.from.avatar_url} name={name} />
+      <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14 }}>
@@ -170,6 +173,24 @@ function FriendRequestRow({
   );
 }
 
+function FriendRequestAcceptedRow({ item }: { item: ActivityItem }) {
+  const name = item.actor.display_name ?? item.actor.username ?? "Someone";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+      <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
+      </Link>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14 }}>
+          <span style={{ fontWeight: 600 }}>{name}</span> accepted your friend request.
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>{relativeTime(item.created_at)}</div>
+      </div>
+      <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600, flexShrink: 0 }}>Friends ✓</span>
+    </div>
+  );
+}
+
 function ActivityTab({ token }: { token: string }) {
   const [items, setItems] = useState<ActivityItem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,7 +203,14 @@ function ActivityTab({ token }: { token: string }) {
     })
       .then((r) => r.json())
       .then((d: { ok: boolean; items?: ActivityItem[] }) => {
-        if (d.ok) setItems(d.items ?? []);
+        if (d.ok) {
+          setItems(d.items ?? []);
+          // Mark all notifications as read (fire-and-forget)
+          fetch("/api/notifications/mark-read", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          }).catch(() => {});
+        }
       })
       .finally(() => setLoading(false));
   }, [token]);
@@ -200,16 +228,22 @@ function ActivityTab({ token }: { token: string }) {
           </svg>
         </div>
         <p style={{ fontSize: 15, fontWeight: 600, opacity: 0.6, margin: 0 }}>No activity yet</p>
-        <p style={{ fontSize: 13, opacity: 0.4, marginTop: 4 }}>Friend requests will appear here.</p>
+        <p style={{ fontSize: 13, opacity: 0.4, marginTop: 4 }}>Friend requests and updates will appear here.</p>
       </div>
     );
   }
 
   return (
     <div>
-      {items.map((item) => (
-        <FriendRequestRow key={item.id} item={item} token={token} />
-      ))}
+      {items.map((item) => {
+        if (item.type === "friend_request_received") {
+          return <FriendRequestReceivedRow key={item.id} item={item} token={token} />;
+        }
+        if (item.type === "friend_request_accepted") {
+          return <FriendRequestAcceptedRow key={item.id} item={item} />;
+        }
+        return null;
+      })}
     </div>
   );
 }
