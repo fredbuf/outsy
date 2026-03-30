@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
+import { FriendshipButton } from "./FriendshipButton";
 
 // ── DB queries ────────────────────────────────────────────────────────────────
 
@@ -267,6 +268,8 @@ export default async function PublicProfilePage({
           {profile.username && (
             <span style={{ fontSize: 13, opacity: 0.45 }}>@{profile.username}</span>
           )}
+          {/* Client island: shows Add friend / Request sent / Accept / Friends / Message */}
+          <FriendshipButton profileId={userId} />
         </div>
       </div>
 

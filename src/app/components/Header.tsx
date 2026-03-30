@@ -175,6 +175,20 @@ export function Header() {
 
           {!loading && user && (
             <Link
+              href="/social"
+              style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
+            >
+              <span className="nav-label">Social</span>
+              <span className="nav-icon" aria-hidden>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </span>
+            </Link>
+          )}
+
+          {!loading && user && (
+            <Link
               href="/events/new"
               style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
             >
