@@ -173,6 +173,47 @@ function FriendRequestReceivedRow({
   );
 }
 
+function EventInviteRow({ item }: { item: ActivityItem }) {
+  const actorName = item.actor.display_name ?? item.actor.username ?? "Someone";
+  const eventTitle = item.event?.title ?? "an event";
+  const eventId = item.entity_id;
+
+  const inner = (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 0", borderBottom: "1px solid var(--border)",
+        cursor: eventId ? "pointer" : "default",
+      }}
+    >
+      <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={(e) => e.stopPropagation()}>
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+      </Link>
+      {item.event?.image_url && (
+        <img
+          src={item.event.image_url}
+          alt=""
+          style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+        />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14 }}>
+          <span style={{ fontWeight: 600 }}>{actorName}</span> invited you to{" "}
+          <span style={{ fontWeight: 600 }}>{eventTitle}</span>.
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>{relativeTime(item.created_at)}</div>
+      </div>
+    </div>
+  );
+
+  if (!eventId) return inner;
+  return (
+    <Link href={`/events/${eventId}`} style={{ textDecoration: "none", color: "inherit" }}>
+      {inner}
+    </Link>
+  );
+}
+
 function FriendRequestAcceptedRow({ item }: { item: ActivityItem }) {
   const name = item.actor.display_name ?? item.actor.username ?? "Someone";
   return (
@@ -241,6 +282,9 @@ function ActivityTab({ token }: { token: string }) {
         }
         if (item.type === "friend_request_accepted") {
           return <FriendRequestAcceptedRow key={item.id} item={item} />;
+        }
+        if (item.type === "event_invite") {
+          return <EventInviteRow key={item.id} item={item} />;
         }
         return null;
       })}

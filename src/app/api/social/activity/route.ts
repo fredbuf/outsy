@@ -17,12 +17,21 @@ export type ActivityActor = {
   avatar_url: string | null;
 };
 
+export type ActivityEventSummary = {
+  id: string;
+  title: string;
+  image_url: string | null;
+};
+
 export type ActivityItem = {
-  id: string;                       // notification id
-  type: "friend_request_received" | "friend_request_accepted";
+  id: string;
+  type: "friend_request_received" | "friend_request_accepted" | "event_invite";
   actor: ActivityActor;
-  entity_id: string | null;         // friendship id
-  friendshipPending: boolean;       // true if friendship is still pending (receive type only)
+  entity_id: string | null;
+  // friend_request_received: true while friendship is still pending
+  friendshipPending: boolean;
+  // event_invite: event details
+  event: ActivityEventSummary | null;
   read: boolean;
   created_at: string;
 };
@@ -52,7 +61,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, items: [] });
   }
 
-  // Fetch actor profiles in one query
+  // ── Batch fetch actor profiles ─────────────────────────────────────────────
   const actorIds = [
     ...new Set(
       notifs.map((n) => n.actor_id as string | null).filter((id): id is string => id != null)
@@ -74,7 +83,7 @@ export async function GET(req: Request) {
     }
   }
 
-  // For friend_request_received, check which friendships are still pending
+  // ── Batch check which friend_request_received are still pending ────────────
   const receivedEntityIds = notifs
     .filter((n) => n.type === "friend_request_received" && n.entity_id)
     .map((n) => n.entity_id as string);
@@ -89,6 +98,30 @@ export async function GET(req: Request) {
     }
   }
 
+  // ── Batch fetch event details for event_invite ─────────────────────────────
+  const eventIds = [
+    ...new Set(
+      notifs
+        .filter((n) => n.type === "event_invite" && n.entity_id)
+        .map((n) => n.entity_id as string)
+    ),
+  ];
+  const eventsMap = new Map<string, ActivityEventSummary>();
+  if (eventIds.length > 0) {
+    const { data: events } = await supabase
+      .from("events")
+      .select("id,title,image_url")
+      .in("id", eventIds);
+    for (const e of events ?? []) {
+      eventsMap.set(e.id as string, {
+        id: e.id as string,
+        title: e.title as string,
+        image_url: (e.image_url as string | null) ?? null,
+      });
+    }
+  }
+
+  // ── Assemble items ─────────────────────────────────────────────────────────
   const items: ActivityItem[] = notifs.map((n) => {
     const actorId = n.actor_id as string | null;
     const actor: ActivityActor = (actorId ? profilesMap.get(actorId) : undefined) ?? {
@@ -107,6 +140,10 @@ export async function GET(req: Request) {
         n.type === "friend_request_received" && entityId != null
           ? pendingSet.has(entityId)
           : false,
+      event:
+        n.type === "event_invite" && entityId != null
+          ? (eventsMap.get(entityId) ?? null)
+          : null,
       read: n.read as boolean,
       created_at: n.created_at as string,
     };
