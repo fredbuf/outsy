@@ -157,10 +157,18 @@ body {
 /* ── Chat screen: full-viewport overlay, centered on large screens ────── */
 /* Takes the chat UI out of normal document flow so it is not offset by   */
 /* the sticky site header, and keeps the composer above the keyboard.     */
+/*                                                                        */
+/* Height is set to 100dvh as the CSS default. On iOS < 17 the           */
+/* Visual Viewport API listener in the page overrides height+top via     */
+/* inline style so the container shrinks precisely with the keyboard.    */
+/* On iOS 17+ / Chrome 108+ the viewport meta interactive-widget handles */
+/* this natively so no JS resize is needed.                               */
 .chat-screen {
   position: fixed;
   top: 0;
-  bottom: 0;
+  /* Use height instead of bottom:0 so the JS override can set an exact  */
+  /* pixel height without fighting a conflicting bottom constraint.       */
+  height: 100dvh;
   /* Centered 540px column on wide screens; full-width on narrow screens */
   left: max(0px, calc(50% - 270px));
   right: max(0px, calc(50% - 270px));

@@ -55,6 +55,7 @@ export default function ChatPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
 
   async function fetchMessages() {
     if (!session) return;
@@ -83,6 +84,34 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // iOS Safari keyboard fix (fallback for iOS < 17 / browsers without
+  // interactive-widget:resizes-content support).
+  // The Visual Viewport API fires when the virtual keyboard opens or closes.
+  // We set the chat container's height and top to exactly match the visual
+  // viewport so the composer is never hidden behind the keyboard.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let rafId: number;
+    function adjust() {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const el = chatRef.current;
+        if (!el || !vv) return;
+        el.style.height = `${vv.height}px`;
+        el.style.top = `${vv.offsetTop}px`;
+      });
+    }
+    vv.addEventListener("resize", adjust);
+    vv.addEventListener("scroll", adjust);
+    adjust();
+    return () => {
+      vv.removeEventListener("resize", adjust);
+      vv.removeEventListener("scroll", adjust);
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   async function handleSend() {
     const body = draft.trim();
@@ -133,7 +162,7 @@ export default function ChatPage() {
   const otherName = otherUser?.display_name ?? otherUser?.username ?? "User";
 
   return (
-    <div className="chat-screen">
+    <div ref={chatRef} className="chat-screen">
 
       {/* ── Header bar ── */}
       <div

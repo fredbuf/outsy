@@ -19,6 +19,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Shrink the layout viewport when the virtual keyboard opens so that
+  // position:fixed elements (like the chat composer) automatically stay above it.
+  // Supported: iOS 17+, Chrome 108+. Falls back gracefully on older versions.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
