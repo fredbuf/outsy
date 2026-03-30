@@ -416,6 +416,12 @@ export default function SchedulePage() {
   const [calMonth, setCalMonth] = useState(now.getMonth());    // 0-indexed
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // 14-day cutoff for the Upcoming tab — computed once at mount via useState
+  // lazy initializer (the only place impure calls like new Date() are permitted).
+  const [cutoff14] = useState(
+    () => new Date(new Date().getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+  );
+
   // ── Fetch: attending (going / maybe RSVPs) ───────────────────────────────────
   useEffect(() => {
     if (!user) return;
@@ -584,26 +590,32 @@ export default function SchedulePage() {
 
   function renderUpcoming() {
     if (fetchingAttend) return <SkeletonRows />;
-    if (attendingEvents.length === 0) {
+
+    // Limit Upcoming to events starting within the next 14 days.
+    // attendingEvents is already sorted ascending and filtered to start_at >= now.
+    const upcomingWindow = attendingEvents.filter((e) => e.start_at <= cutoff14);
+
+    if (upcomingWindow.length === 0) {
+      // City name used in the discovery CTA.
+      // Outsy currently serves Montréal only; update here when multi-city lands.
+      const city = "Montréal";
       return (
         <EmptyState
-          message="Nothing coming up yet"
+          message="Sounds a bit quiet around here…"
           cta={
-            <p style={{ fontSize: 14, opacity: 0.5, marginBottom: 20, lineHeight: 1.6 }}>
-              Mark yourself as Going or Interested on any event to see it here.
-              <br />
+            <p style={{ fontSize: 14, opacity: 0.55, lineHeight: 1.7, margin: 0 }}>
               <Link
-                href="/events"
-                style={{ display: "inline-block", marginTop: 12, padding: "9px 20px", borderRadius: 10, border: "1px solid var(--border-strong)", background: "var(--btn-bg)", fontWeight: 600, fontSize: 14, textDecoration: "none", color: "inherit" }}
+                href="/map"
+                style={{ color: "var(--accent)", fontWeight: 600, textDecoration: "none" }}
               >
-                Explore events
+                See what&apos;s happening in {city}
               </Link>
             </p>
           }
         />
       );
     }
-    return <DateSections events={attendingEvents} />;
+    return <DateSections events={upcomingWindow} />;
   }
 
   function renderHosting() {
