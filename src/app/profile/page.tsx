@@ -575,6 +575,16 @@ export default function ProfilePage() {
           </button>
         </div>
 
+        <Link
+          href="/friends/add"
+          style={{ fontSize: 12, opacity: 0.5, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}
+        >
+          Find friends
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </Link>
+
         {profile?.username && (
           <Link
             href={`/u/${profile.username}`}

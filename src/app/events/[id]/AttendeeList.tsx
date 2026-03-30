@@ -2,9 +2,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
-type Attendee = { display_name: string | null; avatar_url: string | null };
+type Attendee = { display_name: string | null; avatar_url: string | null; userId?: string | null };
 type FullAttendee = Attendee & { response: "going" | "maybe" };
 
 const AVATAR_COLORS = [
@@ -76,12 +77,20 @@ function AvatarCircle({
 }
 
 function AttendeeRow({ a }: { a: Attendee }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  const inner = (
+    <>
       <AvatarCircle a={a} size={34} />
       <span style={{ fontSize: 14 }}>{a.display_name ?? "Anonymous"}</span>
-    </div>
+    </>
   );
+  if (a.userId) {
+    return (
+      <Link href={`/profile/${a.userId}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "inherit", cursor: "pointer" }}>
+        {inner}
+      </Link>
+    );
+  }
+  return <div style={{ display: "flex", alignItems: "center", gap: 10 }}>{inner}</div>;
 }
 
 export function AttendeeList({
@@ -114,19 +123,20 @@ export function AttendeeList({
     setFetching(true);
     const { data } = await supabaseBrowser()
       .from("rsvps")
-      .select("response,profiles(display_name,avatar_url)")
+      .select("response,profiles(id,display_name,avatar_url)")
       .eq("event_id", eventId)
       .in("response", ["going", "maybe"])
       .order("updated_at", { ascending: false })
       .limit(100);
 
+    type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null };
     const attendees: FullAttendee[] = [];
     for (const row of (data ?? []) as {
       response: string;
-      profiles: Attendee | Attendee[] | null;
+      profiles: ProfileRow | ProfileRow[] | null;
     }[]) {
       const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-      if (p) attendees.push({ ...p, response: row.response as "going" | "maybe" });
+      if (p) attendees.push({ display_name: p.display_name, avatar_url: p.avatar_url, userId: p.id, response: row.response as "going" | "maybe" });
     }
     setAllAttendees(attendees);
     setFetching(false);

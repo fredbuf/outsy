@@ -84,12 +84,13 @@ type ActivityItem = {
   updated_at: string;
   display_name: string | null;
   avatar_url: string | null;
+  userId: string | null;
 };
 
 async function fetchRecentActivity(eventId: string): Promise<ActivityItem[]> {
   const { data } = await supabaseServer()
     .from("rsvps")
-    .select("response,updated_at,profiles(display_name,avatar_url)")
+    .select("response,updated_at,profiles(id,display_name,avatar_url)")
     .eq("event_id", eventId)
     .in("response", ["going", "maybe", "cant_go"])
     .order("updated_at", { ascending: false })
@@ -101,6 +102,7 @@ async function fetchRecentActivity(eventId: string): Promise<ActivityItem[]> {
       updated_at: row.updated_at as string,
       display_name: (p as { display_name: string | null } | null)?.display_name ?? null,
       avatar_url: (p as { avatar_url: string | null } | null)?.avatar_url ?? null,
+      userId: (p as { id: string } | null)?.id ?? null,
     };
   });
 }
@@ -273,6 +275,7 @@ export default async function EventPage({
   const venue = Array.isArray(event.venues) ? event.venues[0] : event.venues;
   const creatorRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
   const creator = creatorRaw as { display_name: string | null; avatar_url: string | null; username: string | null } | null;
+  const creatorId = (event as { creator_id?: string | null }).creator_id ?? null;
   const [related, rsvpCounts, attendees] = await Promise.all([
     fetchRelated(id, event.category_primary),
     fetchRsvpCounts(id),
@@ -497,24 +500,20 @@ export default async function EventPage({
                       paddingTop: 10, paddingBottom: 10,
                     }}
                   >
-                    {item.avatar_url ? (
-                      <img
-                        src={item.avatar_url}
-                        alt={item.display_name ?? ""}
-                        width={28}
-                        height={28}
-                        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                      />
+                    {item.userId ? (
+                      <Link href={`/profile/${item.userId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                        {item.avatar_url ? (
+                          <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
+                        ) : (
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                            {getInitials(item.display_name)}
+                          </div>
+                        )}
+                      </Link>
+                    ) : item.avatar_url ? (
+                      <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                     ) : (
-                      <div
-                        style={{
-                          width: 28, height: 28, borderRadius: "50%",
-                          background: getAvatarColor(item.display_name),
-                          flexShrink: 0, display: "flex", alignItems: "center",
-                          justifyContent: "center", fontSize: 10, fontWeight: 700,
-                          color: "#fff", userSelect: "none",
-                        }}
-                      >
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
                         {getInitials(item.display_name)}
                       </div>
                     )}
@@ -540,35 +539,31 @@ export default async function EventPage({
                 borderBottom: "1px solid var(--border)",
               }}
             >
-              {creator.avatar_url ? (
-                <img
-                  src={creator.avatar_url}
-                  alt={creator.display_name ?? ""}
-                  width={32}
-                  height={32}
-                  style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                />
+              {creatorId ? (
+                <Link href={`/profile/${creatorId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                  {creator.avatar_url ? (
+                    <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                      {getInitials(creator.display_name)}
+                    </div>
+                  )}
+                </Link>
+              ) : creator.avatar_url ? (
+                <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
               ) : (
-                <div
-                  style={{
-                    width: 32, height: 32, borderRadius: "50%",
-                    background: getAvatarColor(creator.display_name),
-                    flexShrink: 0, display: "flex", alignItems: "center",
-                    justifyContent: "center", fontSize: 11, fontWeight: 700,
-                    color: "#fff", userSelect: "none",
-                  }}
-                >
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
                   {getInitials(creator.display_name)}
                 </div>
               )}
               <span style={{ fontSize: 14, opacity: 0.75 }}>
                 Hosted by{" "}
-                {creator.username ? (
+                {creatorId ? (
                   <Link
-                    href={`/u/${creator.username}`}
+                    href={`/profile/${creatorId}`}
                     style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}
                   >
-                    {creator.display_name ?? `@${creator.username}`}
+                    {creator.display_name ?? creator.username ?? "a member"}
                   </Link>
                 ) : (
                   <strong>{creator.display_name ?? "a member"}</strong>
@@ -770,44 +765,29 @@ export default async function EventPage({
         {/* Host */}
         {creator && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {creator.avatar_url ? (
-              <img
-                src={creator.avatar_url}
-                alt={creator.display_name ?? ""}
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
-              />
+            {creatorId ? (
+              <Link href={`/profile/${creatorId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                {creator.avatar_url ? (
+                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                    {getInitials(creator.display_name)}
+                  </div>
+                )}
+              </Link>
+            ) : creator.avatar_url ? (
+              <img src={creator.avatar_url} alt={creator.display_name ?? ""} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
             ) : (
-              <div
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: getAvatarColor(creator.display_name),
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 9,
-                  fontWeight: 700,
-                  color: "#fff",
-                  userSelect: "none",
-                }}
-              >
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: getAvatarColor(creator.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff", userSelect: "none" }}>
                 {getInitials(creator.display_name)}
               </div>
             )}
-            {creator.username ? (
+            {creatorId ? (
               <Link
-                href={`/u/${creator.username}`}
+                href={`/profile/${creatorId}`}
                 style={{ opacity: 0.65, fontSize: 14, textDecoration: "underline" }}
               >
-                Hosted by {creator.display_name ?? `@${creator.username}`}
+                Hosted by {creator.display_name ?? creator.username ?? "a member"}
               </Link>
             ) : (
               <span style={{ opacity: 0.65, fontSize: 14 }}>
