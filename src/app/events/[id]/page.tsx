@@ -10,7 +10,7 @@ import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton } from "./ShareButton";
-import { CopyInviteLink } from "./CopyInviteLink";
+import { InviteFriendsButton } from "./InviteFriendsButton";
 import { BackButton } from "./BackButton";
 
 // cache() deduplicates the DB call so generateMetadata and the page
@@ -484,7 +484,10 @@ export default async function EventPage({
             ) : (
               <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
             )}
-            <CopyInviteLink title={event.title} visibility="private" />
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+              <InviteFriendsButton eventId={id} />
+              <ShareButton title={event.title} />
+            </div>
           </div>
 
           {/* ⑤ Activity preview */}
