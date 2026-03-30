@@ -154,6 +154,22 @@ body {
   background: var(--surface-raised) !important;
 }
 
+/* ── Chat screen: full-viewport overlay, centered on large screens ────── */
+/* Takes the chat UI out of normal document flow so it is not offset by   */
+/* the sticky site header, and keeps the composer above the keyboard.     */
+.chat-screen {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  /* Centered 540px column on wide screens; full-width on narrow screens */
+  left: max(0px, calc(50% - 270px));
+  right: max(0px, calc(50% - 270px));
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  z-index: 200; /* above sticky site header (z-index: 100) */
+}
+
 /* ── Mobile responsiveness (≤ 540 px) ──────────────────────────────────── */
 @media (max-width: 540px) {
   /* Prevent horizontal scroll at both html and body level (Safari requires both) */

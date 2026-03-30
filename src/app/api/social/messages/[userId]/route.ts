@@ -36,7 +36,7 @@ export async function GET(
 
   const supabase = supabaseServer();
 
-  const [{ data: messages }, { data: otherProfile }] = await Promise.all([
+  const [messagesResult, profileResult] = await Promise.all([
     supabase
       .from("messages")
       .select("id,sender_id,body,created_at")
@@ -53,14 +53,20 @@ export async function GET(
       .maybeSingle(),
   ]);
 
-  if (!otherProfile) {
+  // Surface table-not-found clearly so the developer knows to run the migration.
+  // Raw Supabase message: "Could not find the table public.messages in the schema cache"
+  if (messagesResult.error) {
+    return NextResponse.json({ ok: false, error: messagesResult.error.message }, { status: 500 });
+  }
+
+  if (!profileResult.data) {
     return NextResponse.json({ ok: false, error: "User not found." }, { status: 404 });
   }
 
   return NextResponse.json({
     ok: true,
-    messages: (messages ?? []) as MessageRow[],
-    otherUser: otherProfile,
+    messages: (messagesResult.data ?? []) as MessageRow[],
+    otherUser: profileResult.data,
   });
 }
 

@@ -133,7 +133,7 @@ export default function ChatPage() {
   const otherName = otherUser?.display_name ?? otherUser?.username ?? "User";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100dvh", maxWidth: 540, margin: "0 auto" }}>
+    <div className="chat-screen">
 
       {/* ── Header bar ── */}
       <div
@@ -168,7 +168,7 @@ export default function ChatPage() {
       </div>
 
       {/* ── Message thread ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
         {loadingMsgs ? (
           <div style={{ margin: "auto", opacity: 0.4, fontSize: 14 }}>Loading…</div>
         ) : messages.length === 0 ? (
@@ -235,7 +235,7 @@ export default function ChatPage() {
           style={{
             flex: 1, resize: "none", borderRadius: 20,
             border: "1px solid var(--border-strong)",
-            padding: "9px 14px", fontSize: 14, lineHeight: 1.4,
+            padding: "9px 14px", fontSize: 16, lineHeight: 1.4,
             background: "var(--surface-subtle)", outline: "none",
             fontFamily: "inherit", maxHeight: 120,
             overflowY: "auto",
