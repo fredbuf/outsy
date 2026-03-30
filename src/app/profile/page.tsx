@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../components/AuthProvider";
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 type Profile = {
   id: string;
   display_name: string | null;
@@ -22,6 +24,8 @@ type EventRow = {
   is_approved: boolean;
   status: string;
 };
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
   "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
@@ -53,36 +57,130 @@ function formatDate(iso: string): string {
   });
 }
 
+// ── Icons ──────────────────────────────────────────────────────────────────────
+
 function CameraIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
       <circle cx="12" cy="13" r="4" />
     </svg>
   );
 }
 
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+// ── Skeleton loading ───────────────────────────────────────────────────────────
+
+function ProfileSkeleton() {
+  return (
+    <main
+      className="page-main"
+      style={{ maxWidth: 640, margin: "0 auto", padding: "24px 16px 56px", display: "grid", gap: 32 }}
+    >
+      {/* Identity block skeleton */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8 }}>
+        <div className="skeleton" style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--surface-raised)" }} />
+        <div className="skeleton" style={{ width: 148, height: 22, borderRadius: 8, background: "var(--surface-raised)" }} />
+        <div className="skeleton" style={{ width: 80, height: 14, borderRadius: 6, background: "var(--surface-raised)" }} />
+        <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+          <div className="skeleton" style={{ width: 118, height: 38, borderRadius: 20, background: "var(--surface-raised)" }} />
+          <div className="skeleton" style={{ width: 118, height: 38, borderRadius: 20, background: "var(--surface-raised)" }} />
+        </div>
+      </div>
+      {/* Event section skeletons */}
+      {[0, 1, 2].map((i) => (
+        <div key={i} style={{ display: "grid", gap: 12 }}>
+          <div className="skeleton" style={{ width: 110, height: 18, borderRadius: 6, background: "var(--surface-raised)" }} />
+          <div style={{ display: "flex", gap: 12, overflow: "hidden" }}>
+            {[0, 1, 2].map((j) => (
+              <div key={j} className="skeleton" style={{ width: 160, height: 148, borderRadius: 12, background: "var(--surface-raised)", flexShrink: 0 }} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </main>
+  );
+}
+
+// ── Event card ─────────────────────────────────────────────────────────────────
+
 function EventCard({ e, showStatus }: { e: EventRow; showStatus?: boolean }) {
   return (
     <Link href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-      <div style={{ width: 160 }}>
-        {e.image_url ? (
-          <img
-            src={e.image_url}
-            alt=""
-            style={{ width: 160, height: 108, objectFit: "cover", borderRadius: 10, display: "block" }}
-          />
-        ) : (
-          <div style={{ width: 160, height: 108, borderRadius: 10, background: "var(--surface-raised)" }} />
-        )}
-        <div style={{ marginTop: 7 }}>
-          <div style={{ fontSize: 11, opacity: 0.55 }}>{formatDate(e.start_at)}</div>
+      <div className="profile-event-card" style={{ width: 164 }}>
+        {/* Image */}
+        <div style={{ position: "relative", width: 164, height: 114, borderRadius: 12, overflow: "hidden", background: "var(--surface-raised)" }}>
+          {e.image_url && (
+            <img
+              src={e.image_url}
+              alt=""
+              loading="lazy"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          )}
+          {/* Pending badge — overlaid on image */}
+          {showStatus && !e.is_approved && (
+            <div
+              style={{
+                position: "absolute",
+                top: 7,
+                left: 7,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+                fontSize: 10,
+                fontWeight: 600,
+                padding: "2px 7px",
+                borderRadius: 20,
+                background: "rgba(0,0,0,0.55)",
+                color: "#fbbf24",
+                backdropFilter: "blur(4px)",
+                WebkitBackdropFilter: "blur(4px)",
+              }}
+            >
+              <ClockIcon />
+              Pending
+            </div>
+          )}
+        </div>
+        {/* Meta */}
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 11, opacity: 0.5, letterSpacing: "0.01em" }}>{formatDate(e.start_at)}</div>
           <div
             style={{
               fontSize: 13,
               fontWeight: 700,
-              lineHeight: 1.25,
-              marginTop: 2,
+              lineHeight: 1.3,
+              marginTop: 3,
               overflow: "hidden",
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -91,14 +189,13 @@ function EventCard({ e, showStatus }: { e: EventRow; showStatus?: boolean }) {
           >
             {e.title}
           </div>
-          {showStatus && !e.is_approved && (
-            <div style={{ fontSize: 11, opacity: 0.4, marginTop: 2 }}>Pending review</div>
-          )}
         </div>
       </div>
     </Link>
   );
 }
+
+// ── Event section ──────────────────────────────────────────────────────────────
 
 function EventSection({
   title,
@@ -112,18 +209,36 @@ function EventSection({
   showStatus?: boolean;
 }) {
   return (
-    <section style={{ display: "grid", gap: 10 }}>
-      <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{title}</h2>
+    <section style={{ display: "grid", gap: 12 }}>
+      {/* Title row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{title}</h2>
+        {events.length > 0 && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "1px 7px",
+              borderRadius: 20,
+              background: "var(--accent-subtle)",
+              color: "var(--accent)",
+            }}
+          >
+            {events.length}
+          </span>
+        )}
+      </div>
+
       {events.length === 0 ? (
-        <p style={{ fontSize: 13, opacity: 0.5, margin: 0 }}>{emptyMsg}</p>
+        <p style={{ fontSize: 13, opacity: 0.45, margin: 0 }}>{emptyMsg}</p>
       ) : (
         <div
+          className="chip-row"
           style={{
             display: "flex",
             gap: 12,
             overflowX: "auto",
-            paddingBottom: 4,
-            scrollbarWidth: "none",
+            paddingBottom: 6,
           }}
         >
           {events.map((e) => (
@@ -134,6 +249,8 @@ function EventSection({
     </section>
   );
 }
+
+// ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
   const { user, loading: authLoading, session } = useAuth();
@@ -246,38 +363,57 @@ export default function ProfilePage() {
     }
   }
 
+  // ── Loading ───────────────────────────────────────────────────────────────────
   if (authLoading || fetching) {
-    return (
-      <main style={{ padding: "40px 16px", textAlign: "center", opacity: 0.5, fontSize: 14 }}>
-        Loading…
-      </main>
-    );
+    return <ProfileSkeleton />;
   }
 
+  // ── Signed-out ────────────────────────────────────────────────────────────────
   if (!user) {
     return (
       <main
         style={{
           maxWidth: 480,
           margin: "0 auto",
-          padding: "48px 16px",
-          display: "grid",
+          padding: "64px 20px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
           gap: 16,
+          textAlign: "center",
         }}
       >
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>Your profile</h1>
-        <p style={{ opacity: 0.65 }}>Sign in to view and edit your profile.</p>
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: "var(--surface-raised)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: 0.4,
+          }}
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Your profile</h1>
+        <p style={{ opacity: 0.55, margin: 0, lineHeight: 1.6, fontSize: 15 }}>Sign in to view and edit your profile.</p>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent("outsy:open-signin"))}
           style={{
-            alignSelf: "start",
-            padding: "10px 20px",
-            borderRadius: 10,
-            border: "1px solid var(--border-strong)",
-            background: "var(--btn-bg)",
+            marginTop: 4,
+            padding: "11px 28px",
+            borderRadius: 12,
+            border: "none",
+            background: "var(--foreground)",
+            color: "var(--background)",
             cursor: "pointer",
-            fontWeight: 600,
+            fontWeight: 700,
             fontSize: 14,
           }}
         >
@@ -295,13 +431,13 @@ export default function ProfilePage() {
       style={{
         maxWidth: 640,
         margin: "0 auto",
-        padding: "24px 16px 56px",
+        padding: "28px 16px 64px",
         display: "grid",
-        gap: 32,
+        gap: 36,
         background: "radial-gradient(ellipse 120% 60% at 50% -5%, rgba(124, 58, 237, 0.09) 0%, transparent 65%)",
       }}
     >
-      {/* Hidden file input — triggered by camera button or "Change photo" */}
+      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -310,36 +446,46 @@ export default function ProfilePage() {
         onChange={(e) => handleAvatarChange(e.target.files?.[0] ?? null)}
       />
 
-      {/* ── Identity block ───────────────────────────────────────────────── */}
-      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, paddingTop: 8 }}>
+      {/* ── Identity block ─────────────────────────────────────────────────── */}
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8 }}>
 
-        {/* Avatar with camera overlay */}
-        <div style={{ position: "relative", width: 88, height: 88 }}>
+        {/* Avatar */}
+        <div style={{ position: "relative", width: 96, height: 96 }}>
           {profile?.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt={avatarLabel ?? ""}
-              style={{ width: 88, height: 88, borderRadius: "50%", objectFit: "cover", display: "block" }}
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: "50%",
+                objectFit: "cover",
+                display: "block",
+                border: "2px solid var(--border-medium)",
+              }}
             />
           ) : (
             <div
               style={{
-                width: 88,
-                height: 88,
+                width: 96,
+                height: 96,
                 borderRadius: "50%",
                 background: getAvatarColor(avatarLabel),
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 30,
+                fontSize: 32,
                 fontWeight: 700,
                 color: "#fff",
                 userSelect: "none",
+                border: "2px solid var(--border-medium)",
               }}
             >
               {getInitials(avatarLabel)}
             </div>
           )}
+
+          {/* Camera button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -349,17 +495,18 @@ export default function ProfilePage() {
               position: "absolute",
               bottom: 2,
               right: 2,
-              width: 26,
-              height: 26,
+              width: 28,
+              height: 28,
               borderRadius: "50%",
               border: "2px solid var(--background)",
-              background: "var(--btn-bg-active)",
+              background: "var(--foreground)",
+              color: "var(--background)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: uploadingAvatar ? "wait" : "pointer",
               opacity: uploadingAvatar ? 0.5 : 1,
-              color: "inherit",
+              transition: "opacity 0.15s",
             }}
           >
             <CameraIcon />
@@ -372,38 +519,47 @@ export default function ProfilePage() {
 
         {/* Name + username */}
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
             {profile?.display_name ?? avatarLabel ?? "Anonymous"}
           </div>
           {profile?.username && (
-            <div style={{ fontSize: 14, opacity: 0.45, marginTop: 3 }}>
+            <div style={{ fontSize: 14, opacity: 0.5, marginTop: 4 }}>
               @{profile.username}
             </div>
           )}
         </div>
 
         {/* Action buttons */}
-        <div style={{ display: "flex", gap: 10, marginTop: 4, flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 2, flexWrap: "wrap", justifyContent: "center" }}>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
+            className="profile-btn-primary"
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               padding: "9px 22px",
               borderRadius: 20,
-              border: "1px solid var(--border-strong)",
-              background: "var(--btn-bg)",
+              border: "none",
+              background: "var(--foreground)",
+              color: "var(--background)",
               fontWeight: 600,
               fontSize: 14,
               cursor: "pointer",
-              color: "inherit",
             }}
           >
+            <EditIcon />
             Edit profile
           </button>
           <button
             type="button"
             onClick={handleShare}
+            className="profile-btn-ghost"
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               padding: "9px 22px",
               borderRadius: 20,
               border: "1px solid var(--border-strong)",
@@ -414,21 +570,28 @@ export default function ProfilePage() {
               color: "inherit",
             }}
           >
-            {shareMsg ?? "Share profile"}
+            <ShareIcon />
+            {shareMsg ?? "Share"}
           </button>
         </div>
 
         {profile?.username && (
           <Link
             href={`/u/${profile.username}`}
-            style={{ fontSize: 12, opacity: 0.35, textDecoration: "underline" }}
+            style={{ fontSize: 12, opacity: 0.5, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}
           >
-            View public profile →
+            View public profile
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
           </Link>
         )}
       </section>
 
-      {/* ── Event sections ───────────────────────────────────────────────── */}
+      {/* ── Divider ─────────────────────────────────────────────────────────── */}
+      <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0 }} />
+
+      {/* ── Event sections ───────────────────────────────────────────────────── */}
       <EventSection
         title="Going to"
         events={goingEvents}
@@ -446,14 +609,14 @@ export default function ProfilePage() {
         showStatus
       />
 
-      {/* ── Edit profile modal ───────────────────────────────────────────── */}
+      {/* ── Edit profile modal ───────────────────────────────────────────────── */}
       {editOpen && (
         <div
           onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background: "rgba(0,0,0,0.50)",
             zIndex: 300,
             display: "flex",
             alignItems: "center",
@@ -465,10 +628,11 @@ export default function ProfilePage() {
             style={{
               background: "var(--background)",
               border: "1px solid var(--border)",
-              borderRadius: 16,
+              borderRadius: 18,
               width: "100%",
               maxWidth: 420,
               overflow: "hidden",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.20)",
             }}
           >
             {/* Modal header */}
@@ -477,7 +641,7 @@ export default function ProfilePage() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "14px 18px",
+                padding: "16px 20px",
                 borderBottom: "1px solid var(--border)",
               }}
             >
@@ -487,12 +651,18 @@ export default function ProfilePage() {
                 onClick={() => setEditOpen(false)}
                 aria-label="Close"
                 style={{
-                  background: "none",
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  background: "var(--surface-raised)",
                   border: "none",
                   cursor: "pointer",
-                  fontSize: 22,
+                  fontSize: 18,
                   lineHeight: 1,
-                  opacity: 0.35,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.6,
                   color: "inherit",
                 }}
               >
@@ -501,7 +671,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Modal body */}
-            <form onSubmit={handleSave} style={{ padding: "18px 18px 20px", display: "grid", gap: 14 }}>
+            <form onSubmit={handleSave} style={{ padding: "20px", display: "grid", gap: 16 }}>
               {/* Avatar row */}
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
@@ -509,7 +679,7 @@ export default function ProfilePage() {
                     <img
                       src={profile.avatar_url}
                       alt=""
-                      style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", display: "block" }}
+                      style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", display: "block", border: "2px solid var(--border-medium)" }}
                     />
                   ) : (
                     <div
@@ -525,6 +695,7 @@ export default function ProfilePage() {
                         fontWeight: 700,
                         color: "#fff",
                         userSelect: "none",
+                        border: "2px solid var(--border-medium)",
                       }}
                     >
                       {getInitials(avatarLabel)}
@@ -543,13 +714,13 @@ export default function ProfilePage() {
                       height: 22,
                       borderRadius: "50%",
                       border: "2px solid var(--background)",
-                      background: "var(--btn-bg-active)",
+                      background: "var(--foreground)",
+                      color: "var(--background)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       cursor: uploadingAvatar ? "wait" : "pointer",
                       opacity: uploadingAvatar ? 0.5 : 1,
-                      color: "inherit",
                     }}
                   >
                     <CameraIcon />
@@ -560,11 +731,12 @@ export default function ProfilePage() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingAvatar}
                   style={{
-                    padding: "7px 14px",
-                    borderRadius: 8,
+                    padding: "8px 16px",
+                    borderRadius: 10,
                     border: "1px solid var(--border-strong)",
                     background: "transparent",
                     fontSize: 13,
+                    fontWeight: 500,
                     cursor: uploadingAvatar ? "wait" : "pointer",
                     opacity: uploadingAvatar ? 0.5 : 1,
                     color: "inherit",
@@ -574,8 +746,9 @@ export default function ProfilePage() {
                 </button>
               </div>
 
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.6 }}>Display name</span>
+              {/* Display name */}
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.55 }}>Display name</span>
                 <input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
@@ -595,8 +768,9 @@ export default function ProfilePage() {
                 />
               </label>
 
-              <label style={{ display: "grid", gap: 4 }}>
-                <span style={{ fontSize: 12, opacity: 0.6 }}>Username</span>
+              {/* Username */}
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.55 }}>Username</span>
                 <div style={{ position: "relative" }}>
                   <span
                     style={{
@@ -626,10 +800,7 @@ export default function ProfilePage() {
                     style={{
                       width: "100%",
                       boxSizing: "border-box",
-                      paddingTop: 10,
-                      paddingBottom: 10,
-                      paddingLeft: 26,
-                      paddingRight: 12,
+                      padding: "10px 12px 10px 26px",
                       borderRadius: 10,
                       border: "1px solid var(--border-strong)",
                       fontSize: 14,
@@ -646,19 +817,25 @@ export default function ProfilePage() {
                 <p style={{ fontSize: 13, color: "#dc2626", margin: 0 }}>{saveError}</p>
               )}
 
+              {/* Save button */}
               <button
                 type="submit"
                 disabled={saving}
                 style={{
-                  padding: "11px",
-                  borderRadius: 10,
+                  padding: "12px",
+                  borderRadius: 12,
                   border: "none",
-                  background: saving || saveSuccess ? "var(--surface-raised)" : "var(--btn-bg-active)",
+                  background: saving
+                    ? "var(--surface-raised)"
+                    : saveSuccess
+                    ? "rgba(16,185,129,0.15)"
+                    : "var(--accent)",
+                  color: saving ? "inherit" : saveSuccess ? "#10b981" : "#fff",
                   cursor: saving ? "not-allowed" : "pointer",
                   fontWeight: 700,
                   fontSize: 14,
-                  color: "inherit",
                   opacity: saving ? 0.6 : 1,
+                  transition: "background 0.2s, color 0.2s",
                 }}
               >
                 {saving ? "Saving…" : saveSuccess ? "Saved!" : "Save changes"}

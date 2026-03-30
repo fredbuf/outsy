@@ -120,6 +120,40 @@ body {
 }
 
 
+/* ── Skeleton pulse ─────────────────────────────────────────────────────── */
+@keyframes sk-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+.skeleton {
+  animation: sk-pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Profile event card hover ───────────────────────────────────────────── */
+.profile-event-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+  cursor: pointer;
+}
+.profile-event-card:hover {
+  box-shadow: 0 6px 24px rgba(0,0,0,0.13);
+  transform: translateY(-2px);
+}
+
+/* ── Profile action buttons ─────────────────────────────────────────────── */
+.profile-btn-primary {
+  transition: background 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+.profile-btn-primary:hover {
+  opacity: 0.88;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.14);
+}
+.profile-btn-ghost {
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.profile-btn-ghost:hover {
+  background: var(--surface-raised) !important;
+}
+
 /* ── Mobile responsiveness (≤ 540 px) ──────────────────────────────────── */
 @media (max-width: 540px) {
   /* Prevent horizontal scroll at both html and body level (Safari requires both) */
