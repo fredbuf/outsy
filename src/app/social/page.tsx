@@ -534,7 +534,7 @@ export default function SocialPage() {
       style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px" }}
     >
       {/* Header */}
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>Social</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, textAlign: "center" }}>Inbox</h1>
 
       {/* Segmented tabs */}
       <div
