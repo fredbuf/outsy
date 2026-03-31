@@ -28,7 +28,7 @@ function getAvatarColor(name: string | null): string {
 }
 
 export function Header() {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const [showPanel, setShowPanel] = useState(false);
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
@@ -36,6 +36,7 @@ export function Header() {
   const [panelError, setPanelError] = useState<string | null>(null);
   const [profile, setProfile] = useState<HeaderProfile | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [socialUnread, setSocialUnread] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,7 +52,6 @@ export function Header() {
 
   // Fetch avatar + display name when user signs in
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!user) { setProfile(null); return; }
     const uid = user.id;
     supabaseBrowser()
@@ -61,6 +61,26 @@ export function Header() {
       .single()
       .then(({ data }) => setProfile(data ?? null));
   }, [user]);
+
+  // Poll unread counts for the Social icon dot
+  useEffect(() => {
+    if (!session) { setSocialUnread(false); return; }
+    const token = session.access_token;
+    function check() {
+      fetch("/api/social/unread-counts", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((d: { ok: boolean; activity?: number; messages?: number }) => {
+          if (d.ok) setSocialUnread((d.activity ?? 0) > 0 || (d.messages ?? 0) > 0);
+        })
+        .catch(() => {});
+    }
+    check();
+    window.addEventListener("focus", check);
+    return () => window.removeEventListener("focus", check);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -176,7 +196,7 @@ export function Header() {
           {!loading && user && (
             <Link
               href="/social"
-              style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center" }}
+              style={{ padding: "6px 10px", fontSize: 13, opacity: 0.7, textDecoration: "none", display: "flex", alignItems: "center", position: "relative" }}
             >
               <span className="nav-label">Social</span>
               <span className="nav-icon" aria-hidden>
@@ -184,6 +204,18 @@ export function Header() {
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                 </svg>
               </span>
+              {socialUnread && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute", top: 5, right: 5,
+                    width: 7, height: 7, borderRadius: "50%",
+                    background: "var(--accent)",
+                    boxShadow: "0 0 0 1.5px var(--background)",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
             </Link>
           )}
 

@@ -78,9 +78,11 @@ type RequestRowState = "idle" | "accepting" | "ignoring" | "accepted" | "ignored
 function FriendRequestReceivedRow({
   item,
   token,
+  onRead,
 }: {
   item: ActivityItem;
   token: string;
+  onRead: () => void;
 }) {
   const [state, setState] = useState<RequestRowState>(
     item.friendshipPending ? "idle" : "accepted"
@@ -89,6 +91,7 @@ function FriendRequestReceivedRow({
   async function respond(action: "accept" | "ignore") {
     if (!item.entity_id) return;
     setState(action === "accept" ? "accepting" : "ignoring");
+    onRead();
     try {
       const res = await fetch("/api/social/activity/respond", {
         method: "POST",
@@ -173,35 +176,60 @@ function FriendRequestReceivedRow({
   );
 }
 
-function EventInviteRow({ item }: { item: ActivityItem }) {
+function EventInviteRow({ item, onRead }: { item: ActivityItem; onRead: () => void }) {
   const actorName = item.actor.display_name ?? item.actor.username ?? "Someone";
   const eventTitle = item.event?.title ?? "an event";
   const eventId = item.entity_id;
+
+  // Event image thumbnail with inviter avatar overlay
+  const thumbnail = (
+    <div style={{ position: "relative", flexShrink: 0, width: 52, height: 52 }}>
+      {item.event?.image_url ? (
+        <img
+          src={item.event.image_url}
+          alt=""
+          style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} size={52} />
+      )}
+      {/* Inviter avatar overlaid at bottom-right — only when event image is present */}
+      {item.event?.image_url && (
+        <div
+          style={{
+            position: "absolute", bottom: -3, right: -3,
+            borderRadius: "50%",
+            border: "2px solid var(--background)",
+            lineHeight: 0, flexShrink: 0,
+          }}
+        >
+          <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} size={20} />
+        </div>
+      )}
+    </div>
+  );
 
   const inner = (
     <div
       style={{
         display: "flex", alignItems: "center", gap: 12,
-        padding: "12px 0", borderBottom: "1px solid var(--border)",
+        padding: "12px 0", paddingLeft: 2,
+        borderBottom: "1px solid var(--border)",
         cursor: eventId ? "pointer" : "default",
       }}
+      onClick={onRead}
     >
-      <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={(e) => e.stopPropagation()}>
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
-      </Link>
-      {item.event?.image_url && (
-        <img
-          src={item.event.image_url}
-          alt=""
-          style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
-        />
-      )}
+      {thumbnail}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14 }}>
-          <span style={{ fontWeight: 600 }}>{actorName}</span> invited you to{" "}
-          <span style={{ fontWeight: 600 }}>{eventTitle}</span>.
+        <div style={{
+          fontSize: 14, fontWeight: 600,
+          overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+        }}>
+          {eventTitle}
         </div>
-        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>{relativeTime(item.created_at)}</div>
+        <div style={{ fontSize: 12, opacity: 0.5, marginTop: 2 }}>
+          {actorName} invited you · {relativeTime(item.created_at)}
+        </div>
       </div>
     </div>
   );
@@ -214,11 +242,14 @@ function EventInviteRow({ item }: { item: ActivityItem }) {
   );
 }
 
-function FriendRequestAcceptedRow({ item }: { item: ActivityItem }) {
+function FriendRequestAcceptedRow({ item, onRead }: { item: ActivityItem; onRead: () => void }) {
   const name = item.actor.display_name ?? item.actor.username ?? "Someone";
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-      <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+      onClick={onRead}
+    >
+      <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={(e) => e.stopPropagation()}>
         <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -232,29 +263,53 @@ function FriendRequestAcceptedRow({ item }: { item: ActivityItem }) {
   );
 }
 
-function ActivityTab({ token }: { token: string }) {
+function ActivityTab({
+  token,
+  onUnreadChange,
+}: {
+  token: string;
+  onUnreadChange: (hasUnread: boolean) => void;
+}) {
   const [items, setItems] = useState<ActivityItem[] | null>(null);
+  const [localRead, setLocalRead] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch("/api/social/activity", {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
       .then((d: { ok: boolean; items?: ActivityItem[] }) => {
-        if (d.ok) {
-          setItems(d.items ?? []);
-          // Mark all notifications as read (fire-and-forget)
-          fetch("/api/notifications/mark-read", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch(() => {});
-        }
+        if (d.ok) setItems(d.items ?? []);
       })
       .finally(() => setLoading(false));
   }, [token]);
+
+  // Report unread state upward whenever items or localRead change
+  useEffect(() => {
+    if (items == null) return;
+    const hasUnread = items.some((i) => !i.read && !localRead.has(i.id));
+    onUnreadChange(hasUnread);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, localRead]);
+
+  function markRead(id: string) {
+    setLocalRead((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    fetch("/api/notifications/mark-read", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ id }),
+    }).catch(() => {});
+  }
 
   if (loading) {
     return <div style={{ padding: "32px 0", textAlign: "center", opacity: 0.4, fontSize: 14 }}>Loading…</div>;
@@ -278,13 +333,32 @@ function ActivityTab({ token }: { token: string }) {
     <div>
       {items.map((item) => {
         if (item.type === "friend_request_received") {
-          return <FriendRequestReceivedRow key={item.id} item={item} token={token} />;
+          return (
+            <FriendRequestReceivedRow
+              key={item.id}
+              item={item}
+              token={token}
+              onRead={() => markRead(item.id)}
+            />
+          );
         }
         if (item.type === "friend_request_accepted") {
-          return <FriendRequestAcceptedRow key={item.id} item={item} />;
+          return (
+            <FriendRequestAcceptedRow
+              key={item.id}
+              item={item}
+              onRead={() => markRead(item.id)}
+            />
+          );
         }
         if (item.type === "event_invite") {
-          return <EventInviteRow key={item.id} item={item} />;
+          return (
+            <EventInviteRow
+              key={item.id}
+              item={item}
+              onRead={() => markRead(item.id)}
+            />
+          );
         }
         return null;
       })}
@@ -298,6 +372,8 @@ function ConversationRow({ conv }: { conv: ConversationPreview }) {
   const name = conv.display_name ?? conv.username ?? "Unknown";
   const preview = (conv.lastMessage.isFromMe ? "You: " : "") + conv.lastMessage.body;
   const clipped = preview.length > 48 ? preview.slice(0, 48) + "…" : preview;
+  // Unread proxy: last message is from the other person
+  const isUnread = !conv.lastMessage.isFromMe;
 
   return (
     <Link
@@ -312,20 +388,42 @@ function ConversationRow({ conv }: { conv: ConversationPreview }) {
       >
         <AvatarCircle avatarUrl={conv.avatar_url} name={name} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{name}</div>
-          <div style={{ fontSize: 13, opacity: 0.5, marginTop: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 15, fontWeight: isUnread ? 700 : 600, lineHeight: 1.2 }}>{name}</div>
+          <div style={{
+            fontSize: 13, marginTop: 2,
+            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+            opacity: isUnread ? 0.8 : 0.5,
+            fontWeight: isUnread ? 500 : 400,
+          }}>
             {clipped}
           </div>
         </div>
-        <span style={{ fontSize: 12, opacity: 0.4, flexShrink: 0 }}>
-          {relativeTime(conv.lastMessage.created_at)}
-        </span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
+          <span style={{ fontSize: 12, opacity: 0.4 }}>
+            {relativeTime(conv.lastMessage.created_at)}
+          </span>
+          {isUnread && (
+            <span
+              aria-hidden
+              style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: "var(--accent)",
+              }}
+            />
+          )}
+        </div>
       </div>
     </Link>
   );
 }
 
-function MessagesTab({ token }: { token: string }) {
+function MessagesTab({
+  token,
+  onUnreadChange,
+}: {
+  token: string;
+  onUnreadChange: (hasUnread: boolean) => void;
+}) {
   const [convs, setConvs] = useState<ConversationPreview[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -335,9 +433,14 @@ function MessagesTab({ token }: { token: string }) {
     })
       .then((r) => r.json())
       .then((d: { ok: boolean; conversations?: ConversationPreview[] }) => {
-        if (d.ok) setConvs(d.conversations ?? []);
+        if (d.ok) {
+          const list = d.conversations ?? [];
+          setConvs(list);
+          onUnreadChange(list.some((c) => !c.lastMessage.isFromMe));
+        }
       })
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   if (loading) {
@@ -370,6 +473,24 @@ function MessagesTab({ token }: { token: string }) {
   );
 }
 
+// ── Unread dot ─────────────────────────────────────────────────────────────────
+
+function UnreadDot() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-block",
+        width: 7, height: 7, borderRadius: "50%",
+        background: "var(--accent)",
+        marginLeft: 5,
+        verticalAlign: "middle",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 type Tab = "activity" | "messages";
@@ -377,6 +498,14 @@ type Tab = "activity" | "messages";
 export default function SocialPage() {
   const { user, session, loading } = useAuth();
   const [tab, setTab] = useState<Tab>("activity");
+  const [activityUnread, setActivityUnread] = useState(false);
+  const [messagesUnread, setMessagesUnread] = useState(false);
+
+  function handleTabSwitch(t: Tab) {
+    setTab(t);
+    // Clear the messages dot when the user opens that tab (no server-side read tracking for messages)
+    if (t === "messages") setMessagesUnread(false);
+  }
 
   if (loading) return null;
 
@@ -420,7 +549,7 @@ export default function SocialPage() {
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => handleTabSwitch(t)}
             style={{
               flex: 1, padding: "8px 0", borderRadius: 9,
               border: "none", fontWeight: 600, fontSize: 14,
@@ -429,17 +558,32 @@ export default function SocialPage() {
               color: "inherit",
               boxShadow: tab === t ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
               transition: "background 0.15s",
-              textTransform: "capitalize",
+              display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >
             {t === "activity" ? "Activity" : "Messages"}
+            {t === "activity" && activityUnread && tab !== "activity" && <UnreadDot />}
+            {t === "messages" && messagesUnread && tab !== "messages" && <UnreadDot />}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
-      {tab === "activity" && <ActivityTab token={session.access_token} />}
-      {tab === "messages" && <MessagesTab token={session.access_token} />}
+      {tab === "activity" && (
+        <ActivityTab
+          token={session.access_token}
+          onUnreadChange={setActivityUnread}
+        />
+      )}
+      {tab === "messages" && (
+        <MessagesTab
+          token={session.access_token}
+          onUnreadChange={(v) => {
+            // Only set unread when not already on messages tab
+            if (tab !== "messages") setMessagesUnread(v);
+          }}
+        />
+      )}
     </main>
   );
 }

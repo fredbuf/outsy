@@ -11,21 +11,44 @@ async function getAuthUser(req: Request) {
 }
 
 // POST /api/notifications/mark-read
-// Marks all unread notifications as read for the authenticated user.
+// Body: {}            → marks ALL unread notifications as read for the authenticated user.
+// Body: { id: string } → marks a single notification as read (caller must own it).
 export async function POST(req: Request) {
   const user = await getAuthUser(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const { error } = await supabaseServer()
-    .from("notifications")
-    .update({ read: true })
-    .eq("user_id", user.id)
-    .eq("read", false);
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    /* empty body is fine — means mark-all */
+  }
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const supabase = supabaseServer();
+  const { id } = body;
+
+  if (typeof id === "string" && id.trim()) {
+    // Mark a single notification read — gate on user_id for safety
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", id)
+      .eq("user_id", user.id);
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+  } else {
+    // Mark all unread notifications as read
+    const { error } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });
