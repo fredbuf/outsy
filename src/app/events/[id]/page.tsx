@@ -486,7 +486,7 @@ export default async function EventPage({
             )}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
               <InviteFriendsButton eventId={id} />
-              <ShareButton title={event.title} />
+              <ShareButton title={event.title} eventId={id} />
             </div>
           </div>
 
@@ -658,7 +658,7 @@ export default async function EventPage({
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </BackButton>
-        <ShareButton title={event.title} />
+        <ShareButton title={event.title} eventId={id} />
       </div>
 
       {/* Hero image with gradient overlay */}

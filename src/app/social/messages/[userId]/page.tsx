@@ -33,12 +33,92 @@ function formatTime(iso: string): string {
   });
 }
 
+// Compact date for event cards
+function smartEventDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const now = new Date();
+  const toKey = (dt: Date) => dt.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const eventDay = toKey(d);
+  const today = toKey(now);
+  const tomorrow = toKey(new Date(now.getTime() + 86_400_000));
+  const rawTime = d.toLocaleString("en-US", {
+    timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
+  });
+  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  const timeStr = isUnknownTime ? "" : " · " + rawTime;
+  if (eventDay === today) return `Today${timeStr}`;
+  if (eventDay === tomorrow) return `Tomorrow${timeStr}`;
+  const monthDay = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" });
+  return `${monthDay}${timeStr}`;
+}
+
 type OtherUser = {
   id: string;
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
 };
+
+// ── Event card bubble ──────────────────────────────────────────────────────────
+
+function EventCard({ msg, isMe }: { msg: MessageRow; isMe: boolean }) {
+  const ev = msg.event;
+  if (!ev) return null;
+  const dateStr = smartEventDate(ev.start_at);
+
+  return (
+    <Link
+      href={`/events/${ev.id}`}
+      style={{ textDecoration: "none", color: "inherit", display: "block" }}
+    >
+      <div
+        style={{
+          maxWidth: 240,
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid var(--border-strong)",
+          background: "var(--surface-subtle)",
+          cursor: "pointer",
+        }}
+      >
+        {ev.image_url ? (
+          <img
+            src={ev.image_url}
+            alt=""
+            style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <div style={{
+            width: "100%", height: 64,
+            background: isMe ? "rgba(124,58,237,0.15)" : "var(--surface-raised)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.3 }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </div>
+        )}
+        <div style={{ padding: "9px 11px 10px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {ev.title}
+          </div>
+          {dateStr && (
+            <div style={{ fontSize: 11, opacity: 0.55, marginTop: 3 }}>{dateStr}</div>
+          )}
+          {ev.venue_name && (
+            <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+              {ev.venue_name}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
@@ -85,11 +165,7 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // iOS Safari keyboard fix (fallback for iOS < 17 / browsers without
-  // interactive-widget:resizes-content support).
-  // The Visual Viewport API fires when the virtual keyboard opens or closes.
-  // We set the chat container's height and top to exactly match the visual
-  // viewport so the composer is never hidden behind the keyboard.
+  // iOS Safari keyboard fix
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -208,6 +284,8 @@ export default function ChatPage() {
         ) : (
           messages.map((msg) => {
             const isMe = msg.sender_id === user.id;
+            const isEventShare = !!msg.event_id;
+
             return (
               <div
                 key={msg.id}
@@ -218,20 +296,24 @@ export default function ChatPage() {
                   gap: 2,
                 }}
               >
-                <div
-                  style={{
-                    maxWidth: "72%",
-                    padding: "9px 14px",
-                    borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                    background: isMe ? "var(--accent)" : "var(--surface-raised)",
-                    color: isMe ? "#fff" : "inherit",
-                    fontSize: 14,
-                    lineHeight: 1.45,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {msg.body}
-                </div>
+                {isEventShare ? (
+                  <EventCard msg={msg} isMe={isMe} />
+                ) : (
+                  <div
+                    style={{
+                      maxWidth: "72%",
+                      padding: "9px 14px",
+                      borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                      background: isMe ? "var(--accent)" : "var(--surface-raised)",
+                      color: isMe ? "#fff" : "inherit",
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {msg.body}
+                  </div>
+                )}
                 <span style={{ fontSize: 10, opacity: 0.35, paddingInline: 4 }}>
                   {formatTime(msg.created_at)}
                 </span>
