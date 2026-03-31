@@ -93,6 +93,28 @@ export function FriendshipButton({ profileId }: { profileId: string }) {
     }
   }
 
+  async function removeFriendship() {
+    if (!session || !friendshipId) return;
+    setActing(true);
+    try {
+      const res = await fetch("/api/friends/remove", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ friendshipId }),
+      });
+      const d = (await res.json()) as { ok: boolean };
+      if (d.ok) {
+        setState("none");
+        setFriendshipId(null);
+      }
+    } finally {
+      setActing(false);
+    }
+  }
+
   // Don't render anything for self, loading (avoid flash), or unauthenticated
   if (state === "loading" || state === "self") return null;
 
@@ -117,28 +139,56 @@ export function FriendshipButton({ profileId }: { profileId: string }) {
         >
           Message
         </Link>
+        <button
+          type="button"
+          onClick={removeFriendship}
+          disabled={acting}
+          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
+        >
+          {acting ? "Removing…" : "Remove"}
+        </button>
       </div>
     );
   }
 
   if (state === "pending_sent") {
     return (
-      <span style={{ ...baseStyle, background: "var(--surface-raised)", border: "1px solid var(--border)", cursor: "default", opacity: 0.6, display: "inline-block" }}>
-        Request sent
-      </span>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ ...baseStyle, background: "var(--surface-raised)", border: "1px solid var(--border)", cursor: "default", opacity: 0.6, display: "inline-block" }}>
+          Request sent
+        </span>
+        <button
+          type="button"
+          onClick={removeFriendship}
+          disabled={acting}
+          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
+        >
+          {acting ? "Cancelling…" : "Cancel"}
+        </button>
+      </div>
     );
   }
 
   if (state === "pending_received") {
     return (
-      <button
-        type="button"
-        onClick={acceptRequest}
-        disabled={acting}
-        style={{ ...baseStyle, background: "var(--accent)", color: "#fff", border: "none" }}
-      >
-        {acting ? "Accepting…" : "Accept request"}
-      </button>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={acceptRequest}
+          disabled={acting}
+          style={{ ...baseStyle, background: "var(--accent)", color: "#fff", border: "none" }}
+        >
+          {acting ? "Accepting…" : "Accept request"}
+        </button>
+        <button
+          type="button"
+          onClick={removeFriendship}
+          disabled={acting}
+          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
+        >
+          {acting ? "Declining…" : "Decline"}
+        </button>
+      </div>
     );
   }
 

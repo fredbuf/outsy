@@ -30,7 +30,7 @@ function getAvatarColor(name: string | null): string {
 // ── Local state ────────────────────────────────────────────────────────────────
 
 // What state to show on a result's button
-type ButtonState = "idle" | "sending" | "sent" | "friends";
+type ButtonState = "idle" | "sending" | "sent" | "cancelling" | "friends";
 
 function initialButtonState(result: UserSearchResult): ButtonState {
   if (!result.friendship) return "idle";
@@ -68,9 +68,11 @@ function Avatar({ result }: { result: UserSearchResult }) {
 function AddButton({
   state,
   onAdd,
+  onCancel,
 }: {
   state: ButtonState;
   onAdd: () => void;
+  onCancel: () => void;
 }) {
   if (state === "friends") {
     return (
@@ -90,17 +92,27 @@ function AddButton({
     );
   }
 
-  if (state === "sent") {
+  if (state === "sent" || state === "cancelling") {
     return (
-      <span
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={state === "cancelling"}
         style={{
-          fontSize: 13, fontWeight: 600,
-          opacity: 0.45,
+          padding: "7px 16px",
+          borderRadius: 20,
+          border: "1px solid var(--border-strong)",
+          background: "var(--btn-bg)",
+          fontWeight: 600,
+          fontSize: 13,
+          cursor: state === "cancelling" ? "not-allowed" : "pointer",
           flexShrink: 0,
+          transition: "opacity 0.15s",
+          opacity: state === "cancelling" ? 0.5 : 1,
         }}
       >
-        Request sent
-      </span>
+        {state === "cancelling" ? "Cancelling…" : "Cancel request"}
+      </button>
     );
   }
 
@@ -137,6 +149,7 @@ export default function AddFriendPage() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<UserSearchResult[] | null>(null);
   const [buttonStates, setButtonStates] = useState<Record<string, ButtonState>>({});
+  const [friendshipIds, setFriendshipIds] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 300ms debounce on input
@@ -162,10 +175,15 @@ export default function AddFriendPage() {
       .then((data: { ok: boolean; results?: UserSearchResult[] }) => {
         if (data.ok && data.results) {
           setResults(data.results);
-          // Seed button states from friendship data
+          // Seed button states and friendship IDs from friendship data
           const initial: Record<string, ButtonState> = {};
-          for (const r of data.results) initial[r.id] = initialButtonState(r);
+          const ids: Record<string, string> = {};
+          for (const r of data.results) {
+            initial[r.id] = initialButtonState(r);
+            if (r.friendship?.id) ids[r.id] = r.friendship.id;
+          }
           setButtonStates(initial);
+          setFriendshipIds(ids);
         }
       })
       .finally(() => setSearching(false));
@@ -184,17 +202,46 @@ export default function AddFriendPage() {
         },
         body: JSON.stringify({ recipientId: result.id }),
       });
-      const data = (await res.json()) as { ok: boolean; friendshipStatus?: string };
+      const data = (await res.json()) as { ok: boolean; friendshipStatus?: string; friendshipId?: string };
       if (data.ok) {
         const next: ButtonState =
           data.friendshipStatus === "friends" ? "friends" : "sent";
         setButtonStates((prev) => ({ ...prev, [result.id]: next }));
+        if (data.friendshipId) {
+          setFriendshipIds((prev) => ({ ...prev, [result.id]: data.friendshipId! }));
+        }
       } else {
         // Revert to idle on error so the user can retry
         setButtonStates((prev) => ({ ...prev, [result.id]: "idle" }));
       }
     } catch {
       setButtonStates((prev) => ({ ...prev, [result.id]: "idle" }));
+    }
+  }
+
+  async function handleCancel(userId: string) {
+    if (!session) return;
+    const friendshipId = friendshipIds[userId];
+    if (!friendshipId) return;
+    setButtonStates((prev) => ({ ...prev, [userId]: "cancelling" }));
+    try {
+      const res = await fetch("/api/friends/remove", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ friendshipId }),
+      });
+      const data = (await res.json()) as { ok: boolean };
+      if (data.ok) {
+        setButtonStates((prev) => ({ ...prev, [userId]: "idle" }));
+        setFriendshipIds((prev) => { const next = { ...prev }; delete next[userId]; return next; });
+      } else {
+        setButtonStates((prev) => ({ ...prev, [userId]: "sent" }));
+      }
+    } catch {
+      setButtonStates((prev) => ({ ...prev, [userId]: "sent" }));
     }
   }
 
@@ -315,7 +362,7 @@ export default function AddFriendPage() {
                     )}
                   </Link>
                 </div>
-                <AddButton state={btnState} onAdd={() => handleAdd(result)} />
+                <AddButton state={btnState} onAdd={() => handleAdd(result)} onCancel={() => handleCancel(result.id)} />
               </div>
             );
           })}

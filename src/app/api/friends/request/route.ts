@@ -115,5 +115,5 @@ export async function POST(req: Request) {
     entityId: inserted.id as string,
   });
 
-  return NextResponse.json({ ok: true, friendshipStatus: "sent" });
+  return NextResponse.json({ ok: true, friendshipStatus: "sent", friendshipId: inserted.id });
 }
