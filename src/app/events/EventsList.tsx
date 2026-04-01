@@ -27,9 +27,30 @@ type EventRow = {
 };
 
 type SuggestionItem = { id: string; title: string };
-type DateWindow = "all" | "today" | "this_week" | "weekend";
-type SheetCategory = "party" | "drinks" | "music" | "food" | "outdoor" | "culture" | "social";
+type DateFilter = "all" | "today" | "this_week" | "weekend" | "pick_date";
+type TimeFilter  = "all" | "morning" | "afternoon" | "evening";
 type EventType = "all" | "public" | "private";
+
+const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
+  { id: "all",       label: "Any date" },
+  { id: "today",     label: "Today" },
+  { id: "this_week", label: "This week" },
+  { id: "weekend",   label: "This weekend" },
+  { id: "pick_date", label: "Pick a date" },
+];
+
+const TIME_OPTIONS: { id: TimeFilter; label: string }[] = [
+  { id: "all",       label: "Any time" },
+  { id: "morning",   label: "Morning" },
+  { id: "afternoon", label: "Afternoon" },
+  { id: "evening",   label: "Evening" },
+];
+
+const TYPE_OPTIONS: { id: EventType; label: string }[] = [
+  { id: "all",     label: "All" },
+  { id: "public",  label: "Public" },
+  { id: "private", label: "Private" },
+];
 
 // ─── Timezone helpers ────────────────────────────────────────────────────────
 
@@ -265,26 +286,54 @@ function smartDate(iso: string): string {
   return `${monthDay} at ${timeStr}`;
 }
 
-function isInDateWindow(iso: string, window: DateWindow) {
+// Matches /map isInDateWindow exactly — timezone-aware, supports pick_date ranges.
+function isInDateWindow(
+  iso: string,
+  window: DateFilter,
+  pickedDate?: string,
+  pickedDateEnd?: string,
+): boolean {
   if (window === "all") return true;
-  const d = new Date(iso);
   const now = new Date();
-  if (window === "today") return d.toDateString() === now.toDateString();
-  if (window === "this_week") {
-    const start = new Date(now);
-    const day = start.getDay();
-    start.setDate(start.getDate() + (day === 0 ? -6 : 1 - day));
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 7);
-    return d >= start && d < end;
+  const d   = new Date(iso);
+  const tz  = "America/Toronto";
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz });
+  const eventStr = d.toLocaleDateString("en-CA",   { timeZone: tz });
+
+  if (window === "pick_date") {
+    if (!pickedDate) return true;
+    if (pickedDateEnd && pickedDateEnd !== pickedDate) {
+      const start = new Date(pickedDate    + "T00:00:00");
+      const end   = new Date(pickedDateEnd + "T23:59:59");
+      return d >= start && d <= end;
+    }
+    return eventStr === pickedDate;
   }
-  const startWeekend = new Date(now);
-  startWeekend.setDate(startWeekend.getDate() + ((5 - startWeekend.getDay() + 7) % 7));
-  startWeekend.setHours(0, 0, 0, 0);
-  const endWeekend = new Date(startWeekend);
-  endWeekend.setDate(endWeekend.getDate() + 3);
-  return d >= startWeekend && d < endWeekend;
+
+  if (window === "today") return eventStr === todayStr;
+
+  if (window === "this_week") {
+    const day = now.getDay();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - day);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    return d >= weekStart && d < weekEnd;
+  }
+
+  if (window === "weekend") {
+    const nowDay = now.getDay();
+    const satOffset = nowDay === 0 ? -1 : 6 - nowDay;
+    const thisSat = new Date(now);
+    thisSat.setDate(now.getDate() + satOffset);
+    thisSat.setHours(0, 0, 0, 0);
+    const nextMon = new Date(thisSat);
+    nextMon.setDate(thisSat.getDate() + 2);
+    return d >= thisSat && d < nextMon;
+  }
+
+  return true;
 }
 
 
@@ -358,25 +407,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   family:       "Family",
 };
 
-const SHEET_CATEGORY_LABELS: Record<SheetCategory, string> = {
-  party:   "Party",
-  drinks:  "Drinks",
-  music:   "Music",
-  food:    "Food",
-  outdoor: "Outdoor",
-  culture: "Culture",
-  social:  "Social",
-};
-
-const SHEET_CATEGORY_MAP: Record<SheetCategory, Category> = {
-  party:   "nightlife",
-  drinks:  "nightlife",
-  music:   "concerts",
-  food:    "arts_culture",
-  outdoor: "sports",
-  culture: "arts_culture",
-  social:  "family",
-};
 
 function categoryBg(cat: Category): string {
   switch (cat) {
@@ -408,6 +438,96 @@ function StarIcon({ filled }: { filled?: boolean }) {
   );
 }
 
+// Identical to the MiniCalendar in /map — tap-tap range selection.
+function MiniCalendar({
+  start,
+  end,
+  onDayTap,
+}: {
+  start: string;
+  end: string;
+  onDayTap: (iso: string) => void;
+}) {
+  const [year, setYear] = useState(() => {
+    const d = start ? new Date(start + "T00:00:00") : new Date();
+    return d.getFullYear();
+  });
+  const [month, setMonth] = useState(() => {
+    const d = start ? new Date(start + "T00:00:00") : new Date();
+    return d.getMonth();
+  });
+
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth  = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = [
+    ...Array(firstWeekday).fill(null) as null[],
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const d = i + 1;
+      return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }),
+  ];
+
+  function prevMonth() {
+    if (month === 0) { setYear((y) => y - 1); setMonth(11); }
+    else setMonth((m) => m - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear((y) => y + 1); setMonth(0); }
+    else setMonth((m) => m + 1);
+  }
+
+  const monthLabel = new Date(year, month, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button type="button" onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.55, padding: "0 8px", lineHeight: 1 }}>‹</button>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{monthLabel}</span>
+        <button type="button" onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.55, padding: "0 8px", lineHeight: 1 }}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, opacity: 0.4, padding: "2px 0" }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {cells.map((iso, i) => {
+          if (!iso) return <div key={`e-${i}`} />;
+          const isStart    = iso === start;
+          const isEnd      = iso === end;
+          const isSelected = isStart || isEnd;
+          const inRange    = !!(start && end && start !== end && iso > start && iso < end);
+          const isToday    = iso === todayIso;
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => onDayTap(iso)}
+              style={{
+                textAlign: "center", padding: "6px 2px", border: "none", cursor: "pointer",
+                borderRadius: 6, fontSize: 13,
+                fontWeight: isSelected ? 700 : 400,
+                background: isSelected ? "#7c3aed" : inRange ? "rgba(124,58,237,0.14)" : "transparent",
+                color: isSelected ? "#fff" : isToday ? "#7c3aed" : "inherit",
+                outline: isToday && !isSelected ? "1.5px solid #7c3aed" : "none",
+                outlineOffset: -1,
+              }}
+            >
+              {new Date(iso + "T00:00:00").getDate()}
+            </button>
+          );
+        })}
+      </div>
+      {start && !end && (
+        <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8, textAlign: "center" }}>
+          Tap a second date to set a range
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EventsList() {
   const { user, session } = useAuth();
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -426,8 +546,10 @@ export function EventsList() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   const [category, setCategory] = useState<Category | "all">("all");
-  const [dateWindow, setDateWindow] = useState<DateWindow>("all");
-  const [sheetCategory, setSheetCategory] = useState<SheetCategory | null>(null);
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [pickedDate, setPickedDate] = useState("");
+  const [pickedDateEnd, setPickedDateEnd] = useState("");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [typeFilter, setTypeFilter] = useState<EventType>("all");
 
   // Small pool of event titles used to compute "did you mean?" suggestions.
@@ -438,15 +560,29 @@ export function EventsList() {
   const [weekBounds] = useState(() => thisWeekBoundsIso());
 
   const activeFilterCount = [
-    dateWindow !== "all",
-    sheetCategory !== null,
+    dateFilter !== "all",
+    timeFilter !== "all",
     typeFilter !== "all",
   ].filter(Boolean).length;
 
   function handleResetFilters() {
-    setDateWindow("all");
-    setSheetCategory(null);
+    setDateFilter("all");
+    setPickedDate("");
+    setPickedDateEnd("");
+    setTimeFilter("all");
     setTypeFilter("all");
+  }
+
+  function handleDateTap(iso: string) {
+    if (pickedDate === "" || pickedDateEnd !== "") {
+      setPickedDate(iso);
+      setPickedDateEnd("");
+      setDateFilter("pick_date");
+    } else {
+      if (iso === pickedDate) setPickedDateEnd(iso);
+      else if (iso < pickedDate) setPickedDate(iso);
+      else setPickedDateEnd(iso);
+    }
   }
   const genRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -577,17 +713,22 @@ export function EventsList() {
     );
   }
 
-  // Text search is server-side; category/date/type/sheetCategory are client-side.
+  // Text search is server-side; category/date/time/type are client-side.
   const filtered = useMemo(() => {
     return events.filter((e) => {
       if (category !== "all" && e.category_primary !== category) return false;
-      if (!isInDateWindow(e.start_at, dateWindow)) return false;
-      if (sheetCategory !== null && e.category_primary !== SHEET_CATEGORY_MAP[sheetCategory]) return false;
+      if (!isInDateWindow(e.start_at, dateFilter, pickedDate, pickedDateEnd)) return false;
+      if (timeFilter !== "all") {
+        const hour = new Date(e.start_at).getHours();
+        if (timeFilter === "morning"   && !(hour >= 6  && hour < 12)) return false;
+        if (timeFilter === "afternoon" && !(hour >= 12 && hour < 18)) return false;
+        if (timeFilter === "evening"   && !(hour >= 18)) return false;
+      }
       if (typeFilter === "public" && e.source === "manual") return false;
       if (typeFilter === "private" && e.source !== "manual") return false;
       return true;
     });
-  }, [events, category, dateWindow, sheetCategory, typeFilter]);
+  }, [events, category, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
 
   // Suggestions: top-5 titles from the pool, shown only when search returned nothing.
   // Fast path: word overlap. Fallback: fuzzy (Levenshtein) when overlap finds nothing.
@@ -866,10 +1007,10 @@ export function EventsList() {
           <section style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>All events</h2>
-              {(category !== "all" || dateWindow !== "all" || sheetCategory !== null || typeFilter !== "all") && (
+              {(category !== "all" || dateFilter !== "all" || timeFilter !== "all" || typeFilter !== "all") && (
                 <button
                   type="button"
-                  onClick={() => { setCategory("all"); setDateWindow("all"); setSheetCategory(null); setTypeFilter("all"); }}
+                  onClick={() => { setCategory("all"); setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setTimeFilter("all"); setTypeFilter("all"); }}
                   style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
                 >
                   See all
@@ -1056,100 +1197,140 @@ export function EventsList() {
         </div>
       )}
 
-      {/* Filters bottom sheet */}
+      {/* Filters bottom sheet — matches /map layout exactly */}
       {filtersOpen && (
         <div
           onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
         >
-          <div style={{ background: "var(--background)", width: "100%", maxHeight: "100dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "var(--background)", width: "100%", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", maxHeight: "85dvh" }}>
 
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 14px", flexShrink: 0 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Filters</h3>
-              <button
-                type="button"
-                disabled={activeFilterCount === 0}
-                onClick={handleResetFilters}
-                style={{ background: "none", border: "none", cursor: activeFilterCount > 0 ? "pointer" : "default", fontSize: 14, opacity: activeFilterCount > 0 ? 0.75 : 0.3, color: "inherit", fontWeight: 500, padding: 0 }}
-              >
-                Reset
-              </button>
+            {/* Fixed header: drag handle + title + X */}
+            <div style={{ flexShrink: 0, padding: "12px 20px 0" }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16 }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: 0.55, fontWeight: 500, padding: 0, color: "inherit" }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(false)}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", display: "grid", gap: 28, alignContent: "start", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+            {/* Scrollable filter content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", display: "flex", flexDirection: "column", gap: 24 }}>
 
               {/* Date */}
-              <div style={{ display: "grid", gap: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Date</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Date</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {(["today", "this_week", "weekend"] as const).map((w) => {
-                    const labels: Record<string, string> = { today: "Today", this_week: "This week", weekend: "This weekend" };
-                    const active = dateWindow === w;
+                  {DATE_OPTIONS.map((opt) => {
+                    const isPickDate = opt.id === "pick_date";
+                    const isActive   = dateFilter === opt.id;
+                    let label = opt.label;
+                    if (isPickDate && pickedDate) {
+                      const fmt = (iso: string) =>
+                        new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                      label = pickedDateEnd && pickedDateEnd !== pickedDate
+                        ? `${fmt(pickedDate)} → ${fmt(pickedDateEnd)}`
+                        : fmt(pickedDate);
+                    }
                     return (
                       <button
-                        key={w}
+                        key={opt.id}
                         type="button"
-                        onClick={() => setDateWindow(active ? "all" : w)}
-                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
+                        onClick={() => setDateFilter(opt.id)}
+                        style={{
+                          padding: "7px 14px", borderRadius: 20, border: "none",
+                          background: isActive ? "#7c3aed" : "var(--surface-raised)",
+                          color: isActive ? "#fff" : "inherit",
+                          fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        }}
                       >
-                        {labels[w]}
+                        {label}
                       </button>
                     );
                   })}
                 </div>
+                {dateFilter === "pick_date" && (
+                  <MiniCalendar
+                    start={pickedDate}
+                    end={pickedDateEnd}
+                    onDayTap={handleDateTap}
+                  />
+                )}
               </div>
 
-              {/* Category */}
-              <div style={{ display: "grid", gap: 12 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Category</span>
+              {/* Time */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Time</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {(["party", "drinks", "music", "food", "outdoor", "culture", "social"] as const).map((c) => {
-                    const active = sheetCategory === c;
-                    return (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setSheetCategory(active ? null : c)}
-                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
-                      >
-                        {SHEET_CATEGORY_LABELS[c]}
-                      </button>
-                    );
-                  })}
+                  {TIME_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTimeFilter(opt.id)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 20, border: "none",
+                        background: timeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
+                        color: timeFilter === opt.id ? "#fff" : "inherit",
+                        fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* Type */}
-              <div style={{ display: "grid", gap: 12, paddingBottom: 24 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>Type</span>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {(["public", "private"] as const).map((t) => {
-                    const labels: Record<string, string> = { public: "Public events", private: "Private events" };
-                    const active = typeFilter === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTypeFilter(active ? "all" : t)}
-                        style={{ padding: "7px 16px", borderRadius: 20, border: `1.5px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`, background: active ? "var(--foreground)" : "transparent", color: active ? "var(--background)" : "inherit", fontSize: 13, fontWeight: active ? 700 : 400, cursor: "pointer", whiteSpace: "nowrap" }}
-                      >
-                        {labels[t]}
-                      </button>
-                    );
-                  })}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Type</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {TYPE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTypeFilter(opt.id)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 20, border: "none",
+                        background: typeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
+                        color: typeFilter === opt.id ? "#fff" : "inherit",
+                        fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
+              {/* Bottom spacer so last item clears the sticky CTA */}
+              <div style={{ height: 8 }} />
             </div>
 
-            {/* Sticky footer */}
-            <div style={{ padding: "12px 20px", paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+            {/* Sticky CTA footer */}
+            <div style={{ flexShrink: 0, padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid var(--border-strong)", background: "var(--background)" }}>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                style={{ width: "100%", padding: "13px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+                style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "#7c3aed", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em" }}
               >
                 {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
               </button>
