@@ -245,6 +245,33 @@ function buildPageQuery(
   return q.order("start_at", { ascending: true }).range(rangeFrom, rangeTo);
 }
 
+// Full-pool query used when any explicit filter is active.
+// Fetches up to 1000 events (same ceiling as /map) so date/time/type filtering
+// works correctly without the user needing to paginate through the default feed.
+function buildFullQuery(
+  supabase: ReturnType<typeof supabaseBrowser>,
+  searchQuery: string,
+) {
+  let q = supabase
+    .from("events")
+    .select(
+      "id,title,description,start_at,category_primary,source,min_price,max_price,image_url,source_url,venues(name,city)"
+    )
+    .eq("city_normalized", "montreal")
+    .in("status", ["scheduled", "announced"])
+    .eq("is_approved", true)
+    .eq("is_rejected", false)
+    .eq("visibility", "public")
+    .gte("start_at", new Date().toISOString());
+
+  if (searchQuery) {
+    const escaped = escapeIlike(searchQuery.trim());
+    q = q.or(`title.ilike.%${escaped}%,title_normalized.ilike.%${escaped}%`);
+  }
+
+  return q.order("start_at", { ascending: true }).limit(1000);
+}
+
 // ─── Client-side filter helpers ───────────────────────────────────────────────
 
 function smartDate(iso: string): string {
@@ -559,11 +586,19 @@ export function EventsList() {
   const [thisWeekOpen, setThisWeekOpen] = useState(false);
   const [weekBounds] = useState(() => thisWeekBoundsIso());
 
+  // Full event pool fetched when any explicit filter is active.
+  // Avoids the paginated feed's inability to surface future-date events up front.
+  const [filteredPool, setFilteredPool] = useState<EventRow[]>([]);
+  const [filteredPoolLoading, setFilteredPoolLoading] = useState(false);
+
   const activeFilterCount = [
     dateFilter !== "all",
     timeFilter !== "all",
     typeFilter !== "all",
   ].filter(Boolean).length;
+
+  // Filtered mode: any non-default filter OR non-"all" category is active.
+  const isFiltered = activeFilterCount > 0 || category !== "all";
 
   function handleResetFilters() {
     setDateFilter("all");
@@ -585,6 +620,7 @@ export function EventsList() {
     }
   }
   const genRef = useRef(0);
+  const filteredGenRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Debounce: 300 ms after the last keystroke, commit the query for server fetch.
@@ -612,6 +648,33 @@ export function EventsList() {
     };
     run();
   }, []);
+
+  // Fetch the full event pool whenever filtered mode is active.
+  // Runs when category/date/time/type filters or search change while a filter is on.
+  useEffect(() => {
+    const active = category !== "all" || dateFilter !== "all" || timeFilter !== "all" || typeFilter !== "all";
+    if (!active) {
+      setFilteredPool([]);
+      setFilteredPoolLoading(false);
+      return;
+    }
+    const gen = ++filteredGenRef.current;
+    setFilteredPoolLoading(true);
+    buildFullQuery(supabaseBrowser(), debouncedQuery)
+      .then(({ data }) => {
+        if (gen !== filteredGenRef.current) return;
+        const rows = (data ?? []) as unknown as EventRow[];
+        setFilteredPool(rows);
+        setFilteredPoolLoading(false);
+        fetchTileRsvpData(rows.map((r) => r.id)).then((rsvp) =>
+          setTileRsvp((prev) => ({
+            counts: { ...prev.counts, ...rsvp.counts },
+            names:  { ...prev.names,  ...rsvp.names  },
+            avatars:{ ...prev.avatars, ...rsvp.avatars },
+          }))
+        );
+      });
+  }, [category, dateFilter, timeFilter, typeFilter, debouncedQuery]);
 
   // Load the current user's "maybe" RSVPs to initialise starred state.
   useEffect(() => {
@@ -714,8 +777,10 @@ export function EventsList() {
   }
 
   // Text search is server-side; category/date/time/type are client-side.
+  // In filtered mode, operate on the full pool so future dates are always reachable.
   const filtered = useMemo(() => {
-    return events.filter((e) => {
+    const source = isFiltered ? filteredPool : events;
+    return source.filter((e) => {
       if (category !== "all" && e.category_primary !== category) return false;
       if (!isInDateWindow(e.start_at, dateFilter, pickedDate, pickedDateEnd)) return false;
       if (timeFilter !== "all") {
@@ -728,7 +793,7 @@ export function EventsList() {
       if (typeFilter === "private" && e.source !== "manual") return false;
       return true;
     });
-  }, [events, category, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
+  }, [isFiltered, filteredPool, events, category, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
 
   // Suggestions: top-5 titles from the pool, shown only when search returned nothing.
   // Fast path: word overlap. Fallback: fuzzy (Levenshtein) when overlap finds nothing.
@@ -892,7 +957,7 @@ export function EventsList() {
 
       {fetchError ? (
         <p style={{ color: "#dc2626" }}>Could not load events: {fetchError}</p>
-      ) : loading ? (
+      ) : (isFiltered ? filteredPoolLoading : loading) ? (
         <p>Loading events…</p>
       ) : showEmptySearchState ? (
         /* ── Empty search state ─────────────────────────────────────────── */
@@ -924,7 +989,69 @@ export function EventsList() {
           )}
         </div>
       ) : filtered.length === 0 ? (
-        <p>No events found.</p>
+        isFiltered ? (
+          <div style={{ paddingTop: 16, display: "grid", gap: 12 }}>
+            <p style={{ fontSize: 15, opacity: 0.55 }}>No events match your filters.</p>
+          </div>
+        ) : (
+          <p>No events found.</p>
+        )
+      ) : isFiltered ? (
+        /* ── Filtered results: flat grid, no discovery sections ─────────── */
+        <section style={{ display: "grid", gap: 12 }}>
+          <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+            {filtered.map((e) => {
+              const rsvpCount = tileRsvp.counts[e.id] ?? 0;
+              const rsvpNames = tileRsvp.names[e.id] ?? [];
+              const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
+              const starred = starredIds.has(e.id);
+              const pending = starPending.has(e.id);
+              const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
+              const isRecurring = recurringSet.has(e.id);
+              return (
+                <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
+                  <article style={{ borderRadius: 14, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
+                    <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
+                      {e.image_url && (
+                        <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                      )}
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                      <button
+                        type="button"
+                        aria-label={starred ? "Remove from saved" : "Save event"}
+                        onClick={(ev) => handleStar(e.id, ev)}
+                        style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
+                      >
+                        <StarIcon filled={starred} />
+                      </button>
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                        {eEdition && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>}
+                        {e.venues?.name && (
+                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                          </div>
+                        )}
+                      </div>
+                      {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
+                        <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
+                          {rsvpAvatars[0] ? (
+                            <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
+                          ) : (
+                            <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                              {rsvpNames[0]![0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       ) : (
         <>
           {/* ── This week: horizontal scroll ─────────────────────────────── */}
@@ -1089,8 +1216,8 @@ export function EventsList() {
         </>
       )}
 
-      {/* Load more */}
-      {!loading && !showEmptySearchState && (
+      {/* Load more — only in default (non-filtered) mode */}
+      {!isFiltered && !loading && !showEmptySearchState && (
         <div style={{ textAlign: "center", paddingTop: 8 }}>
           {exhausted ? (
             filtered.length > 0 ? (
@@ -1212,24 +1339,13 @@ export function EventsList() {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16 }}>
                 <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  {activeFilterCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleResetFilters}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, opacity: 0.55, fontWeight: 500, padding: 0, color: "inherit" }}
-                    >
-                      Clear
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setFiltersOpen(false)}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
-                  >
-                    ×
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
+                >
+                  ×
+                </button>
               </div>
             </div>
 
@@ -1320,6 +1436,26 @@ export function EventsList() {
                   ))}
                 </div>
               </div>
+
+              {/* Clear filters — only shown when filters are active; matches /map style */}
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  style={{
+                    padding: "10px",
+                    borderRadius: 10,
+                    border: "1px solid var(--border-strong)",
+                    background: "none",
+                    cursor: "pointer",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    opacity: 0.6,
+                  }}
+                >
+                  Clear filters
+                </button>
+              )}
 
               {/* Bottom spacer so last item clears the sticky CTA */}
               <div style={{ height: 8 }} />
