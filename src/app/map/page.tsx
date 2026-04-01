@@ -565,11 +565,33 @@ export default function MapPage() {
   // and change in lockstep, so the ref is always up to date when the effect runs).
   const venueLeaderMapRef = useRef<Map<string, MapEvent>>(new Map());
 
-  // Pre-fill search from ?q= URL param (e.g. arriving from the event page address link).
+  // Deep-link: parse ?eventId=&lat=&lng= on mount (or fall back to ?q= venue search).
+  const deepLinkRef = useRef<{ eventId: string; lat: number; lng: number } | null>(null);
   useEffect(() => {
-    const q = new URLSearchParams(window.location.search).get("q");
-    if (q) { setSearchQuery(q); setDebouncedSearchQuery(q); }
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get("eventId");
+    const lat = parseFloat(params.get("lat") ?? "");
+    const lng = parseFloat(params.get("lng") ?? "");
+    if (eventId && !isNaN(lat) && !isNaN(lng)) {
+      deepLinkRef.current = { eventId, lat, lng };
+    } else {
+      const q = params.get("q");
+      if (q) { setSearchQuery(q); setDebouncedSearchQuery(q); }
+    }
   }, []);
+
+  // Auto-select deep-linked event once both events and map are loaded.
+  useEffect(() => {
+    if (!deepLinkRef.current || events.length === 0 || !mapsLoaded) return;
+    const { eventId, lat, lng } = deepLinkRef.current;
+    const match = events.find((e) => e.id === eventId);
+    if (match) {
+      setSelected(match);
+      mapRef.current?.panTo({ lat, lng });
+      mapRef.current?.setZoom(15);
+      deepLinkRef.current = null; // apply only once
+    }
+  }, [events, mapsLoaded]);
 
   // Debounce search so filteredEvents / venueLeaderMap don't recompute on every keystroke.
   // mapSuggestions and the input value still use the raw searchQuery for instant feedback.

@@ -19,7 +19,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city)"
+      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -596,7 +596,14 @@ export default async function EventPage({
   const recentActivity = await fetchRecentActivity(id);
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";
-  const address = venue?.address_line1 ?? null;
+  const venueLat = (venue as { lat?: number | null } | null)?.lat ?? null;
+  const venueLng = (venue as { lng?: number | null } | null)?.lng ?? null;
+  const mapHref =
+    venueLat !== null && venueLng !== null
+      ? `/map?eventId=${id}&lat=${venueLat}&lng=${venueLng}`
+      : venue?.name
+      ? `/map?q=${encodeURIComponent(venue.name)}`
+      : "/map";
   const startD = new Date(event.start_at);
   const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
   const dateLine = startD.toLocaleString("en-US", {
@@ -677,7 +684,29 @@ export default async function EventPage({
             />
           </div>
 
-          {/* Gradient + info overlay — category · price · title · date · venue */}
+          {/* Category pill — top-center of the hero image */}
+          <div
+            style={{
+              position: "absolute", top: 20, left: 0, right: 0,
+              display: "flex", justifyContent: "center", alignItems: "center",
+              pointerEvents: "none", zIndex: 2,
+            }}
+          >
+            <span style={{
+              fontSize: 11, fontWeight: 700,
+              color: "rgba(255,255,255,0.80)",
+              textTransform: "uppercase", letterSpacing: "0.07em",
+              padding: "4px 12px", borderRadius: 20,
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              border: "1px solid rgba(255,255,255,0.15)",
+            }}>
+              {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
+            </span>
+          </div>
+
+          {/* Gradient + info overlay — price · title · date · venue */}
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
@@ -702,25 +731,11 @@ export default async function EventPage({
               style={{
                 color: "#fff",
                 fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em",
-                margin: "0 0 10px", textWrap: "balance",
+                margin: "0 0 12px", textWrap: "balance",
               } as React.CSSProperties}
             >
               {event.title}
             </h1>
-            {/* Category pill — below title, above date */}
-            <div style={{ marginBottom: 10 }}>
-              <span style={{
-                display: "inline-block",
-                fontSize: 11, fontWeight: 700,
-                color: "rgba(255,255,255,0.60)",
-                textTransform: "uppercase", letterSpacing: "0.07em",
-                padding: "3px 10px", borderRadius: 20,
-                background: "rgba(255,255,255,0.10)",
-                border: "1px solid rgba(255,255,255,0.15)",
-              }}>
-                {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-              </span>
-            </div>
             <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 6px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                 <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -730,16 +745,16 @@ export default async function EventPage({
               </svg>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </p>
-            {(venue?.name || address) && (
+            {venue?.name && (
               <Link
-                href={`/map?q=${encodeURIComponent(venue?.name ?? address ?? "")}`}
-                style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.30)", textUnderlineOffset: 3 }}
+                href={mapHref}
+                style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
               >
-                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                {venue?.name && address ? `${venue.name} · ${address}` : (venue?.name ?? address)}
+                {venue.name}
               </Link>
             )}
           </div>
