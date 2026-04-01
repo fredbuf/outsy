@@ -22,6 +22,12 @@ const LABELS_PUBLIC: Record<RsvpResponse, string> = {
   cant_go: "Can't go",
 };
 
+const ICONS: Record<RsvpResponse, string> = {
+  going: "✓",
+  maybe: "~",
+  cant_go: "✕",
+};
+
 export function RsvpPanel({
   eventId,
   initialCounts,
@@ -35,7 +41,7 @@ export function RsvpPanel({
   const LABELS = visibility === "private" ? LABELS_PRIVATE : LABELS_PUBLIC;
   const OPTIONS = visibility === "private" ? PRIVATE_OPTIONS : PUBLIC_OPTIONS;
 
-  const [counts, setCounts] = useState<RsvpCounts>(initialCounts);
+  const [, setCounts] = useState<RsvpCounts>(initialCounts);
   const [myResponse, setMyResponse] = useState<RsvpResponse | null>(null);
   const [loadingRsvp, setLoadingRsvp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -121,20 +127,17 @@ export function RsvpPanel({
                 background: active ? "var(--btn-bg)" : "transparent",
                 fontWeight: active ? 700 : 500,
                 cursor: busy ? "wait" : "pointer",
-                fontSize: 15,
+                fontSize: 13,
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 4,
+                gap: 6,
                 opacity: busy ? 0.6 : 1,
                 color: "inherit",
               }}
             >
-              <span>
-                {active && "✓ "}
-                {LABELS[r]}
-              </span>
-              <span style={{ opacity: 0.5, fontSize: 12 }}>{counts[r]}</span>
+              <span style={{ fontSize: 20, lineHeight: 1 }}>{ICONS[r]}</span>
+              <span>{LABELS[r]}</span>
             </button>
           );
         })}
