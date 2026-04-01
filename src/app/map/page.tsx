@@ -164,7 +164,7 @@ function getInitials(name: string | null): string {
 // ── Filter types + constants ───────────────────────────────────────────────────
 
 type MapCategory = "all" | "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
-type DateFilter  = "all" | "today" | "this_week" | "weekend" | "pick_date" | "pick_range";
+type DateFilter  = "all" | "today" | "this_week" | "weekend" | "pick_date";
 type TypeFilter  = "all" | "public" | "private";
 type TimeFilter  = "all" | "morning" | "afternoon" | "evening";
 
@@ -209,15 +209,12 @@ function isInDateWindow(iso: string, window: DateFilter, pickedDate?: string, pi
 
   if (window === "pick_date") {
     if (!pickedDate) return true;
+    if (pickedDateEnd && pickedDateEnd !== pickedDate) {
+      const start = new Date(pickedDate    + "T00:00:00");
+      const end   = new Date(pickedDateEnd + "T23:59:59");
+      return d >= start && d <= end;
+    }
     return eventStr === pickedDate;
-  }
-
-  if (window === "pick_range") {
-    const start = pickedDate    ? new Date(pickedDate    + "T00:00:00") : null;
-    const end   = pickedDateEnd ? new Date(pickedDateEnd + "T23:59:59") : null;
-    if (start && d < start) return false;
-    if (end   && d > end)   return false;
-    return true;
   }
 
   if (window === "today") return eventStr === todayStr;
@@ -281,14 +278,6 @@ function wordOverlapScore(query: string, candidate: string): number {
   return score;
 }
 
-function formatRangeLabel(start: string, end: string): string {
-  const fmt = (iso: string) =>
-    new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  if (start && end) return `${fmt(start)} → ${fmt(end)}`;
-  if (start) return `From ${fmt(start)}`;
-  if (end)   return `Until ${fmt(end)}`;
-  return "Date range";
-}
 
 function formatEventDate(iso: string): string {
   const d = new Date(iso);
@@ -421,6 +410,128 @@ function EventCard({ event, avatars }: { event: MapEvent; avatars: TileAvatar[] 
   );
 }
 
+// ── Inline mini calendar for "Pick a date" ────────────────────────────────────
+function MiniCalendar({
+  start,
+  end,
+  onDayTap,
+}: {
+  start: string;
+  end: string;
+  onDayTap: (iso: string) => void;
+}) {
+  const [year, setYear] = useState(() => {
+    const d = start ? new Date(start + "T00:00:00") : new Date();
+    return d.getFullYear();
+  });
+  const [month, setMonth] = useState(() => {
+    const d = start ? new Date(start + "T00:00:00") : new Date();
+    return d.getMonth();
+  });
+
+  const todayIso = new Date().toLocaleDateString("en-CA");
+
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth  = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = [
+    ...Array(firstWeekday).fill(null) as null[],
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const d = i + 1;
+      return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }),
+  ];
+
+  function prevMonth() {
+    if (month === 0) { setYear((y) => y - 1); setMonth(11); }
+    else setMonth((m) => m - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear((y) => y + 1); setMonth(0); }
+    else setMonth((m) => m + 1);
+  }
+
+  const monthLabel = new Date(year, month, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      {/* Month navigation */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button
+          type="button"
+          onClick={prevMonth}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.55, padding: "0 8px", lineHeight: 1 }}
+        >
+          ‹
+        </button>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{monthLabel}</span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.55, padding: "0 8px", lineHeight: 1 }}
+        >
+          ›
+        </button>
+      </div>
+
+      {/* Day-of-week headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
+        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, opacity: 0.4, padding: "2px 0" }}>
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {cells.map((iso, i) => {
+          if (!iso) return <div key={`e-${i}`} />;
+
+          const isStart    = iso === start;
+          const isEnd      = iso === end;
+          const isSelected = isStart || isEnd;
+          const inRange    = !!(start && end && start !== end && iso > start && iso < end);
+          const isToday    = iso === todayIso;
+
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => onDayTap(iso)}
+              style={{
+                textAlign: "center",
+                padding: "6px 2px",
+                border: "none",
+                cursor: "pointer",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: isSelected ? 700 : 400,
+                background: isSelected
+                  ? "#7c3aed"
+                  : inRange
+                  ? "rgba(124,58,237,0.14)"
+                  : "transparent",
+                color: isSelected ? "#fff" : isToday ? "#7c3aed" : "inherit",
+                outline: isToday && !isSelected ? "1.5px solid #7c3aed" : "none",
+                outlineOffset: -1,
+              }}
+            >
+              {new Date(iso + "T00:00:00").getDate()}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selection hint */}
+      {start && !end && (
+        <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8, textAlign: "center" }}>
+          Tap a second date to set a range
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MapPage() {
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -440,14 +551,12 @@ export default function MapPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [pickedDate, setPickedDate] = useState("");
   const [pickedDateEnd, setPickedDateEnd] = useState("");
-  const [dateMode, setDateMode] = useState<"single" | "range">("single");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
   // Tracks the last set of event IDs sent to the marker creation effect so we can
   // skip the full teardown/rebuild when the dataset hasn't actually changed.
   const prevMarkerKeyRef = useRef("");
@@ -465,6 +574,25 @@ export default function MapPage() {
 
   const filterActive =
     dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
+
+  // Tap-tap date selection: first tap = start, second tap = end (or same = single day)
+  function handleDateTap(iso: string) {
+    if (pickedDate === "" || pickedDateEnd !== "") {
+      // No selection yet, or a complete range is already set → start fresh
+      setPickedDate(iso);
+      setPickedDateEnd("");
+      setDateFilter("pick_date");
+    } else {
+      // Start is set, waiting for end
+      if (iso === pickedDate) {
+        setPickedDateEnd(iso); // same date twice → single-day
+      } else if (iso < pickedDate) {
+        setPickedDate(iso);    // earlier date → reset start
+      } else {
+        setPickedDateEnd(iso); // later date → set range end
+      }
+    }
+  }
 
   // ── Default "All" ranking ──────────────────────────────────────────────────
   // Applied only when no user filters are active and search is empty.
@@ -1413,163 +1541,50 @@ export default function MapPage() {
                 Date
               </div>
 
-              {/* Single / Range toggle */}
-              <div style={{ display: "flex", gap: 0, marginBottom: 12, background: "var(--surface-raised)", borderRadius: 10, padding: 3, width: "fit-content" }}>
-                {(["single", "range"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => {
-                      setDateMode(mode);
-                      if (mode === "single") {
-                        setPickedDateEnd("");
-                        if (dateFilter === "pick_range") setDateFilter("pick_date");
-                      } else {
-                        if (dateFilter === "pick_date") setDateFilter("pick_range");
-                      }
-                    }}
-                    style={{
-                      padding: "5px 14px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: dateMode === mode ? "var(--background)" : "transparent",
-                      boxShadow: dateMode === mode ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      color: "inherit",
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {mode === "single" ? "Single date" : "Date range"}
-                  </button>
-                ))}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {DATE_OPTIONS.map((opt) => {
+                  const isPickDate = opt.id === "pick_date";
+                  const isActive   = dateFilter === opt.id;
+
+                  let label = opt.label;
+                  if (isPickDate && pickedDate) {
+                    const fmt = (iso: string) =>
+                      new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                    label = pickedDateEnd && pickedDateEnd !== pickedDate
+                      ? `${fmt(pickedDate)} → ${fmt(pickedDateEnd)}`
+                      : fmt(pickedDate);
+                  }
+
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setDateFilter(opt.id)}
+                      className="map-overlay-btn"
+                      style={{
+                        padding: "7px 14px",
+                        borderRadius: 20,
+                        border: "none",
+                        background: isActive ? "#7c3aed" : "var(--surface-raised)",
+                        color: isActive ? "#fff" : "inherit",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
 
-              {dateMode === "single" ? (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {DATE_OPTIONS.filter((o) => o.id !== "pick_range").map((opt) => {
-                    const isPickDate = opt.id === "pick_date";
-                    const isActive = dateFilter === opt.id;
-                    const label =
-                      isPickDate && pickedDate
-                        ? new Date(pickedDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                        : opt.label;
-
-                    if (isPickDate) {
-                      return (
-                        <div key={opt.id} style={{ position: "relative", display: "inline-block" }}>
-                          <div
-                            className="map-overlay-btn"
-                            style={{
-                              padding: "7px 14px",
-                              borderRadius: 20,
-                              background: isActive ? "#7c3aed" : "var(--surface-raised)",
-                              color: isActive ? "#fff" : "inherit",
-                              fontSize: 13,
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              userSelect: "none",
-                            }}
-                          >
-                            {label}
-                          </div>
-                          <input
-                            ref={dateInputRef}
-                            type="date"
-                            value={pickedDate}
-                            onChange={(e) => {
-                              setPickedDate(e.target.value);
-                              setDateFilter("pick_date");
-                            }}
-                            style={{
-                              position: "absolute",
-                              inset: 0,
-                              opacity: 0,
-                              cursor: "pointer",
-                              width: "100%",
-                              height: "100%",
-                            }}
-                          />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => setDateFilter(opt.id)}
-                        className="map-overlay-btn"
-                        style={{
-                          padding: "7px 14px",
-                          borderRadius: 20,
-                          border: "none",
-                          background: isActive ? "#7c3aed" : "var(--surface-raised)",
-                          color: isActive ? "#fff" : "inherit",
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 4 }}>From</div>
-                      <input
-                        type="date"
-                        value={pickedDate}
-                        onChange={(e) => {
-                          setPickedDate(e.target.value);
-                          setDateFilter("pick_range");
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "8px 10px",
-                          borderRadius: 10,
-                          border: "1px solid var(--border-strong)",
-                          background: "var(--surface-subtle)",
-                          fontSize: 14,
-                          color: "inherit",
-                          fontFamily: "inherit",
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 4 }}>To</div>
-                      <input
-                        type="date"
-                        value={pickedDateEnd}
-                        min={pickedDate || undefined}
-                        onChange={(e) => {
-                          setPickedDateEnd(e.target.value);
-                          setDateFilter("pick_range");
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "8px 10px",
-                          borderRadius: 10,
-                          border: "1px solid var(--border-strong)",
-                          background: "var(--surface-subtle)",
-                          fontSize: 14,
-                          color: "inherit",
-                          fontFamily: "inherit",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {(pickedDate || pickedDateEnd) && (
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3aed" }}>
-                      {formatRangeLabel(pickedDate, pickedDateEnd)}
-                    </div>
-                  )}
-                </div>
+              {/* Inline calendar — visible when "Pick a date" is active */}
+              {dateFilter === "pick_date" && (
+                <MiniCalendar
+                  start={pickedDate}
+                  end={pickedDateEnd}
+                  onDayTap={handleDateTap}
+                />
               )}
             </div>
 
@@ -1635,7 +1650,7 @@ export default function MapPage() {
             {filterActive && (
               <button
                 type="button"
-                onClick={() => { setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setDateMode("single"); setTimeFilter("all"); setTypeFilter("all"); }}
+                onClick={() => { setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setTimeFilter("all"); setTypeFilter("all"); }}
                 style={{
                   padding: "10px",
                   borderRadius: 10,
