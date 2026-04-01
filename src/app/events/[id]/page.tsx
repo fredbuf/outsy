@@ -592,369 +592,376 @@ export default async function EventPage({
     );
   }
 
+  /* ── Public event: unified layout matching private ─────────────────────── */
+  const recentActivity = await fetchRecentActivity(id);
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";
+  const address = venue?.address_line1 ?? null;
+  const startD = new Date(event.start_at);
+  const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
+  const dateLine = startD.toLocaleString("en-US", {
+    timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
+  });
+  const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
+    timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
+  });
 
   return (
-    <main
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "24px 16px 56px",
-        display: "grid",
-        gap: 28,
-        position: "relative",
-      }}
-    >
-      {/* Page background wash — blurred hero image at low opacity */}
-      {event.image_url && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: -1,
-            overflow: "hidden",
-            pointerEvents: "none",
-          }}
-        >
+    <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
+
+      {/* Ambient background: blurred image tones fill the full page */}
+      {event.image_url ? (
+        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
           <img
             src={event.image_url}
             alt=""
+            width={800}
+            height={800}
             style={{
-              position: "absolute",
-              top: 0,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "100%",
-              height: 520,
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
               objectFit: "cover",
-              filter: "blur(60px) saturate(1.4)",
-              opacity: 0.09,
-              transformOrigin: "top center",
-            }}
-          />
-        </div>
-      )}
-      {/* Nav row: back (left) + share (right) */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <BackButton
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            border: "1px solid var(--border-strong)",
-            background: "none",
-            cursor: "pointer",
-            color: "inherit",
-            opacity: 0.7,
-            flexShrink: 0,
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 18l-6-6 6-6" />
-          </svg>
-        </BackButton>
-        <ShareButton title={event.title} eventId={id} />
-      </div>
-
-      {/* Hero image with gradient overlay */}
-      {event.image_url && (
-        <div style={{ position: "relative", borderRadius: 16, overflow: "hidden" }}>
-          <img
-            src={event.image_url}
-            alt={event.title}
-            style={{
-              width: "100%",
-              maxHeight: 400,
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: "55%",
-              background: "linear-gradient(to top, rgba(0,0,0,0.52), transparent)",
+              filter: "blur(80px) saturate(1.8) brightness(0.38)",
+              transform: "scale(1.15)",
               pointerEvents: "none",
             }}
           />
         </div>
+      ) : (
+        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "#111110", pointerEvents: "none" }} />
       )}
 
-      {/* Title + metadata block */}
-      <div style={{ display: "grid", gap: 14 }}>
-        {/* Category + price + announced badge */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              opacity: 0.5,
-              textTransform: "uppercase",
-              letterSpacing: "0.07em",
-            }}
-          >
-            {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-          </span>
-          {price && (
-            <span style={{ fontSize: 11, opacity: 0.4 }}>· {price}</span>
-          )}
-          {isAnnounced && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: 20,
-                border: "1px solid var(--border-strong)",
-                opacity: 0.7,
-              }}
-            >
-              Tickets soon
-            </span>
-          )}
-        </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
 
-        {/* Title */}
-        <h1
-          style={{
-            fontSize: 30,
-            fontWeight: 800,
-            lineHeight: 1.15,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          {event.title}
-        </h1>
+        {/* Hero card: full-bleed image with title/date/venue overlay */}
+        <div style={{ position: "relative", borderRadius: "0 0 28px 28px", overflow: "hidden" }}>
+          {event.image_url ? (
+            <img
+              src={event.image_url}
+              alt=""
+              style={{ display: "block", width: "100%", aspectRatio: "4/3", objectFit: "cover" }}
+            />
+          ) : (
+            <div style={{ width: "100%", aspectRatio: "4/3", background: categoryBg(event.category_primary) }} />
+          )}
 
-        {/* Venue */}
-        {venue?.name && (
+          {/* Nav controls — float over the top of the image */}
           <div
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              fontSize: 15,
+              position: "absolute", top: 20, left: 16, right: 16,
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              zIndex: 2,
             }}
           >
-            <span style={{ opacity: 0.4, flexShrink: 0, marginTop: 1 }}>📍</span>
-            <span style={{ opacity: 0.8 }}>
-              {venue.name}
-              {venue.city ? `, ${venue.city}` : ""}
-            </span>
+            <BackButton
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 40, height: 40, borderRadius: "50%",
+                background: "rgba(0,0,0,0.32)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                cursor: "pointer", color: "#fff", flexShrink: 0,
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                touchAction: "manipulation",
+              }}
+            >
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </BackButton>
+            <EventOwnerActions
+              compact
+              eventId={id}
+              creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+              source={event.source}
+            />
           </div>
-        )}
 
-        {/* Date */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 8,
-            fontSize: 15,
-          }}
-        >
-          <span style={{ opacity: 0.4, flexShrink: 0, marginTop: 1 }}>🗓</span>
-          <span style={{ opacity: 0.8 }}>{formatDateFull(event.start_at)}</span>
+          {/* Gradient + info overlay — category · price · title · date · venue */}
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              padding: "90px 28px 40px",
+              textAlign: "center",
+              background: "linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
+              zIndex: 1,
+            }}
+          >
+            {/* Category · price · announced */}
+            <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
+              </span>
+              {price && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>· {price}</span>}
+              {isAnnounced && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.65)" }}>
+                  Tickets soon
+                </span>
+              )}
+            </div>
+            <h1
+              style={{
+                color: "#fff",
+                fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em",
+                margin: "0 0 12px", textWrap: "balance",
+              } as React.CSSProperties}
+            >
+              {event.title}
+            </h1>
+            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {dateLine}{timeLine ? ` · ${timeLine}` : ""}
+            </p>
+            {(venue?.name || address) && (
+              <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                {venue?.name ?? address}
+              </p>
+            )}
+            {venue?.name && address && (
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: 0 }}>{address}</p>
+            )}
+          </div>
         </div>
 
-        {/* Host */}
-        {creator && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {creatorId ? (
-              <Link href={`/profile/${creatorId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
-                {creator.avatar_url ? (
-                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover" }} />
+        {/* Content area — dark surface (same CSS variable overrides as private) */}
+        <div style={{
+          background: "transparent",
+          color: "#eae8e4",
+          "--border":         "rgba(255,255,255,0.10)",
+          "--border-strong":  "rgba(255,255,255,0.18)",
+          "--btn-bg":         "rgba(255,255,255,0.07)",
+          "--btn-bg-active":  "rgba(255,255,255,0.13)",
+          "--surface-subtle": "rgba(255,255,255,0.04)",
+          "--background":     "rgba(20,11,7,0.55)",
+          "--foreground":     "#eae8e4",
+          "--accent":         "#a78bfa",
+        } as React.CSSProperties}>
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+
+            {/* RSVP / Tickets */}
+            <div style={{ paddingTop: 32, paddingBottom: 4 }}>
+              <ActionBar
+                eventId={id}
+                initialCounts={rsvpCounts}
+                sourceUrl={event.source_url ?? null}
+                visibility="public"
+              />
+            </div>
+
+            {/* Attendees + Share */}
+            <div
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                gap: 12, paddingTop: 18, paddingBottom: 18,
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
+              {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
+                <AttendeeList
+                  eventId={id}
+                  initialAttendees={attendees}
+                  goingCount={rsvpCounts.going}
+                  maybeCount={rsvpCounts.maybe}
+                  avatarSize={36}
+                />
+              ) : (
+                <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
+              )}
+              <ShareButton title={event.title} eventId={id} />
+            </div>
+
+            {/* Recent activity */}
+            {recentActivity.length > 0 && (
+              <div style={{ paddingTop: 6, paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>
+                {recentActivity.map((item, i) => {
+                  const label = rsvpActivityLabel(item.response);
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        paddingTop: 10, paddingBottom: 10,
+                      }}
+                    >
+                      {item.userId ? (
+                        <Link href={`/profile/${item.userId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                          {item.avatar_url ? (
+                            <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
+                          ) : (
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                              {getInitials(item.display_name)}
+                            </div>
+                          )}
+                        </Link>
+                      ) : item.avatar_url ? (
+                        <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                          {getInitials(item.display_name)}
+                        </div>
+                      )}
+                      <span style={{ fontSize: 13, flex: 1 }}>
+                        <strong>{item.display_name ?? "Someone"}</strong>{" "}
+                        <span style={{ color: label.color }}>{label.text}</span>
+                      </span>
+                      <span style={{ fontSize: 12, opacity: 0.35, flexShrink: 0 }}>
+                        {relativeTime(item.updated_at)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Hosted by */}
+            {creator && (
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  paddingTop: 16, paddingBottom: 16,
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                {creatorId ? (
+                  <Link href={`/profile/${creatorId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                    {creator.avatar_url ? (
+                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                        {getInitials(creator.display_name)}
+                      </div>
+                    )}
+                  </Link>
+                ) : creator.avatar_url ? (
+                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                 ) : (
-                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
                     {getInitials(creator.display_name)}
                   </div>
                 )}
-              </Link>
-            ) : creator.avatar_url ? (
-              <img src={creator.avatar_url} alt={creator.display_name ?? ""} style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-            ) : (
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: getAvatarColor(creator.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                {getInitials(creator.display_name)}
+                <span style={{ fontSize: 14, opacity: 0.75 }}>
+                  Hosted by{" "}
+                  {creatorId ? (
+                    <Link
+                      href={`/profile/${creatorId}`}
+                      style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}
+                    >
+                      {creator.display_name ?? creator.username ?? "a member"}
+                    </Link>
+                  ) : (
+                    <strong>{creator.display_name ?? "a member"}</strong>
+                  )}
+                </span>
               </div>
             )}
-            {creatorId ? (
-              <Link
-                href={`/profile/${creatorId}`}
-                style={{ opacity: 0.65, fontSize: 14, textDecoration: "underline" }}
-              >
-                Hosted by {creator.display_name ?? creator.username ?? "a member"}
-              </Link>
-            ) : (
-              <span style={{ opacity: 0.65, fontSize: 14 }}>
-                Hosted by {creator.display_name ?? "a member"}
-              </span>
+
+            {/* Description */}
+            {event.description && (
+              <div style={{ paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
+                  About
+                </h2>
+                <ExpandableDescription text={event.description} />
+              </div>
             )}
-          </div>
-        )}
 
-      </div>
-
-      {/* Main action bar: Going | Interested | Tickets */}
-      <ActionBar
-        eventId={id}
-        initialCounts={rsvpCounts}
-        sourceUrl={event.source_url ?? null}
-        visibility={event.visibility as "public" | "private"}
-      />
-
-      {/* Owner actions (edit/delete — only visible to creator) */}
-      <EventOwnerActions
-          eventId={id}
-          creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-          source={event.source}
-        />
-
-      {/* Social proof */}
-      {(rsvpCounts.going > 0 || rsvpCounts.maybe > 0) && (
-        <AttendeeList
-          eventId={id}
-          initialAttendees={attendees}
-          goingCount={rsvpCounts.going}
-          maybeCount={rsvpCounts.maybe}
-        />
-      )}
-
-      {/* Description */}
-      {event.description && (
-        <div style={{ display: "grid", gap: 8 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, opacity: 0.55 }}>
-            About this event
-          </h2>
-          <ExpandableDescription text={event.description} />
-        </div>
-      )}
-
-      {/* Related events — horizontal scroll, feed-card style */}
-      {related.length > 0 && (
-        <section style={{ display: "grid", gap: 10, paddingTop: 4 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700 }}>More events like this</h2>
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              overflowX: "auto",
-              scrollbarWidth: "none",
-              paddingBottom: 4,
-            }}
-          >
-            {related.map((r) => {
-              const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
-              const { series, edition } = splitSeriesTitle(r.title);
-              return (
-                <Link
-                  key={r.id}
-                  href={`/events/${r.id}`}
-                  style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
+            {/* Related events — public only */}
+            {related.length > 0 && (
+              <section style={{ paddingTop: 32 }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>More events like this</h2>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    overflowX: "auto",
+                    scrollbarWidth: "none",
+                    paddingBottom: 4,
+                  }}
                 >
-                  <div
-                    style={{
-                      position: "relative",
-                      width: 190,
-                      height: 220,
-                      borderRadius: 12,
-                      overflow: "hidden",
-                      background: categoryBg(r.category_primary),
-                    }}
-                  >
-                    {r.image_url && (
-                      <img
-                        src={r.image_url}
-                        alt=""
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                    )}
-                    {/* Gradient overlay */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        background:
-                          "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
-                      }}
-                    />
-                    {/* Text overlay */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: "8px 10px 11px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
-                        {smartDate(r.start_at)}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 14,
-                          fontWeight: 700,
-                          color: "#fff",
-                          lineHeight: 1.25,
-                          overflow: "hidden",
-                          display: "-webkit-box",
-                          WebkitLineClamp: edition ? 1 : 2,
-                          WebkitBoxOrient: "vertical",
-                        }}
+                  {related.map((r) => {
+                    const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
+                    const { series, edition } = splitSeriesTitle(r.title);
+                    return (
+                      <Link
+                        key={r.id}
+                        href={`/events/${r.id}`}
+                        style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
                       >
-                        {series}
-                      </div>
-                      {edition && (
                         <div
                           style={{
-                            fontSize: 10,
-                            color: "rgba(255,255,255,0.65)",
+                            position: "relative",
+                            width: 190,
+                            height: 220,
+                            borderRadius: 12,
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            background: categoryBg(r.category_primary),
                           }}
                         >
-                          {edition}
+                          {r.image_url && (
+                            <img
+                              src={r.image_url}
+                              alt=""
+                              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          )}
+                          <div
+                            style={{
+                              position: "absolute", inset: 0,
+                              background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: "absolute", bottom: 0, left: 0, right: 0,
+                              padding: "8px 10px 11px",
+                              display: "flex", flexDirection: "column", gap: 2,
+                            }}
+                          >
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+                              {smartDate(r.start_at)}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25,
+                                overflow: "hidden",
+                                display: "-webkit-box",
+                                WebkitLineClamp: edition ? 1 : 2,
+                                WebkitBoxOrient: "vertical",
+                              }}
+                            >
+                              {series}
+                            </div>
+                            {edition && (
+                              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {edition}
+                              </div>
+                            )}
+                            {rVenue?.name && (
+                              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      {rVenue?.name && (
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "rgba(255,255,255,0.5)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+          </div>{/* inner maxWidth div */}
+        </div>{/* content wrapper */}
+      </div>{/* z-index wrapper */}
     </main>
   );
 }
