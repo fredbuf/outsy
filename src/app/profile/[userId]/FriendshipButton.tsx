@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/components/AuthProvider";
+
 type UiState =
   | "loading"
-  | "self"          // viewing own profile — hide the button
-  | "none"          // no relationship
-  | "pending_sent"  // I sent a request
-  | "pending_received" // they sent me a request
+  | "self"
+  | "none"
+  | "pending_sent"
+  | "pending_received"
   | "friends";
 
-// Maps the raw API status to our UI state
 function toUiState(apiStatus: string): UiState {
   switch (apiStatus) {
     case "self":             return "self";
@@ -22,17 +22,25 @@ function toUiState(apiStatus: string): UiState {
   }
 }
 
-export function FriendshipButton({ profileId }: { profileId: string }) {
+export function FriendshipButton({
+  profileId,
+  profileUsername,
+}: {
+  profileId: string;
+  profileUsername?: string | null;
+}) {
   const { user, session, loading: authLoading } = useAuth();
   const [state, setState] = useState<UiState>("loading");
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<"cancel" | "remove" | null>(null);
+
+  const handle = profileUsername ? `@${profileUsername}` : "this user";
 
   useEffect(() => {
     if (authLoading) return;
     if (!user || !session) {
-      // Not logged in — hide the button entirely
-      setState("self"); // reuse "self" to hide; won't show
+      setState("self");
       return;
     }
     if (user.id === profileId) {
@@ -65,9 +73,10 @@ export function FriendshipButton({ profileId }: { profileId: string }) {
         },
         body: JSON.stringify({ recipientId: profileId }),
       });
-      const d = (await res.json()) as { ok: boolean; friendshipStatus?: string };
+      const d = (await res.json()) as { ok: boolean; friendshipStatus?: string; friendshipId?: string };
       if (d.ok) {
         setState(d.friendshipStatus === "friends" ? "friends" : "pending_sent");
+        if (d.friendshipId) setFriendshipId(d.friendshipId);
       }
     } finally {
       setActing(false);
@@ -95,6 +104,7 @@ export function FriendshipButton({ profileId }: { profileId: string }) {
 
   async function removeFriendship() {
     if (!session || !friendshipId) return;
+    setConfirmModal(null);
     setActing(true);
     try {
       const res = await fetch("/api/friends/remove", {
@@ -115,7 +125,6 @@ export function FriendshipButton({ profileId }: { profileId: string }) {
     }
   }
 
-  // Don't render anything for self, loading (avoid flash), or unauthenticated
   if (state === "loading" || state === "self") return null;
 
   const baseStyle: React.CSSProperties = {
@@ -124,83 +133,141 @@ export function FriendshipButton({ profileId }: { profileId: string }) {
     opacity: acting ? 0.6 : 1, transition: "opacity 0.15s",
   };
 
-  if (state === "friends") {
-    return (
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <span style={{ ...baseStyle, background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)", cursor: "default", display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          Friends
-        </span>
-        <Link
-          href={`/social/messages/${profileId}`}
-          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", textDecoration: "none", color: "inherit", display: "inline-block" }}
+  return (
+    <>
+      {/* Confirmation modal */}
+      {confirmModal !== null && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setConfirmModal(null)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.50)",
+            zIndex: 400, display: "flex", alignItems: "center",
+            justifyContent: "center", padding: 20,
+          }}
         >
-          Message
-        </Link>
-        <button
-          type="button"
-          onClick={removeFriendship}
-          disabled={acting}
-          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
-        >
-          {acting ? "Removing…" : "Remove"}
-        </button>
-      </div>
-    );
-  }
+          <div
+            style={{
+              background: "var(--background)", border: "1px solid var(--border)",
+              borderRadius: 18, width: "100%", maxWidth: 320,
+              padding: "24px 24px 20px", display: "grid", gap: 20,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.4 }}>
+              {confirmModal === "cancel"
+                ? `Cancel friend request to ${handle}?`
+                : `Remove ${handle}?`}
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                style={{
+                  padding: "8px 18px", borderRadius: 12,
+                  border: "1px solid var(--border-strong)",
+                  background: "transparent", fontSize: 14,
+                  fontWeight: 600, cursor: "pointer", color: "inherit",
+                }}
+              >
+                Keep
+              </button>
+              <button
+                type="button"
+                onClick={removeFriendship}
+                style={{
+                  padding: "8px 18px", borderRadius: 12, border: "none",
+                  background: "#dc2626", color: "#fff",
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                {confirmModal === "cancel" ? "Cancel request" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-  if (state === "pending_sent") {
-    return (
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <span style={{ ...baseStyle, background: "var(--surface-raised)", border: "1px solid var(--border)", cursor: "default", opacity: 0.6, display: "inline-block" }}>
-          Request sent
-        </span>
-        <button
-          type="button"
-          onClick={removeFriendship}
-          disabled={acting}
-          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
-        >
-          {acting ? "Cancelling…" : "Cancel"}
-        </button>
-      </div>
-    );
-  }
+      {/* Friends ✓ — tapping opens remove confirmation */}
+      {state === "friends" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => setConfirmModal("remove")}
+            disabled={acting}
+            style={{
+              ...baseStyle,
+              background: "rgba(16,185,129,0.12)", color: "#10b981",
+              border: "1px solid rgba(16,185,129,0.2)",
+              display: "inline-flex", alignItems: "center", gap: 5,
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            {acting ? "Removing…" : "Friends"}
+          </button>
+          <Link
+            href={`/social/messages/${profileId}`}
+            style={{
+              ...baseStyle, background: "var(--btn-bg)",
+              border: "1px solid var(--border-strong)",
+              textDecoration: "none", color: "inherit", display: "inline-block",
+            }}
+          >
+            Message
+          </Link>
+        </div>
+      )}
 
-  if (state === "pending_received") {
-    return (
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      {/* Request sent — tapping opens cancel confirmation */}
+      {state === "pending_sent" && (
         <button
           type="button"
-          onClick={acceptRequest}
+          onClick={() => setConfirmModal("cancel")}
+          disabled={acting}
+          style={{
+            ...baseStyle,
+            background: "var(--surface-raised)", border: "1px solid var(--border)",
+            color: "inherit", opacity: acting ? 0.6 : 0.7,
+          }}
+        >
+          {acting ? "Cancelling…" : "Request sent"}
+        </button>
+      )}
+
+      {/* Pending received — accept / decline */}
+      {state === "pending_received" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={acceptRequest}
+            disabled={acting}
+            style={{ ...baseStyle, background: "var(--accent)", color: "#fff", border: "none" }}
+          >
+            {acting ? "Accepting…" : "Accept request"}
+          </button>
+          <button
+            type="button"
+            onClick={removeFriendship}
+            disabled={acting}
+            style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
+          >
+            {acting ? "Declining…" : "Decline"}
+          </button>
+        </div>
+      )}
+
+      {/* No relationship — add friend (no confirmation needed) */}
+      {state === "none" && (
+        <button
+          type="button"
+          onClick={sendRequest}
           disabled={acting}
           style={{ ...baseStyle, background: "var(--accent)", color: "#fff", border: "none" }}
         >
-          {acting ? "Accepting…" : "Accept request"}
+          {acting ? "Sending…" : "Add friend"}
         </button>
-        <button
-          type="button"
-          onClick={removeFriendship}
-          disabled={acting}
-          style={{ ...baseStyle, background: "var(--btn-bg)", border: "1px solid var(--border-strong)", color: "inherit" }}
-        >
-          {acting ? "Declining…" : "Decline"}
-        </button>
-      </div>
-    );
-  }
-
-  // none — show Add friend
-  return (
-    <button
-      type="button"
-      onClick={sendRequest}
-      disabled={acting}
-      style={{ ...baseStyle, background: "var(--accent)", color: "#fff", border: "none" }}
-    >
-      {acting ? "Sending…" : "Add friend"}
-    </button>
+      )}
+    </>
   );
 }

@@ -47,7 +47,7 @@ export async function GET(req: Request) {
   }
 
   if (friendship.status === "accepted") {
-    return NextResponse.json({ ok: true, status: "friends" as FriendshipStatus });
+    return NextResponse.json({ ok: true, status: "friends" as FriendshipStatus, friendshipId: friendship.id });
   }
 
   // pending

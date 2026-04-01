@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
+import { FriendshipButton } from "@/app/profile/[userId]/FriendshipButton";
 
 const fetchProfile = cache(async (username: string) => {
   const { data } = await supabaseServer()
@@ -142,9 +143,10 @@ export default async function UserProfilePage({
           </div>
         )}
 
-        <div style={{ display: "grid", gap: 4 }}>
+        <div style={{ display: "grid", gap: 6 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{displayName}</h1>
           <span style={{ fontSize: 13, opacity: 0.5 }}>@{username}</span>
+          <FriendshipButton profileId={profile.id} profileUsername={profile.username} />
         </div>
       </div>
 

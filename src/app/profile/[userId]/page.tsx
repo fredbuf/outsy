@@ -269,7 +269,7 @@ export default async function PublicProfilePage({
             <span style={{ fontSize: 13, opacity: 0.45 }}>@{profile.username}</span>
           )}
           {/* Client island: shows Add friend / Request sent / Accept / Friends / Message */}
-          <FriendshipButton profileId={userId} />
+          <FriendshipButton profileId={userId} profileUsername={profile.username} />
         </div>
       </div>
 
