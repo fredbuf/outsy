@@ -565,6 +565,12 @@ export default function MapPage() {
   // and change in lockstep, so the ref is always up to date when the effect runs).
   const venueLeaderMapRef = useRef<Map<string, MapEvent>>(new Map());
 
+  // Pre-fill search from ?q= URL param (e.g. arriving from the event page address link).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) { setSearchQuery(q); setDebouncedSearchQuery(q); }
+  }, []);
+
   // Debounce search so filteredEvents / venueLeaderMap don't recompute on every keystroke.
   // mapSuggestions and the input value still use the raw searchQuery for instant feedback.
   useEffect(() => {

@@ -639,10 +639,10 @@ export default async function EventPage({
             <img
               src={event.image_url}
               alt=""
-              style={{ display: "block", width: "100%", aspectRatio: "4/3", objectFit: "cover" }}
+              style={{ display: "block", width: "100%", aspectRatio: "3/4", objectFit: "cover" }}
             />
           ) : (
-            <div style={{ width: "100%", aspectRatio: "4/3", background: categoryBg(event.category_primary) }} />
+            <div style={{ width: "100%", aspectRatio: "3/4", background: categoryBg(event.category_primary) }} />
           )}
 
           {/* Nav controls — float over the top of the image */}
@@ -687,28 +687,41 @@ export default async function EventPage({
               zIndex: 1,
             }}
           >
-            {/* Category · price · announced */}
-            <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-              </span>
-              {price && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)" }}>· {price}</span>}
-              {isAnnounced && (
-                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.65)" }}>
-                  Tickets soon
-                </span>
-              )}
-            </div>
+            {/* Price · announced — small meta row above title */}
+            {(price || isAnnounced) && (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
+                {price && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.50)" }}>{price}</span>}
+                {isAnnounced && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.65)" }}>
+                    Tickets soon
+                  </span>
+                )}
+              </div>
+            )}
             <h1
               style={{
                 color: "#fff",
                 fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em",
-                margin: "0 0 12px", textWrap: "balance",
+                margin: "0 0 10px", textWrap: "balance",
               } as React.CSSProperties}
             >
               {event.title}
             </h1>
-            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {/* Category pill — below title, above date */}
+            <div style={{ marginBottom: 10 }}>
+              <span style={{
+                display: "inline-block",
+                fontSize: 11, fontWeight: 700,
+                color: "rgba(255,255,255,0.60)",
+                textTransform: "uppercase", letterSpacing: "0.07em",
+                padding: "3px 10px", borderRadius: 20,
+                background: "rgba(255,255,255,0.10)",
+                border: "1px solid rgba(255,255,255,0.15)",
+              }}>
+                {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
+              </span>
+            </div>
+            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 6px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -718,16 +731,16 @@ export default async function EventPage({
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </p>
             {(venue?.name || address) && (
-              <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Link
+                href={`/map?q=${encodeURIComponent(venue?.name ?? address ?? "")}`}
+                style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.30)", textUnderlineOffset: 3 }}
+              >
                 <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                {venue?.name ?? address}
-              </p>
-            )}
-            {venue?.name && address && (
-              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: 0 }}>{address}</p>
+                {venue?.name && address ? `${venue.name} · ${address}` : (venue?.name ?? address)}
+              </Link>
             )}
           </div>
         </div>
