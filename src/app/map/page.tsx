@@ -863,7 +863,10 @@ export default function MapPage() {
     }
   }, [filteredEvents, selected]);
 
-  // Fetch upcoming public events that have venue coordinates
+  // Fetch upcoming public events that have venue coordinates.
+  // Limit is set high enough to cover all foreseeable custom date picks
+  // (e.g. May, June, …). The default view uses the 14/30-day defaultEvents
+  // subset; explicit date filters operate against this full pool.
   useEffect(() => {
     supabaseBrowser()
       .from("events")
@@ -875,7 +878,7 @@ export default function MapPage() {
       .eq("visibility", "public")
       .gte("start_at", new Date().toISOString())
       .order("start_at", { ascending: true })
-      .limit(200)
+      .limit(1000)
       .then(({ data }) => setEvents((data ?? []) as unknown as MapEvent[]));
   }, []);
 
