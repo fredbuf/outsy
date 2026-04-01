@@ -860,6 +860,7 @@ export function EventsList() {
               borderRadius: 10,
               border: "1px solid var(--border-strong)",
               boxSizing: "border-box",
+              fontSize: 16,
             }}
           />
           {query && (

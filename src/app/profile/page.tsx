@@ -96,15 +96,6 @@ function ShareIcon() {
   );
 }
 
-function ClockIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
 // ── Skeleton loading ───────────────────────────────────────────────────────────
 
 function ProfileSkeleton() {
@@ -123,137 +114,9 @@ function ProfileSkeleton() {
           <div className="skeleton" style={{ width: 118, height: 38, borderRadius: 20, background: "var(--surface-raised)" }} />
         </div>
       </div>
-      {/* Event section skeletons */}
-      {[0, 1, 2].map((i) => (
-        <div key={i} style={{ display: "grid", gap: 12 }}>
-          <div className="skeleton" style={{ width: 110, height: 18, borderRadius: 6, background: "var(--surface-raised)" }} />
-          <div style={{ display: "flex", gap: 12, overflow: "hidden" }}>
-            {[0, 1, 2].map((j) => (
-              <div key={j} className="skeleton" style={{ width: 160, height: 148, borderRadius: 12, background: "var(--surface-raised)", flexShrink: 0 }} />
-            ))}
-          </div>
-        </div>
-      ))}
+      {/* Counter skeleton */}
+      <div className="skeleton" style={{ width: 280, height: 52, borderRadius: 14, background: "var(--surface-raised)" }} />
     </main>
-  );
-}
-
-// ── Event card ─────────────────────────────────────────────────────────────────
-
-function EventCard({ e, showStatus }: { e: EventRow; showStatus?: boolean }) {
-  return (
-    <Link href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-      <div className="profile-event-card" style={{ width: 164 }}>
-        {/* Image */}
-        <div style={{ position: "relative", width: 164, height: 114, borderRadius: 12, overflow: "hidden", background: "var(--surface-raised)" }}>
-          {e.image_url && (
-            <img
-              src={e.image_url}
-              alt=""
-              loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          )}
-          {/* Pending badge — overlaid on image */}
-          {showStatus && !e.is_approved && (
-            <div
-              style={{
-                position: "absolute",
-                top: 7,
-                left: 7,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 3,
-                fontSize: 10,
-                fontWeight: 600,
-                padding: "2px 7px",
-                borderRadius: 20,
-                background: "rgba(0,0,0,0.55)",
-                color: "#fbbf24",
-                backdropFilter: "blur(4px)",
-                WebkitBackdropFilter: "blur(4px)",
-              }}
-            >
-              <ClockIcon />
-              Pending
-            </div>
-          )}
-        </div>
-        {/* Meta */}
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, opacity: 0.5, letterSpacing: "0.01em" }}>{formatDate(e.start_at)}</div>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              lineHeight: 1.3,
-              marginTop: 3,
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
-            {e.title}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// ── Event section ──────────────────────────────────────────────────────────────
-
-function EventSection({
-  title,
-  events,
-  emptyMsg,
-  showStatus,
-}: {
-  title: string;
-  events: EventRow[];
-  emptyMsg: string;
-  showStatus?: boolean;
-}) {
-  return (
-    <section style={{ display: "grid", gap: 12 }}>
-      {/* Title row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{title}</h2>
-        {events.length > 0 && (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "1px 7px",
-              borderRadius: 20,
-              background: "var(--accent-subtle)",
-              color: "var(--accent)",
-            }}
-          >
-            {events.length}
-          </span>
-        )}
-      </div>
-
-      {events.length === 0 ? (
-        <p style={{ fontSize: 13, opacity: 0.45, margin: 0 }}>{emptyMsg}</p>
-      ) : (
-        <div
-          className="chip-row"
-          style={{
-            display: "flex",
-            gap: 12,
-            overflowX: "auto",
-            paddingBottom: 6,
-          }}
-        >
-          {events.map((e) => (
-            <EventCard key={e.id} e={e} showStatus={showStatus} />
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -299,7 +162,7 @@ function DetailSheet({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={searchPlaceholder}
-            style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--surface-raised)", color: "inherit", outline: "none" }}
+            style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 16, background: "var(--surface-raised)", color: "inherit", outline: "none" }}
           />
         </div>
         <div style={{ overflowY: "auto", flex: 1, padding: "12px 20px 36px" }}>
@@ -682,51 +545,8 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        <Link
-          href="/friends/add"
-          style={{ fontSize: 12, opacity: 0.5, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}
-        >
-          Find friends
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-            <path d="M5 12h14M12 5l7 7-7 7" />
-          </svg>
-        </Link>
-
-        {profile?.username && (
-          <Link
-            href={`/u/${profile.username}`}
-            style={{ fontSize: 12, opacity: 0.5, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}
-          >
-            View public profile
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-          </Link>
-        )}
       </section>
 
-      {/* ── Divider ─────────────────────────────────────────────────────────── */}
-      <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: 0 }} />
-
-      {/* ── Event sections ───────────────────────────────────────────────────── */}
-      <EventSection
-        title="Going to"
-        events={goingEvents}
-        emptyMsg="You're not going to any upcoming events yet."
-      />
-      <EventSection
-        title="Interested in"
-        events={interestedEvents}
-        emptyMsg="No saved events yet."
-      />
-      <EventSection
-        title="Hosting"
-        events={events}
-        emptyMsg="You haven't created any events yet."
-        showStatus
-      />
-
-      {/* ── Edit profile modal ───────────────────────────────────────────────── */}
       {/* ── Friends sheet ────────────────────────────────────────────────────── */}
       {activeSheet === "friends" && (
         <DetailSheet
