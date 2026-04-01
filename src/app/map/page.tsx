@@ -1512,28 +1512,30 @@ export default function MapPage() {
               background: "var(--background)",
               width: "100%",
               borderRadius: "20px 20px 0 0",
-              padding: "12px 20px calc(24px + env(safe-area-inset-bottom, 0px))",
               display: "flex",
               flexDirection: "column",
-              gap: 24,
+              maxHeight: "85dvh",
             }}
           >
-            {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: -8 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+            {/* Fixed header: drag handle + title + X */}
+            <div style={{ flexShrink: 0, padding: "12px 20px 0" }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16 }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen(false)}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            {/* Sheet header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
-              <button
-                type="button"
-                onClick={() => setFilterOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
-              >
-                ×
-              </button>
-            </div>
+            {/* Scrollable filter content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", display: "flex", flexDirection: "column", gap: 24 }}>
 
             {/* Date */}
             <div>
@@ -1665,6 +1667,39 @@ export default function MapPage() {
                 Clear filters
               </button>
             )}
+
+            {/* Bottom spacer so last item clears the sticky CTA */}
+            <div style={{ height: 8 }} />
+            </div>
+
+            {/* Sticky CTA footer */}
+            <div
+              style={{
+                flexShrink: 0,
+                padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))",
+                borderTop: "1px solid var(--border-strong)",
+                background: "var(--background)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setFilterOpen(false)}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  borderRadius: 14,
+                  border: "none",
+                  background: "#7c3aed",
+                  color: "#fff",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                Show {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
+              </button>
+            </div>
           </div>
         </div>
       )}
