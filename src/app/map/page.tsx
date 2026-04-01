@@ -902,10 +902,12 @@ export default function MapPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id]);
 
-  // Select a suggestion: pan to it, open preview, clear query, hide keyboard
+  // Select a suggestion: pan to it, open preview, dismiss suggestions, blur keyboard.
+  // We intentionally keep searchQuery intact so the selected event stays inside
+  // filteredEvents (the "close if filtered out" effect would otherwise dismiss the
+  // tile 200ms later when the debounce clears the query and filteredEvents recomputes).
   const handleSuggestionSelect = useCallback((event: MapEvent) => {
     setSuggestionsDismissed(true);
-    setSearchQuery("");
     setSelected(event);
     searchInputRef.current?.blur();
     const lat = event.venues?.lat;
@@ -1170,7 +1172,7 @@ export default function MapPage() {
                   height: 44,
                   borderRadius: mapSuggestions.length > 0 ? "22px 22px 0 0" : 22,
                   border: "none",
-                  padding: "0 16px",
+                  padding: searchQuery ? "0 40px 0 16px" : "0 16px",
                   fontSize: 16,
                   background: "rgba(255,255,255,0.92)",
                   backdropFilter: "blur(12px)",
@@ -1180,6 +1182,41 @@ export default function MapPage() {
                   boxSizing: "border-box",
                 }}
               />
+
+              {/* Clear button — visible only when input has text */}
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // prevent input blur before clear fires
+                    setSearchQuery("");
+                    setDebouncedSearchQuery("");
+                    setSuggestionsDismissed(true);
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 4,
+                    color: "#78716c",
+                    zIndex: 1,
+                    touchAction: "manipulation",
+                  }}
+                >
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
 
               {/* Suggestion dropdown */}
               {mapSuggestions.length > 0 && (
