@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../components/AuthProvider";
 
@@ -23,6 +23,13 @@ type EventRow = {
   visibility: string;
   is_approved: boolean;
   status: string;
+};
+
+type FriendProfile = {
+  id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -250,6 +257,59 @@ function EventSection({
   );
 }
 
+// ── Detail sheet wrapper ────────────────────────────────────────────────────────
+
+function DetailSheet({
+  title,
+  onClose,
+  search,
+  onSearchChange,
+  searchPlaceholder,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  search: string;
+  onSearchChange: (v: string) => void;
+  searchPlaceholder: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.50)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+    >
+      <div style={{ background: "var(--background)", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: "82vh", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0", flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px 0", flexShrink: 0 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-raised)", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6, color: "inherit" }}
+          >
+            ×
+          </button>
+        </div>
+        <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
+          <input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14, background: "var(--surface-raised)", color: "inherit", outline: "none" }}
+          />
+        </div>
+        <div style={{ overflowY: "auto", flex: 1, padding: "12px 20px 36px" }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -271,32 +331,39 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const [friends, setFriends] = useState<FriendProfile[]>([]);
+  const [activeSheet, setActiveSheet] = useState<"friends" | "following" | "events" | null>(null);
+  const [sheetSearch, setSheetSearch] = useState("");
 
   useEffect(() => {
     if (authLoading || !session?.access_token) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetching(true);
-    fetch("/api/profile", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok) {
-          setProfile(json.profile);
-          setEvents(json.events ?? []);
-          setGoingEvents(json.going ?? []);
-          setInterestedEvents(json.interested ?? []);
-          setDisplayName(json.profile?.display_name ?? "");
-          setUsername(json.profile?.username ?? "");
+    const token = session.access_token;
+    Promise.all([
+      fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch("/api/friends", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+    ])
+      .then(([profileJson, friendsJson]) => {
+        if (profileJson?.ok) {
+          setProfile(profileJson.profile);
+          setEvents(profileJson.events ?? []);
+          setGoingEvents(profileJson.going ?? []);
+          setInterestedEvents(profileJson.interested ?? []);
+          setDisplayName(profileJson.profile?.display_name ?? "");
+          setUsername(profileJson.profile?.username ?? "");
+        }
+        if (friendsJson?.ok) {
+          setFriends(friendsJson.friends ?? []);
         }
       })
       .finally(() => setFetching(false));
   }, [authLoading, session?.access_token]);
 
   useEffect(() => {
-    document.body.style.overflow = editOpen ? "hidden" : "";
+    document.body.style.overflow = (editOpen || activeSheet !== null) ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [editOpen]);
+  }, [editOpen, activeSheet]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -575,6 +642,46 @@ export default function ProfilePage() {
           </button>
         </div>
 
+        {/* Summary counters */}
+        <div
+          style={{
+            display: "flex",
+            width: "100%",
+            maxWidth: 300,
+            marginTop: 8,
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => { setActiveSheet("friends"); setSheetSearch(""); }}
+            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          >
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{friends.length}</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>Friends</span>
+          </button>
+          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
+          <button
+            type="button"
+            onClick={() => { setActiveSheet("following"); setSheetSearch(""); }}
+            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          >
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>0</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
+          </button>
+          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
+          <button
+            type="button"
+            onClick={() => { setActiveSheet("events"); setSheetSearch(""); }}
+            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          >
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{goingEvents.length + interestedEvents.length + events.length}</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>Events</span>
+          </button>
+        </div>
+
         <Link
           href="/friends/add"
           style={{ fontSize: 12, opacity: 0.5, textDecoration: "none", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}
@@ -620,6 +727,143 @@ export default function ProfilePage() {
       />
 
       {/* ── Edit profile modal ───────────────────────────────────────────────── */}
+      {/* ── Friends sheet ────────────────────────────────────────────────────── */}
+      {activeSheet === "friends" && (
+        <DetailSheet
+          title={`Friends · ${friends.length}`}
+          onClose={() => setActiveSheet(null)}
+          search={sheetSearch}
+          onSearchChange={setSheetSearch}
+          searchPlaceholder="Search friends…"
+        >
+          {(() => {
+            const q = sheetSearch.toLowerCase();
+            const filtered = friends.filter(
+              (f) =>
+                !q ||
+                (f.display_name ?? "").toLowerCase().includes(q) ||
+                (f.username ?? "").toLowerCase().includes(q)
+            );
+            if (friends.length === 0) {
+              return (
+                <div style={{ textAlign: "center", padding: "40px 0" }}>
+                  <p style={{ opacity: 0.45, fontSize: 14, margin: "0 0 12px" }}>No friends yet.</p>
+                  <Link
+                    href="/friends/add"
+                    onClick={() => setActiveSheet(null)}
+                    style={{ fontSize: 13, color: "var(--accent)", textDecoration: "none" }}
+                  >
+                    Find friends →
+                  </Link>
+                </div>
+              );
+            }
+            if (filtered.length === 0) {
+              return <p style={{ opacity: 0.45, fontSize: 14, margin: "16px 0 0" }}>No results for &ldquo;{sheetSearch}&rdquo;</p>;
+            }
+            return (
+              <div>
+                {filtered.map((f) => (
+                  <Link
+                    key={f.id}
+                    href={f.username ? `/u/${f.username}` : "#"}
+                    onClick={() => setActiveSheet(null)}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", textDecoration: "none", color: "inherit", borderBottom: "1px solid var(--border)" }}
+                  >
+                    {f.avatar_url ? (
+                      <img src={f.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(f.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                        {getInitials(f.display_name)}
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{f.display_name ?? "Unknown"}</div>
+                      {f.username && <div style={{ fontSize: 12, opacity: 0.5 }}>@{f.username}</div>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            );
+          })()}
+        </DetailSheet>
+      )}
+
+      {/* ── Following sheet ──────────────────────────────────────────────────── */}
+      {activeSheet === "following" && (
+        <DetailSheet
+          title="Following"
+          onClose={() => setActiveSheet(null)}
+          search={sheetSearch}
+          onSearchChange={setSheetSearch}
+          searchPlaceholder="Search…"
+        >
+          <div style={{ textAlign: "center", padding: "48px 0" }}>
+            <p style={{ opacity: 0.45, fontSize: 14, margin: 0 }}>Following venues and organizers coming soon.</p>
+          </div>
+        </DetailSheet>
+      )}
+
+      {/* ── Events sheet ─────────────────────────────────────────────────────── */}
+      {activeSheet === "events" && (
+        <DetailSheet
+          title={`Events · ${goingEvents.length + interestedEvents.length + events.length}`}
+          onClose={() => setActiveSheet(null)}
+          search={sheetSearch}
+          onSearchChange={setSheetSearch}
+          searchPlaceholder="Search events…"
+        >
+          {(() => {
+            const q = sheetSearch.toLowerCase();
+            const filterEvt = (list: EventRow[]) =>
+              list.filter((e) => !q || e.title.toLowerCase().includes(q));
+            const fGoing = filterEvt(goingEvents);
+            const fInterested = filterEvt(interestedEvents);
+            const fHosting = filterEvt(events);
+            const total = goingEvents.length + interestedEvents.length + events.length;
+            if (total === 0) {
+              return <p style={{ opacity: 0.45, fontSize: 14, margin: "16px 0 0" }}>No events yet.</p>;
+            }
+            if (fGoing.length + fInterested.length + fHosting.length === 0) {
+              return <p style={{ opacity: 0.45, fontSize: 14, margin: "16px 0 0" }}>No results for &ldquo;{sheetSearch}&rdquo;</p>;
+            }
+            return (
+              <div style={{ display: "grid", gap: 24 }}>
+                {([
+                  { label: "Going", list: fGoing },
+                  { label: "Interested", list: fInterested },
+                  { label: "Hosting", list: fHosting },
+                ] as { label: string; list: EventRow[] }[])
+                  .filter(({ list }) => list.length > 0)
+                  .map(({ label, list }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.4, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 8 }}>{label}</div>
+                      {list.map((e) => (
+                        <Link
+                          key={e.id}
+                          href={`/events/${e.id}`}
+                          onClick={() => setActiveSheet(null)}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", textDecoration: "none", color: "inherit", borderBottom: "1px solid var(--border)" }}
+                        >
+                          <div style={{ width: 44, height: 36, borderRadius: 8, overflow: "hidden", background: "var(--surface-raised)", flexShrink: 0 }}>
+                            {e.image_url && (
+                              <img src={e.image_url} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                            )}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{e.title}</div>
+                            <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>{formatDate(e.start_at)}</div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
+              </div>
+            );
+          })()}
+        </DetailSheet>
+      )}
+
       {editOpen && (
         <div
           onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}
