@@ -112,11 +112,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   // Core fields
   const [title, setTitle] = useState(() => editData?.title ?? "");
   const [description, setDescription] = useState(() => editData?.description ?? "");
-  const [address, setAddress] = useState(() =>
-    editData?.visibility === "private"
-      ? (editData?.venue_address ?? editData?.venue_name ?? "")
-      : ""
+  const [privatePlaceName, setPrivatePlaceName] = useState(() =>
+    editData?.visibility === "private" ? (editData?.venue_name ?? "") : ""
   );
+  const [privateAddress, setPrivateAddress] = useState(() =>
+    editData?.visibility === "private" ? (editData?.venue_address ?? "") : ""
+  );
+  const [privateLat, setPrivateLat] = useState<number | null>(null);
+  const [privateLng, setPrivateLng] = useState<number | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [category, setCategory] = useState<Category>(
     () => (editData?.category_primary as Category) ?? "concerts"
   );
@@ -276,7 +280,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   const canSubmit = Boolean(title.trim() && startDate);
   const dateLine = formatDateLine(startDate, startTime, allDay);
-  const locationLine = isPrivate ? address : venueName;
+  const locationLine = isPrivate ? (privatePlaceName || privateAddress) : venueName;
 
   const fallbackName =
     user?.user_metadata?.full_name ??
@@ -321,11 +325,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         ? {
             ...basePayload,
             category: "concerts",
-            venueName: address.trim() || "",
-            venueAddress: address.trim() || "",
+            venueName: privatePlaceName.trim() || privateAddress.trim() || "",
+            venueAddress: privateAddress.trim() || "",
             venueCity: "Montréal",
             venueId: null,
             sourceUrl: null,
+            lat: privateLat ?? undefined,
+            lng: privateLng ?? undefined,
           }
         : {
             ...basePayload,
@@ -443,7 +449,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setEndTime("");
               setShowEndTime(false);
               setAllDay(false);
-              setAddress("");
+              setPrivatePlaceName("");
+              setPrivateAddress("");
+              setPrivateLat(null);
+              setPrivateLng(null);
               setVenueName("");
               setVenueAddress("");
               setVenueCity("Montréal");
@@ -1016,18 +1025,66 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 <div style={{ height: 1, background: "var(--border)", margin: "8px 0 20px" }} />
 
                 {isPrivate ? (
-                  <input
-                    autoFocus
-                    placeholder="Enter address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    style={{
-                      width: "100%", boxSizing: "border-box",
-                      padding: "11px 14px", borderRadius: 12,
-                      border: "1px solid var(--border)", background: "var(--surface-subtle)",
-                      color: "inherit", fontSize: 16, fontFamily: "inherit",
-                    }}
-                  />
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <input
+                      autoFocus
+                      placeholder="Place name (optional)"
+                      value={privatePlaceName}
+                      onChange={(e) => setPrivatePlaceName(e.target.value)}
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        padding: "11px 14px", borderRadius: 12,
+                        border: "1px solid var(--border)", background: "var(--surface-subtle)",
+                        color: "inherit", fontSize: 16, fontFamily: "inherit",
+                      }}
+                    />
+                    <input
+                      placeholder="Address"
+                      value={privateAddress}
+                      onChange={(e) => setPrivateAddress(e.target.value)}
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        padding: "11px 14px", borderRadius: 12,
+                        border: "1px solid var(--border)", background: "var(--surface-subtle)",
+                        color: "inherit", fontSize: 16, fontFamily: "inherit",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={geoLoading}
+                      onClick={() => {
+                        if (!navigator.geolocation) return;
+                        setGeoLoading(true);
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setPrivateLat(pos.coords.latitude);
+                            setPrivateLng(pos.coords.longitude);
+                            const lat = pos.coords.latitude.toFixed(5);
+                            const lng = pos.coords.longitude.toFixed(5);
+                            setPrivateAddress(`${lat}, ${lng}`);
+                            if (!privatePlaceName.trim()) setPrivatePlaceName("Current location");
+                            setGeoLoading(false);
+                          },
+                          () => setGeoLoading(false),
+                          { timeout: 10000 },
+                        );
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                        padding: "11px 14px", borderRadius: 12,
+                        border: "1px solid var(--border)", background: "var(--surface-subtle)",
+                        color: geoLoading ? "var(--foreground)" : "var(--accent)",
+                        fontSize: 15, fontWeight: 500, cursor: geoLoading ? "wait" : "pointer",
+                        opacity: geoLoading ? 0.6 : 1, fontFamily: "inherit",
+                      }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                      </svg>
+                      {geoLoading ? "Getting location…" : "Use current location"}
+                    </button>
+                  </div>
                 ) : (
                   <div ref={venueWrapperRef} style={{ position: "relative" }}>
                     <input
