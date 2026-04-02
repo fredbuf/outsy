@@ -4,6 +4,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Script from "next/script";
 import { useAuth } from "../../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
@@ -120,7 +121,9 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   );
   const [privateLat, setPrivateLat] = useState<number | null>(null);
   const [privateLng, setPrivateLng] = useState<number | null>(null);
+  const [privatePlaceId, setPrivatePlaceId] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [mapsReady, setMapsReady] = useState(false);
   const [category, setCategory] = useState<Category>(
     () => (editData?.category_primary as Category) ?? "concerts"
   );
@@ -166,6 +169,9 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const venueWrapperRef = useRef<HTMLDivElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const privatePlaceNameRef = useRef(privatePlaceName);
 
   // Description expand
   const [descriptionOpen, setDescriptionOpen] = useState(() => Boolean(editData?.description));
@@ -199,6 +205,39 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       .single()
       .then(({ data }) => setHostProfile(data ?? null));
   }, [user]);
+
+  // Keep ref in sync so autocomplete closure can read current place name
+  useEffect(() => { privatePlaceNameRef.current = privatePlaceName; }, [privatePlaceName]);
+
+  // Initialize Google Places Autocomplete on the private address input
+  useEffect(() => {
+    if (!locationSheetOpen || !isPrivate || !mapsReady) return;
+    let ac: google.maps.places.Autocomplete | null = null;
+    // Defer to let the sheet DOM mount
+    const timer = setTimeout(() => {
+      if (!addressInputRef.current) return;
+      ac = new google.maps.places.Autocomplete(addressInputRef.current, {
+        fields: ["name", "formatted_address", "place_id", "geometry"],
+      });
+      ac.addListener("place_changed", () => {
+        const place = ac!.getPlace();
+        if (!place.geometry?.location) return;
+        setPrivateLat(place.geometry.location.lat());
+        setPrivateLng(place.geometry.location.lng());
+        setPrivateAddress(place.formatted_address ?? "");
+        setPrivatePlaceId(place.place_id ?? null);
+        if (!privatePlaceNameRef.current.trim() && place.name) {
+          setPrivatePlaceName(place.name);
+        }
+      });
+      autocompleteRef.current = ac;
+    }, 80);
+    return () => {
+      clearTimeout(timer);
+      if (ac) google.maps.event.clearInstanceListeners(ac);
+      autocompleteRef.current = null;
+    };
+  }, [locationSheetOpen, isPrivate, mapsReady]);
 
   // Click outside venue suggestions
   useEffect(() => {
@@ -332,6 +371,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             sourceUrl: null,
             lat: privateLat ?? undefined,
             lng: privateLng ?? undefined,
+            placeId: privatePlaceId ?? undefined,
           }
         : {
             ...basePayload,
@@ -453,6 +493,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setPrivateAddress("");
               setPrivateLat(null);
               setPrivateLng(null);
+              setPrivatePlaceId(null);
               setVenueName("");
               setVenueAddress("");
               setVenueCity("Montréal");
@@ -495,9 +536,17 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   return (
     <>
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}&libraries=marker,places`}
+        strategy="afterInteractive"
+        onLoad={() => setMapsReady(true)}
+      />
+
       <style>{`
         .cep-title::placeholder { color: rgba(255,255,255,0.30); }
         .cep-location::placeholder { color: rgba(255,255,255,0.32); }
+        /* Ensure Google Places autocomplete dropdown renders above the sheet */
+        .pac-container { z-index: 500 !important; }
       `}</style>
 
       <form onSubmit={handleSubmit}>
@@ -1039,9 +1088,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       }}
                     />
                     <input
+                      ref={addressInputRef}
                       placeholder="Address"
                       value={privateAddress}
-                      onChange={(e) => setPrivateAddress(e.target.value)}
+                      onChange={(e) => {
+                        setPrivateAddress(e.target.value);
+                        setPrivatePlaceId(null);
+                        setPrivateLat(null);
+                        setPrivateLng(null);
+                      }}
                       style={{
                         width: "100%", boxSizing: "border-box",
                         padding: "11px 14px", borderRadius: 12,
@@ -1051,19 +1106,27 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     />
                     <button
                       type="button"
-                      disabled={geoLoading}
+                      disabled={geoLoading || !mapsReady}
                       onClick={() => {
-                        if (!navigator.geolocation) return;
+                        if (!navigator.geolocation || !mapsReady) return;
                         setGeoLoading(true);
                         navigator.geolocation.getCurrentPosition(
                           (pos) => {
-                            setPrivateLat(pos.coords.latitude);
-                            setPrivateLng(pos.coords.longitude);
-                            const lat = pos.coords.latitude.toFixed(5);
-                            const lng = pos.coords.longitude.toFixed(5);
-                            setPrivateAddress(`${lat}, ${lng}`);
-                            if (!privatePlaceName.trim()) setPrivatePlaceName("Current location");
-                            setGeoLoading(false);
+                            const lat = pos.coords.latitude;
+                            const lng = pos.coords.longitude;
+                            setPrivateLat(lat);
+                            setPrivateLng(lng);
+                            const geocoder = new google.maps.Geocoder();
+                            geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+                              if (status === "OK" && results?.[0]) {
+                                setPrivateAddress(results[0].formatted_address);
+                                setPrivatePlaceId(results[0].place_id ?? null);
+                              } else {
+                                setPrivateAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+                              }
+                              if (!privatePlaceNameRef.current.trim()) setPrivatePlaceName("Current location");
+                              setGeoLoading(false);
+                            });
                           },
                           () => setGeoLoading(false),
                           { timeout: 10000 },

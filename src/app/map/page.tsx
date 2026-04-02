@@ -1134,7 +1134,7 @@ export default function MapPage() {
   return (
     <>
       <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker`}
+        src={`https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker,places`}
         strategy="afterInteractive"
         onLoad={initMap}
       />
