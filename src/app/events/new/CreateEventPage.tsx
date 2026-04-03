@@ -225,6 +225,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       .then(({ data }) => setHostProfile(data ?? null));
   }, [user]);
 
+  // If Google Maps was already loaded before this component mounted (e.g. in edit mode
+  // after navigating from the event page), the Script onLoad won't fire again.
+  // Detect it synchronously on mount so autocomplete can initialize immediately.
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as Window & { google?: { maps?: unknown } }).google?.maps) {
+      setMapsReady(true);
+    }
+  }, []);
+
   // Keep ref in sync so autocomplete closure can read current place name
   useEffect(() => { privatePlaceNameRef.current = privatePlaceName; }, [privatePlaceName]);
 

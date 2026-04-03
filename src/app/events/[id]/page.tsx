@@ -19,7 +19,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
+      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -61,6 +61,16 @@ async function fetchRsvpCounts(eventId: string) {
 }
 
 type Attendee = { display_name: string | null; avatar_url: string | null };
+type CohostProfile = { id: string; display_name: string | null; avatar_url: string | null; username: string | null };
+
+async function fetchCohostProfiles(cohostIds: string[]): Promise<CohostProfile[]> {
+  if (cohostIds.length === 0) return [];
+  const { data } = await supabaseServer()
+    .from("profiles")
+    .select("id,display_name,avatar_url,username")
+    .in("id", cohostIds);
+  return (data ?? []) as CohostProfile[];
+}
 
 async function fetchAttendees(eventId: string): Promise<Attendee[]> {
   const { data } = await supabaseServer()
@@ -286,6 +296,23 @@ export default async function EventPage({
   if (event.visibility === "private") {
     const address = venue?.address_line1 ?? null;
     const recentActivity = await fetchRecentActivity(id);
+
+    // New optional fields added by the private event form
+    const evtExt = event as {
+      cohost_ids?: string[] | null;
+      spots_mode?: string | null;
+      spots_limit?: number | null;
+      price?: number | null;
+      payment_method?: string | null;
+      payment_contact?: string | null;
+      rsvp_deadline?: string | null;
+    };
+    const cohostIds = evtExt.cohost_ids ?? [];
+    const cohostProfiles = await fetchCohostProfiles(cohostIds);
+    const spotsLimited = evtExt.spots_mode === "limited" && (evtExt.spots_limit ?? 0) > 0;
+    const eventPrice = typeof evtExt.price === "number" && evtExt.price > 0 ? evtExt.price : null;
+    const eventCurrency = (event as { currency?: string | null }).currency ?? "CAD";
+    const rsvpDeadline = evtExt.rsvp_deadline ?? null;
 
     // Date helpers for the details section
     const startD = new Date(event.start_at);
@@ -575,7 +602,85 @@ export default async function EventPage({
             </div>
           )}
 
-          {/* ⑦ Description */}
+          {/* Co-hosts — one row per cohost, same style as "Hosted by" */}
+          {cohostProfiles.map((cp) => (
+            <div
+              key={cp.id}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                paddingTop: 12, paddingBottom: 12,
+                borderBottom: "1px solid var(--border)",
+              }}
+            >
+              <Link href={`/profile/${cp.id}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                {cp.avatar_url ? (
+                  <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                    {getInitials(cp.display_name)}
+                  </div>
+                )}
+              </Link>
+              <span style={{ fontSize: 14, opacity: 0.75 }}>
+                Co-hosted by{" "}
+                <Link href={`/profile/${cp.id}`} style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}>
+                  {cp.display_name ?? cp.username ?? "a member"}
+                </Link>
+              </span>
+            </div>
+          ))}
+
+          {/* ⑦ Event options — spots / cost / RSVP deadline */}
+          {(spotsLimited || eventPrice !== null || rsvpDeadline) && (
+            <div style={{ paddingTop: 16, paddingBottom: 4, borderTop: "1px solid var(--border)" }}>
+              <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>
+                Details
+              </h2>
+              <div style={{ display: "grid", gap: 14 }}>
+                {spotsLimited && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    <span>{evtExt.spots_limit} spots available</span>
+                  </div>
+                )}
+                {eventPrice !== null && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14 }}>
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0, marginTop: 1 }}>
+                      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z" />
+                      <path d="M13 5v2M13 17v2M13 11v2" />
+                    </svg>
+                    <div>
+                      <span>{eventCurrency === "USD" ? "US$" : "CA$"}{eventPrice.toFixed(2)}</span>
+                      {evtExt.payment_method === "interac" && (
+                        <span style={{ opacity: 0.55 }}>{" · "}Interac</span>
+                      )}
+                      {evtExt.payment_contact && (
+                        <div style={{ marginTop: 2, opacity: 0.6, fontSize: 13 }}>{evtExt.payment_contact}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {rsvpDeadline && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span>
+                      {`RSVP by ${(() => {
+                        const [y, m, d] = rsvpDeadline.split("-").map(Number);
+                        return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+                      })()}`}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ⑧ Description */}
           {event.description && (
             <div style={{ paddingTop: 16, borderTop: "1px solid var(--border)" }}>
               <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
