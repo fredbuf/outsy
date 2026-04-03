@@ -228,6 +228,19 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     editData?.rsvp_deadline ?? ""
   );
 
+  // In edit mode, fetch profiles for pre-existing cohosts so they appear in the UI
+  useEffect(() => {
+    if (!isEditMode || cohostIds.length === 0) return;
+    supabaseBrowser()
+      .from("profiles")
+      .select("id,display_name,username,avatar_url")
+      .in("id", cohostIds)
+      .then(({ data }) => {
+        if (data) setCohostProfiles(data as CohostProfile[]);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode]);
+
   // Lock scroll when any sheet is open
   useEffect(() => {
     document.body.style.overflow = (dateSheetOpen || cohostSheetOpen || optionSheet !== null) ? "hidden" : "";

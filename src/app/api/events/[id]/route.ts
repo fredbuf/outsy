@@ -61,7 +61,7 @@ export async function PATCH(
   // Verify ownership and source before touching anything else
   const { data: existing } = await supabase
     .from("events")
-    .select("id,source,creator_id,is_approved,is_rejected,visibility")
+    .select("id,source,creator_id,is_approved,is_rejected,visibility,venue_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -125,10 +125,32 @@ export async function PATCH(
   }
 
   // Resolve venue
+  // For private events being edited: if the event already has a venue, update it in-place
+  // so address changes are actually saved (upsertVenue ignores duplicate name conflicts).
+  const existingVenueId = (existing as { venue_id?: string | null }).venue_id ?? null;
   const preselectedVenueId =
     typeof body.venueId === "string" && UUID_RE.test(body.venueId) ? body.venueId : null;
   let venueId: string | null = preselectedVenueId;
-  if (!venueId && venueName) {
+
+  if (!venueId && venueName && newVisibility === "private" && existingVenueId) {
+    // Update the existing venue directly so address changes are persisted
+    try {
+      await supabase
+        .from("venues")
+        .update({
+          name: venueName,
+          address_line1: venueAddress,
+          city: venueCity,
+        })
+        .eq("id", existingVenueId);
+      venueId = existingVenueId;
+    } catch (err) {
+      return NextResponse.json(
+        { ok: false, error: `Venue error: ${err instanceof Error ? err.message : "unknown"}` },
+        { status: 500 }
+      );
+    }
+  } else if (!venueId && venueName) {
     try {
       const result = await upsertVenue(supabase, {
         name: venueName,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 export function PaymentReveal({
   price,
@@ -51,8 +52,8 @@ export function PaymentReveal({
         <span style={{ textDecoration: "underline", textUnderlineOffset: 3 }}>{rowLabel}</span>
       </button>
 
-      {/* Payment details bottom sheet */}
-      {open && (
+      {/* Payment details bottom sheet — portaled to body to escape backdropFilter containing block */}
+      {open && createPortal(
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 400,
@@ -134,7 +135,8 @@ export function PaymentReveal({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
