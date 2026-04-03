@@ -561,7 +561,7 @@ export default async function EventPage({
             </div>
           )}
 
-          {/* ⑥ Hosting card — host + cohosts in one glass card */}
+          {/* ⑥ Hosting card — host first, cohosts behind, description below */}
           {creator && (
             <div
               style={{
@@ -578,39 +578,13 @@ export default async function EventPage({
               <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>
                 Hosted by
               </p>
-              {/* Overlapping avatar stack — host on top (z-index 1), cohosts behind */}
+
+              {/* Avatar stack — host first (leftmost, highest z-index), cohosts behind */}
               <div style={{ display: "flex", justifyContent: "center" }}>
-                {/* Host avatar — rendered last in DOM so it sits on top visually */}
-                {cohostProfiles.map((cp, i) => (
-                  <Link
-                    key={cp.id}
-                    href={`/profile/${cp.id}`}
-                    style={{
-                      lineHeight: 0, display: "block", textDecoration: "none",
-                      marginLeft: i === 0 ? 0 : -10,
-                      zIndex: 0,
-                      position: "relative",
-                    }}
-                  >
-                    {cp.avatar_url ? (
-                      <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)" }}>
-                        {getInitials(cp.display_name)}
-                      </div>
-                    )}
-                  </Link>
-                ))}
-                {/* Host is last — highest z-index, sits in front */}
                 {creatorId ? (
                   <Link
                     href={`/profile/${creatorId}`}
-                    style={{
-                      lineHeight: 0, display: "block", textDecoration: "none",
-                      marginLeft: cohostProfiles.length > 0 ? -10 : 0,
-                      zIndex: cohostProfiles.length + 1,
-                      position: "relative",
-                    }}
+                    style={{ lineHeight: 0, display: "block", textDecoration: "none", position: "relative", zIndex: cohostProfiles.length + 1 }}
                   >
                     {creator.avatar_url ? (
                       <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
@@ -621,23 +595,55 @@ export default async function EventPage({
                     )}
                   </Link>
                 ) : creator.avatar_url ? (
-                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block", marginLeft: cohostProfiles.length > 0 ? -10 : 0, position: "relative", zIndex: cohostProfiles.length + 1 }} />
+                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
                 ) : (
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)", marginLeft: cohostProfiles.length > 0 ? -10 : 0, position: "relative", zIndex: cohostProfiles.length + 1 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)", position: "relative", zIndex: cohostProfiles.length + 1 }}>
                     {getInitials(creator.display_name)}
                   </div>
                 )}
+                {cohostProfiles.map((cp, i) => (
+                  <Link
+                    key={cp.id}
+                    href={`/profile/${cp.id}`}
+                    style={{ lineHeight: 0, display: "block", textDecoration: "none", marginLeft: -10, position: "relative", zIndex: cohostProfiles.length - i }}
+                  >
+                    {cp.avatar_url ? (
+                      <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
+                    ) : (
+                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)" }}>
+                        {getInitials(cp.display_name)}
+                      </div>
+                    )}
+                  </Link>
+                ))}
               </div>
+
+              {/* Description inside the card */}
+              {event.description && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
+                  <ExpandableDescription text={event.description} />
+                </div>
+              )}
             </div>
           )}
 
-          {/* ⑦ Event options — spots / cost / RSVP deadline */}
+          {/* ⑦ Details card — same glass style, spots / cost / RSVP deadline */}
           {(spotsLimited || eventPrice !== null || rsvpDeadline) && (
-            <div style={{ paddingTop: 16, paddingBottom: 4, borderTop: "1px solid var(--border)" }}>
-              <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>
+            <div
+              style={{
+                marginTop: 10,
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                padding: "12px 16px",
+              }}
+            >
+              <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
                 Details
-              </h2>
-              <div style={{ display: "grid", gap: 14 }}>
+              </p>
+              <div style={{ display: "grid", gap: 12 }}>
                 {spotsLimited && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
                     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
@@ -669,16 +675,6 @@ export default async function EventPage({
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* ⑧ Description */}
-          {event.description && (
-            <div style={{ paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
-                About
-              </h2>
-              <ExpandableDescription text={event.description} />
             </div>
           )}
 
