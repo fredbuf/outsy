@@ -520,7 +520,7 @@ export default async function EventPage({
 
           {/* ⑤ Activity preview */}
           {recentActivity.length > 0 && (
-            <div style={{ paddingTop: 6, paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>
+            <div style={{ paddingTop: 6, paddingBottom: 6 }}>
               {recentActivity.map((item, i) => {
                 const label = rsvpActivityLabel(item.response);
                 return (
@@ -620,7 +620,7 @@ export default async function EventPage({
 
               {/* Description inside the card */}
               {event.description && (
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
                   <ExpandableDescription text={event.description} />
                 </div>
               )}

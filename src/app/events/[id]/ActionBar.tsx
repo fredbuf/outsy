@@ -121,7 +121,7 @@ export function ActionBar({
       alignItems: "center" as const,
       justifyContent: "center" as const,
       gap: 4,
-      padding: "10px 6px",
+      padding: "14px 6px",
       borderRadius: 11,
       border: pc ? `1.5px solid ${pc.border}` : "none",
       background: pc ? pc.bg : active ? "var(--background)" : "transparent",
@@ -177,33 +177,33 @@ export function ActionBar({
             </>
           ) : (
             <>
-              {/* Private: Going / Can't go / Maybe — icon left of label */}
+              {/* Private: Going / Can't go / Maybe — icon on top, label below */}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
-                style={{ ...segmentStyle("going"), flexDirection: "row", gap: 5 }}
+                style={segmentStyle("going")}
               >
                 <CheckIcon />
-                <span>Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}</span>
+                <span>Going</span>
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
-                style={{ ...segmentStyle("cant_go"), flexDirection: "row", gap: 5 }}
+                style={segmentStyle("cant_go")}
               >
                 <XIcon />
-                <span>Can&apos;t go{counts.cant_go > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.cant_go}</span>}</span>
+                <span>Can&apos;t go</span>
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
-                style={{ ...segmentStyle("maybe"), flexDirection: "row", gap: 5 }}
+                style={segmentStyle("maybe")}
               >
                 <ClockIcon />
-                <span>Maybe{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}</span>
+                <span>Maybe</span>
               </button>
             </>
           )}
