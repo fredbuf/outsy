@@ -12,6 +12,7 @@ import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton } from "./ShareButton";
 import { InviteFriendsButton } from "./InviteFriendsButton";
 import { BackButton } from "./BackButton";
+import { PaymentReveal } from "./PaymentReveal";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -647,21 +648,12 @@ export default async function EventPage({
                   </div>
                 )}
                 {eventPrice !== null && (
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14 }}>
-                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0, marginTop: 1 }}>
-                      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z" />
-                      <path d="M13 5v2M13 17v2M13 11v2" />
-                    </svg>
-                    <div>
-                      <span>{eventCurrency === "USD" ? "US$" : "CA$"}{eventPrice.toFixed(2)}</span>
-                      {evtExt.payment_method === "interac" && (
-                        <span style={{ opacity: 0.55 }}>{" · "}Interac</span>
-                      )}
-                      {evtExt.payment_contact && (
-                        <div style={{ marginTop: 2, opacity: 0.6, fontSize: 13 }}>{evtExt.payment_contact}</div>
-                      )}
-                    </div>
-                  </div>
+                  <PaymentReveal
+                    price={eventPrice}
+                    currency={eventCurrency}
+                    paymentMethod={evtExt.payment_method ?? null}
+                    paymentContact={evtExt.payment_contact ?? null}
+                  />
                 )}
                 {rsvpDeadline && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
