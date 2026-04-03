@@ -561,75 +561,58 @@ export default async function EventPage({
             </div>
           )}
 
-          {/* ⑥ Hosted by */}
+          {/* ⑥ Hosting card — host + cohosts in one glass card */}
           {creator && (
             <div
               style={{
-                display: "flex", alignItems: "center", gap: 10,
-                paddingTop: 16, paddingBottom: 16,
-                borderBottom: "1px solid var(--border)",
+                marginTop: 4,
+                borderRadius: 18,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                padding: "16px 20px",
+                textAlign: "center",
               }}
             >
-              {creatorId ? (
-                <Link href={`/profile/${creatorId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
-                  {creator.avatar_url ? (
-                    <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                      {getInitials(creator.display_name)}
-                    </div>
-                  )}
-                </Link>
-              ) : creator.avatar_url ? (
-                <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                  {getInitials(creator.display_name)}
-                </div>
-              )}
-              <span style={{ fontSize: 14, opacity: 0.75 }}>
-                Hosted by{" "}
+              <p style={{ fontSize: 11, fontWeight: 600, opacity: 0.40, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 14px" }}>
+                Hosted by
+              </p>
+              <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
+                {/* Host avatar */}
                 {creatorId ? (
-                  <Link
-                    href={`/profile/${creatorId}`}
-                    style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}
-                  >
-                    {creator.display_name ?? creator.username ?? "a member"}
+                  <Link href={`/profile/${creatorId}`} style={{ lineHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textDecoration: "none" }}>
+                    {creator.avatar_url ? (
+                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={48} height={48} style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.18)" }} />
+                    ) : (
+                      <div style={{ width: 48, height: 48, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(255,255,255,0.18)" }}>
+                        {getInitials(creator.display_name)}
+                      </div>
+                    )}
                   </Link>
+                ) : creator.avatar_url ? (
+                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={48} height={48} style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.18)" }} />
                 ) : (
-                  <strong>{creator.display_name ?? "a member"}</strong>
-                )}
-              </span>
-            </div>
-          )}
-
-          {/* Co-hosts — one row per cohost, same style as "Hosted by" */}
-          {cohostProfiles.map((cp) => (
-            <div
-              key={cp.id}
-              style={{
-                display: "flex", alignItems: "center", gap: 10,
-                paddingTop: 12, paddingBottom: 12,
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
-              <Link href={`/profile/${cp.id}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
-                {cp.avatar_url ? (
-                  <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
-                ) : (
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                    {getInitials(cp.display_name)}
+                  <div style={{ width: 48, height: 48, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(255,255,255,0.18)" }}>
+                    {getInitials(creator.display_name)}
                   </div>
                 )}
-              </Link>
-              <span style={{ fontSize: 14, opacity: 0.75 }}>
-                Co-hosted by{" "}
-                <Link href={`/profile/${cp.id}`} style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}>
-                  {cp.display_name ?? cp.username ?? "a member"}
-                </Link>
-              </span>
+
+                {/* Cohost avatars */}
+                {cohostProfiles.map((cp) => (
+                  <Link key={cp.id} href={`/profile/${cp.id}`} style={{ lineHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textDecoration: "none" }}>
+                    {cp.avatar_url ? (
+                      <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={48} height={48} style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(255,255,255,0.18)" }} />
+                    ) : (
+                      <div style={{ width: 48, height: 48, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(255,255,255,0.18)" }}>
+                        {getInitials(cp.display_name)}
+                      </div>
+                    )}
+                  </Link>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
 
           {/* ⑦ Event options — spots / cost / RSVP deadline */}
           {(spotsLimited || eventPrice !== null || rsvpDeadline) && (
