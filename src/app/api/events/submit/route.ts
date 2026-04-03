@@ -166,10 +166,11 @@ export async function POST(req: Request) {
   // If the client already resolved a venue from autocomplete, use its ID directly.
   // Otherwise fall back to upsert-by-name.
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const cohostId =
-    typeof payload.cohostId === "string" && UUID_RE.test(payload.cohostId)
-      ? payload.cohostId
-      : null;
+  const cohostIds = Array.isArray(payload.cohostIds)
+    ? (payload.cohostIds as unknown[]).filter(
+        (id): id is string => typeof id === "string" && UUID_RE.test(id)
+      )
+    : [];
 
   const preselectedVenueId =
     typeof payload.venueId === "string" && UUID_RE.test(payload.venueId)
@@ -224,7 +225,7 @@ export async function POST(req: Request) {
       visibility,
       is_approved: visibility === "private",
       creator_id: authUser.id,
-      ...(cohostId ? { cohost_id: cohostId } : {}),
+      ...(cohostIds.length > 0 ? { cohost_ids: cohostIds } : {}),
     })
     .select("id")
     .single();

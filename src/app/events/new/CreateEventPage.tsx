@@ -187,10 +187,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [error, setError] = useState<string | null>(null);
   const [publicSubmitted, setPublicSubmitted] = useState(false);
 
-  // Cohost (private events only)
+  // Cohost (private events only) — supports multiple
   type CohostProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null };
-  const [cohostId, setCohostId] = useState<string | null>(null);
-  const [cohostProfile, setCohostProfile] = useState<CohostProfile | null>(null);
+  const [cohostIds, setCohostIds] = useState<string[]>([]);
+  const [cohostProfiles, setCohostProfiles] = useState<CohostProfile[]>([]);
   const [cohostSheetOpen, setCohostSheetOpen] = useState(false);
   const [cohostFriends, setCohostFriends] = useState<CohostProfile[]>([]);
   const [cohostFriendsLoading, setCohostFriendsLoading] = useState(false);
@@ -394,7 +394,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             lat: privateLat ?? undefined,
             lng: privateLng ?? undefined,
             placeId: privatePlaceId ?? undefined,
-            cohostId: cohostId ?? undefined,
+            cohostIds: cohostIds.length > 0 ? cohostIds : undefined,
           }
         : {
             ...basePayload,
@@ -517,8 +517,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setPrivateLat(null);
               setPrivateLng(null);
               setPrivatePlaceId(null);
-              setCohostId(null);
-              setCohostProfile(null);
+              setCohostIds([]);
+              setCohostProfiles([]);
               setVenueName("");
               setVenueAddress("");
               setVenueCity("Montréal");
@@ -583,11 +583,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           style={{
             position: "relative",
             aspectRatio: "3/4",
+            borderRadius: "0 0 28px 28px",
+            overflow: "hidden",
             // No-image state: rich purple gradient
             background: imagePreview
               ? undefined
               : "linear-gradient(155deg, #1e1340 0%, #4c1d95 38%, #7c3aed 70%, #a78bfa 100%)",
-            overflow: "visible",
           }}
         >
           {/* Background image */}
@@ -603,15 +604,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             />
           )}
 
-          {/* Overlay gradients
-              – top band: darken nav bar area for legibility
-              – bottom band: heavy dark ramp so text is always readable */}
+          {/* Overlay — top nav band + bottom hero gradient matching event page exactly */}
           <div
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: imagePreview
-                ? "linear-gradient(to bottom, rgba(0,0,0,0.42) 0%, transparent 25%), linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.42) 38%, transparent 65%)"
-                : "linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, transparent 22%), linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)",
+              background: "linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 22%), linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
             }}
           />
 
@@ -723,8 +720,9 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
-              padding: "0 20px 32px",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+              padding: "90px 28px 40px",
+              textAlign: "center",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
             }}
           >
             {/* Title */}
@@ -735,9 +733,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               onChange={(e) => setTitle(e.target.value)}
               className="cep-title"
               style={{
-                width: "100%", maxWidth: 400,
+                width: "100%",
                 background: "transparent", border: "none", outline: "none",
-                fontSize: 26, fontWeight: 800,
+                fontSize: 32, fontWeight: 800, lineHeight: 1.15,
+                letterSpacing: "-0.02em",
                 color: "#fff",
                 textAlign: "center",
                 fontFamily: "inherit",
@@ -751,8 +750,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 background: "none", border: "none", cursor: "pointer",
-                color: dateLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)",
-                fontSize: 14, fontWeight: dateLine ? 500 : 400,
+                color: dateLine ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.38)",
+                fontSize: 15, fontWeight: 500,
                 fontFamily: "inherit",
               }}
             >
@@ -772,8 +771,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               style={{
                 display: "flex", alignItems: "center", gap: 6,
                 background: "none", border: "none", cursor: "pointer",
-                color: locationLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)",
-                fontSize: 14, fontWeight: locationLine ? 500 : 400,
+                color: locationLine ? "rgba(255,255,255,0.60)" : "rgba(255,255,255,0.38)",
+                fontSize: 14, fontWeight: 500,
                 fontFamily: "inherit",
               }}
             >
@@ -912,44 +911,48 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               )}
             </div>
 
-            {/* Selected cohost row */}
-            {isPrivate && cohostProfile && (
+            {/* Selected co-host rows (one per selected cohost) */}
+            {isPrivate && cohostProfiles.map((cp) => (
               <div
+                key={cp.id}
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 0 12px",
+                  padding: "12px 0",
                   borderBottom: "1px solid var(--border)",
                 }}
               >
-                {cohostProfile.avatar_url ? (
+                {cp.avatar_url ? (
                   <img
-                    src={cohostProfile.avatar_url}
-                    alt={cohostProfile.display_name ?? ""}
+                    src={cp.avatar_url}
+                    alt={cp.display_name ?? ""}
                     style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
                   />
                 ) : (
                   <div
                     style={{
                       width: 34, height: 34, borderRadius: "50%",
-                      background: getAvatarColor(cohostProfile.display_name),
+                      background: getAvatarColor(cp.display_name),
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 12, fontWeight: 700, color: "#fff",
                       flexShrink: 0, userSelect: "none",
                     }}
                   >
-                    {getInitials(cohostProfile.display_name)}
+                    {getInitials(cp.display_name)}
                   </div>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Co-host</div>
                   <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {cohostProfile.display_name ?? `@${cohostProfile.username}`}
+                    {cp.display_name ?? `@${cp.username}`}
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setCohostId(null); setCohostProfile(null); }}
-                  aria-label="Remove co-host"
+                  onClick={() => {
+                    setCohostIds((prev) => prev.filter((id) => id !== cp.id));
+                    setCohostProfiles((prev) => prev.filter((p) => p.id !== cp.id));
+                  }}
+                  aria-label={`Remove ${cp.display_name ?? "co-host"}`}
                   style={{
                     width: 26, height: 26, borderRadius: "50%",
                     border: "none", background: "var(--surface-raised)",
@@ -962,7 +965,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   </svg>
                 </button>
               </div>
-            )}
+            ))}
             </>
           )}
 
@@ -1130,8 +1133,16 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Add co-host</span>
-              <div style={{ width: 34, flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
+                {cohostIds.length > 0 ? `Co-hosts · ${cohostIds.length}` : "Add co-host"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCohostSheetOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}
+              >
+                Done
+              </button>
             </div>
 
             {/* Search */}
@@ -1161,7 +1172,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   <button
                     key={f.id}
                     type="button"
-                    onClick={() => { setCohostId(f.id); setCohostProfile(f); setCohostSheetOpen(false); }}
+                    onClick={() => {
+                      if (cohostIds.includes(f.id)) {
+                        setCohostIds((prev) => prev.filter((id) => id !== f.id));
+                        setCohostProfiles((prev) => prev.filter((p) => p.id !== f.id));
+                      } else {
+                        setCohostIds((prev) => [...prev, f.id]);
+                        setCohostProfiles((prev) => [...prev, f]);
+                      }
+                    }}
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
                       width: "100%", padding: "10px 0", background: "none", border: "none",
@@ -1182,7 +1201,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       </div>
                       {f.username && <div style={{ fontSize: 12, opacity: 0.45 }}>@{f.username}</div>}
                     </div>
-                    {cohostId === f.id && (
+                    {cohostIds.includes(f.id) && (
                       <svg style={{ marginLeft: "auto", flexShrink: 0 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
