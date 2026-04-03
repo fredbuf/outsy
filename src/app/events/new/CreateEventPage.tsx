@@ -10,6 +10,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 type Visibility = "public" | "private";
+type OptionSheet = "spots" | "cost" | "rsvp" | null;
 
 type VenueSuggestion = {
   id: string;
@@ -196,13 +197,22 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [cohostFriendsLoading, setCohostFriendsLoading] = useState(false);
   const [cohostSearch, setCohostSearch] = useState("");
 
+  // Optional options (private events only)
+  const [optionSheet, setOptionSheet] = useState<OptionSheet>(null);
+  const [spotsMode, setSpotsMode] = useState<"unlimited" | "limited">("unlimited");
+  const [spotsLimit, setSpotsLimit] = useState("");
+  const [costAmount, setCostAmount] = useState("");
+  const [costCurrency, setCostCurrency] = useState<"CAD" | "USD">("CAD");
+  const [costPaymentContact, setCostPaymentContact] = useState("");
+  const [rsvpDeadline, setRsvpDeadline] = useState("");
+
   // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = (dateSheetOpen || cohostSheetOpen) ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || cohostSheetOpen || optionSheet !== null) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen, cohostSheetOpen]);
+  }, [dateSheetOpen, cohostSheetOpen, optionSheet]);
 
   // Fetch host profile
   useEffect(() => {
@@ -395,6 +405,19 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             lng: privateLng ?? undefined,
             placeId: privatePlaceId ?? undefined,
             cohostIds: cohostIds.length > 0 ? cohostIds : undefined,
+            spotsMode,
+            spotsLimit: spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
+              ? parseInt(spotsLimit)
+              : null,
+            price: costAmount.trim() && parseFloat(costAmount) > 0
+              ? parseFloat(costAmount)
+              : null,
+            currency: costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
+            paymentMethod: costAmount.trim() && parseFloat(costAmount) > 0 ? "interac" : null,
+            paymentContact: costAmount.trim() && parseFloat(costAmount) > 0
+              ? costPaymentContact.trim() || null
+              : null,
+            rsvpDeadline: rsvpDeadline || null,
           }
         : {
             ...basePayload,
@@ -519,6 +542,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setPrivatePlaceId(null);
               setCohostIds([]);
               setCohostProfiles([]);
+              setSpotsMode("unlimited");
+              setSpotsLimit("");
+              setCostAmount("");
+              setCostCurrency("CAD");
+              setCostPaymentContact("");
+              setRsvpDeadline("");
               setVenueName("");
               setVenueAddress("");
               setVenueCity("Montréal");
@@ -572,6 +601,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         .cep-location::placeholder { color: rgba(255,255,255,0.32); }
         /* Ensure Google Places autocomplete dropdown renders above the sheet */
         .pac-container { z-index: 500 !important; }
+        .cep-options::-webkit-scrollbar { display: none; }
       `}</style>
 
       <form onSubmit={handleSubmit}>
@@ -969,6 +999,98 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             </>
           )}
 
+          {/* ── Optional options carousel (private only) ─────────────── */}
+          {isPrivate && (() => {
+            const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
+              ? `${spotsLimit} spots`
+              : null;
+            const costLabel = costAmount.trim() && parseFloat(costAmount) > 0
+              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}`
+              : null;
+            const rsvpLabel = rsvpDeadline
+              ? (() => {
+                  const [y, m, d] = rsvpDeadline.split("-").map(Number);
+                  return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+                })()
+              : null;
+
+            const chipBase: React.CSSProperties = {
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 12px", borderRadius: 10, flexShrink: 0,
+              cursor: "pointer", fontSize: 13, fontWeight: 500,
+              color: "inherit", background: "transparent",
+              fontFamily: "inherit",
+            };
+
+            return (
+              <div
+                className="cep-options"
+                style={{
+                  display: "flex", gap: 8,
+                  overflowX: "auto",
+                  padding: "14px 0 2px",
+                  scrollbarWidth: "none",
+                }}
+              >
+                {/* Spots chip */}
+                <button
+                  type="button"
+                  onClick={() => setOptionSheet("spots")}
+                  style={{
+                    ...chipBase,
+                    border: `1px solid ${spotsLabel ? "var(--border-strong)" : "var(--border)"}`,
+                    background: spotsLabel ? "var(--surface-raised)" : "transparent",
+                    fontWeight: spotsLabel ? 600 : 500,
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  {spotsLabel ?? "Spots"}
+                </button>
+
+                {/* Cost chip */}
+                <button
+                  type="button"
+                  onClick={() => setOptionSheet("cost")}
+                  style={{
+                    ...chipBase,
+                    border: `1px solid ${costLabel ? "var(--border-strong)" : "var(--border)"}`,
+                    background: costLabel ? "var(--surface-raised)" : "transparent",
+                    fontWeight: costLabel ? 600 : 500,
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z" />
+                    <path d="M13 5v2M13 17v2M13 11v2" />
+                  </svg>
+                  {costLabel ?? "Cost"}
+                </button>
+
+                {/* RSVP by chip */}
+                <button
+                  type="button"
+                  onClick={() => setOptionSheet("rsvp")}
+                  style={{
+                    ...chipBase,
+                    border: `1px solid ${rsvpLabel ? "var(--border-strong)" : "var(--border)"}`,
+                    background: rsvpLabel ? "var(--surface-raised)" : "transparent",
+                    fontWeight: rsvpLabel ? 600 : 500,
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  {rsvpLabel ? `RSVP by ${rsvpLabel}` : "RSVP by"}
+                </button>
+              </div>
+            );
+          })()}
+
           {/* ── Description ─────────────────────────────────────────── */}
           <div
             style={{
@@ -1105,6 +1227,172 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             >
               Remove photo
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Option sheets (Spots / Cost / RSVP by) ──────────────────── */}
+
+      {/* Spots sheet */}
+      {optionSheet === "spots" && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
+        >
+          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
+              <button type="button" onClick={() => setOptionSheet(null)} aria-label="Close" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Spots</span>
+              <button type="button" onClick={() => setOptionSheet(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}>Done</button>
+            </div>
+            <div style={{ padding: "20px 20px 0" }}>
+              <div style={{ height: 1, background: "var(--border)", marginBottom: 20 }} />
+              {/* Unlimited */}
+              <button
+                type="button"
+                onClick={() => setSpotsMode("unlimited")}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "14px 0", background: "none", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", color: "inherit", fontFamily: "inherit", fontSize: 15, fontWeight: spotsMode === "unlimited" ? 600 : 400 }}
+              >
+                <span>Unlimited</span>
+                {spotsMode === "unlimited" && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                )}
+              </button>
+              {/* Limited */}
+              <button
+                type="button"
+                onClick={() => setSpotsMode("limited")}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "14px 0", background: "none", border: "none", borderBottom: spotsMode === "limited" ? "none" : "1px solid var(--border)", cursor: "pointer", color: "inherit", fontFamily: "inherit", fontSize: 15, fontWeight: spotsMode === "limited" ? 600 : 400 }}
+              >
+                <span>Limited</span>
+                {spotsMode === "limited" && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                )}
+              </button>
+              {spotsMode === "limited" && (
+                <div style={{ paddingTop: 14, paddingBottom: 4 }}>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    placeholder="Number of spots"
+                    value={spotsLimit}
+                    onChange={(e) => setSpotsLimit(e.target.value)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
+                  />
+                </div>
+              )}
+              <button type="button" onClick={() => setOptionSheet(null)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cost sheet */}
+      {optionSheet === "cost" && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
+        >
+          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
+              <button type="button" onClick={() => setOptionSheet(null)} aria-label="Close" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Cost per person</span>
+              <button type="button" onClick={() => setOptionSheet(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}>Done</button>
+            </div>
+            <div style={{ padding: "20px 20px 0" }}>
+              <div style={{ height: 1, background: "var(--border)", marginBottom: 20 }} />
+              {/* Price + currency row */}
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  placeholder="0.00"
+                  value={costAmount}
+                  onChange={(e) => setCostAmount(e.target.value)}
+                  style={{ flex: 1, boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
+                />
+                <div style={{ display: "flex", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", flexShrink: 0 }}>
+                  {(["CAD", "USD"] as const).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCostCurrency(c)}
+                      style={{ padding: "11px 14px", border: "none", background: costCurrency === c ? "var(--surface-raised)" : "transparent", cursor: "pointer", fontSize: 13, fontWeight: costCurrency === c ? 700 : 400, color: "inherit", fontFamily: "inherit" }}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Interac section */}
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Payment via Interac</span>
+                  <span style={{ fontSize: 12, padding: "3px 8px", borderRadius: 6, background: "var(--surface-raised)", opacity: 0.7 }}>Interac</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Email or phone number"
+                  value={costPaymentContact}
+                  onChange={(e) => setCostPaymentContact(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
+                />
+              </div>
+              <button type="button" onClick={() => setOptionSheet(null)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RSVP by sheet */}
+      {optionSheet === "rsvp" && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
+        >
+          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
+              <button type="button" onClick={() => setOptionSheet(null)} aria-label="Close" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>RSVP by</span>
+              <button type="button" onClick={() => setOptionSheet(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}>Done</button>
+            </div>
+            <div style={{ padding: "20px 20px 0" }}>
+              <div style={{ height: 1, background: "var(--border)", marginBottom: 20 }} />
+              <input
+                type="date"
+                value={rsvpDeadline}
+                onChange={(e) => setRsvpDeadline(e.target.value)}
+                style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
+              />
+              {rsvpDeadline && (
+                <button
+                  type="button"
+                  onClick={() => setRsvpDeadline("")}
+                  style={{ marginTop: 12, background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", fontFamily: "inherit", padding: 0 }}
+                >
+                  Clear deadline
+                </button>
+              )}
+              <button type="button" onClick={() => setOptionSheet(null)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}>Done</button>
+            </div>
           </div>
         </div>
       )}

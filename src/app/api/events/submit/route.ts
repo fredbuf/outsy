@@ -166,6 +166,17 @@ export async function POST(req: Request) {
   // If the client already resolved a venue from autocomplete, use its ID directly.
   // Otherwise fall back to upsert-by-name.
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  // Optional event options (private events)
+  const spotsMode = payload.spotsMode === "limited" ? "limited" : "unlimited";
+  const spotsLimitRaw = typeof payload.spotsLimit === "number" ? Math.floor(payload.spotsLimit) : null;
+  const spotsLimit = spotsMode === "limited" && spotsLimitRaw !== null && spotsLimitRaw > 0 ? spotsLimitRaw : null;
+  const price = typeof payload.price === "number" && payload.price > 0 ? payload.price : null;
+  const currency = price && (payload.currency === "CAD" || payload.currency === "USD") ? payload.currency : null;
+  const paymentMethod = price && payload.paymentMethod === "interac" ? "interac" : null;
+  const paymentContactRaw = typeof payload.paymentContact === "string" ? payload.paymentContact.trim().slice(0, 200) : null;
+  const paymentContact = paymentMethod ? paymentContactRaw || null : null;
+  const rsvpDeadlineIso = typeof payload.rsvpDeadline === "string" ? toIso(payload.rsvpDeadline) : null;
+
   const cohostIds = Array.isArray(payload.cohostIds)
     ? (payload.cohostIds as unknown[]).filter(
         (id): id is string => typeof id === "string" && UUID_RE.test(id)
@@ -226,6 +237,12 @@ export async function POST(req: Request) {
       is_approved: visibility === "private",
       creator_id: authUser.id,
       ...(cohostIds.length > 0 ? { cohost_ids: cohostIds } : {}),
+      ...(visibility === "private" ? {
+        spots_mode: spotsMode,
+        ...(spotsLimit !== null ? { spots_limit: spotsLimit } : {}),
+        ...(price !== null ? { price, currency, payment_method: paymentMethod, payment_contact: paymentContact } : {}),
+        ...(rsvpDeadlineIso ? { rsvp_deadline: rsvpDeadlineIso } : {}),
+      } : {}),
     })
     .select("id")
     .single();
