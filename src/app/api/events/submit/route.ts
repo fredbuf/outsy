@@ -175,7 +175,11 @@ export async function POST(req: Request) {
   const paymentMethod = price && payload.paymentMethod === "interac" ? "interac" : null;
   const paymentContactRaw = typeof payload.paymentContact === "string" ? payload.paymentContact.trim().slice(0, 200) : null;
   const paymentContact = paymentMethod ? paymentContactRaw || null : null;
-  const rsvpDeadlineIso = typeof payload.rsvpDeadline === "string" ? toIso(payload.rsvpDeadline) : null;
+  // rsvp_deadline is a DATE column — send YYYY-MM-DD only, not a full ISO timestamp
+  const rsvpDeadlineDate =
+    typeof payload.rsvpDeadline === "string" && /^\d{4}-\d{2}-\d{2}$/.test(payload.rsvpDeadline.trim())
+      ? payload.rsvpDeadline.trim()
+      : null;
 
   const cohostIds = Array.isArray(payload.cohostIds)
     ? (payload.cohostIds as unknown[]).filter(
@@ -241,7 +245,7 @@ export async function POST(req: Request) {
         spots_mode: spotsMode,
         ...(spotsLimit !== null ? { spots_limit: spotsLimit } : {}),
         ...(price !== null ? { price, currency, payment_method: paymentMethod, payment_contact: paymentContact } : {}),
-        ...(rsvpDeadlineIso ? { rsvp_deadline: rsvpDeadlineIso } : {}),
+        ...(rsvpDeadlineDate ? { rsvp_deadline: rsvpDeadlineDate } : {}),
       } : {}),
     })
     .select("id")
