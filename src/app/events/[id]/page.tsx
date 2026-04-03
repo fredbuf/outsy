@@ -296,6 +296,14 @@ export default async function EventPage({
   /* ── Private event: social layout ──────────────────────────────────────── */
   if (event.visibility === "private") {
     const address = venue?.address_line1 ?? null;
+    const privateVenueLat = (venue as { lat?: number | null } | null)?.lat ?? null;
+    const privateVenueLng = (venue as { lng?: number | null } | null)?.lng ?? null;
+    const privateMapHref =
+      privateVenueLat !== null && privateVenueLng !== null
+        ? `/map?eventId=${id}&lat=${privateVenueLat}&lng=${privateVenueLng}`
+        : venue?.name
+        ? `/map?q=${encodeURIComponent(venue.name)}`
+        : null;
     const recentActivity = await fetchRecentActivity(id);
 
     // New optional fields added by the private event form
@@ -448,19 +456,27 @@ export default async function EventPage({
               </svg>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </p>
-            {(venue?.name || address) && (
-              <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                {venue?.name ?? address}
-              </p>
-            )}
-            {venue?.name && address && (
-              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, margin: 0 }}>
-                {address}
-              </p>
+            {venue?.name && (
+              privateMapHref ? (
+                <Link
+                  href={privateMapHref}
+                  style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
+                >
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {venue.name}
+                </Link>
+              ) : (
+                <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {venue.name}
+                </p>
+              )
             )}
           </div>
         </div>

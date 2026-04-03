@@ -64,12 +64,10 @@ export function PaymentReveal({
         >
           <div
             style={{
+              background: "var(--background)",
+              borderRadius: "20px 20px 0 0",
               width: "100%",
               maxWidth: 540,
-              background: "var(--background, #111)",
-              borderRadius: "20px 20px 0 0",
-              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
-              color: "var(--foreground, #eae8e4)",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -78,20 +76,18 @@ export function PaymentReveal({
           >
             {/* Drag handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.25)" }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
             </div>
 
             {/* Header */}
             <div style={{
-              display: "flex", alignItems: "center",
-              padding: "12px 20px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 20px 12px",
               borderBottom: "1px solid var(--border)",
               flexShrink: 0,
             }}>
               <div style={{ width: 28, flexShrink: 0 }} />
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
-                Payment
-              </span>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Payment</span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -107,24 +103,24 @@ export function PaymentReveal({
             </div>
 
             {/* Body */}
-            <div style={{ padding: "24px 24px 8px" }}>
+            <div style={{ paddingBlock: 6, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
               {/* Price line */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
-                <span style={{ fontSize: 14, opacity: 0.55 }}>Amount</span>
-                <span style={{ fontSize: 18, fontWeight: 700 }}>{priceStr}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px" }}>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>Amount</span>
+                <span style={{ fontSize: 15, fontWeight: 600 }}>{priceStr}</span>
               </div>
 
               {/* Payment method */}
               {methodLabel && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
-                  <span style={{ fontSize: 14, opacity: 0.55 }}>Method</span>
-                  <span style={{ fontSize: 14, fontWeight: 500 }}>{methodLabel}</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px" }}>
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>Method</span>
+                  <span style={{ fontSize: 15, fontWeight: 500 }}>{methodLabel}</span>
                 </div>
               )}
 
               {/* Payment contact */}
               {paymentContact && (
-                <div style={{ marginTop: 20, padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)" }}>
+                <div style={{ margin: "8px 20px 0", padding: "14px 16px", borderRadius: 12, background: "var(--surface-raised, rgba(255,255,255,0.06))", border: "1px solid var(--border)" }}>
                   <div style={{ fontSize: 11, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>
                     Send payment to
                   </div>
