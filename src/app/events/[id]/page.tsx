@@ -10,9 +10,9 @@ import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton } from "./ShareButton";
-import { InviteFriendsButton } from "./InviteFriendsButton";
 import { BackButton } from "./BackButton";
 import { PaymentReveal } from "./PaymentReveal";
+import { PrivateActionArea } from "./PrivateActionArea";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -483,42 +483,17 @@ export default async function EventPage({
         } as React.CSSProperties}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
-            {/* RSVP */}
-            <div style={{ paddingTop: 32, paddingBottom: 4 }}>
-              <ActionBar
-                eventId={id}
-                initialCounts={rsvpCounts}
-                sourceUrl={null}
-                visibility="private"
-              />
-            </div>
+            {/* ③ RSVP or host controls — client component picks the right view */}
+            <PrivateActionArea
+              eventId={id}
+              eventTitle={event.title}
+              creatorId={creatorId}
+              cohostIds={cohostIds}
+              initialCounts={rsvpCounts}
+              initialAttendees={attendees}
+            />
 
-          {/* ④ Guest preview */}
-          <div
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 12, paddingTop: 18, paddingBottom: 18,
-              borderBottom: "1px solid var(--border)",
-            }}
-          >
-            {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
-              <AttendeeList
-                eventId={id}
-                initialAttendees={attendees}
-                goingCount={rsvpCounts.going}
-                maybeCount={rsvpCounts.maybe}
-                avatarSize={36}
-              />
-            ) : (
-              <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
-            )}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-              <InviteFriendsButton eventId={id} />
-              <ShareButton title={event.title} eventId={id} />
-            </div>
-          </div>
-
-          {/* ⑤ Activity preview */}
+          {/* ⑤ Activity preview — shown to everyone */}
           {recentActivity.length > 0 && (
             <div style={{ paddingTop: 6, paddingBottom: 6 }}>
               {recentActivity.map((item, i) => {
