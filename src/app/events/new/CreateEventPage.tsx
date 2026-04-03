@@ -87,6 +87,16 @@ export type EditEventData = {
   venue_name: string | null;
   venue_address: string | null;
   venue_city: string | null;
+  venue_lat?: number | null;
+  venue_lng?: number | null;
+  cohost_ids?: string[] | null;
+  spots_mode?: string | null;
+  spots_limit?: number | null;
+  price?: number | null;
+  currency?: string | null;
+  payment_method?: string | null;
+  payment_contact?: string | null;
+  rsvp_deadline?: string | null;
 };
 
 const inputStyle: React.CSSProperties = {
@@ -120,8 +130,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [privateAddress, setPrivateAddress] = useState(() =>
     editData?.visibility === "private" ? (editData?.venue_address ?? "") : ""
   );
-  const [privateLat, setPrivateLat] = useState<number | null>(null);
-  const [privateLng, setPrivateLng] = useState<number | null>(null);
+  const [privateLat, setPrivateLat] = useState<number | null>(() => editData?.venue_lat ?? null);
+  const [privateLng, setPrivateLng] = useState<number | null>(() => editData?.venue_lng ?? null);
   const [privatePlaceId, setPrivatePlaceId] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [mapsReady, setMapsReady] = useState(false);
@@ -190,7 +200,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Cohost (private events only) — supports multiple
   type CohostProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null };
-  const [cohostIds, setCohostIds] = useState<string[]>([]);
+  const [cohostIds, setCohostIds] = useState<string[]>(() => editData?.cohost_ids ?? []);
   const [cohostProfiles, setCohostProfiles] = useState<CohostProfile[]>([]);
   const [cohostSheetOpen, setCohostSheetOpen] = useState(false);
   const [cohostFriends, setCohostFriends] = useState<CohostProfile[]>([]);
@@ -199,12 +209,24 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Optional options (private events only)
   const [optionSheet, setOptionSheet] = useState<OptionSheet>(null);
-  const [spotsMode, setSpotsMode] = useState<"unlimited" | "limited">("unlimited");
-  const [spotsLimit, setSpotsLimit] = useState("");
-  const [costAmount, setCostAmount] = useState("");
-  const [costCurrency, setCostCurrency] = useState<"CAD" | "USD">("CAD");
-  const [costPaymentContact, setCostPaymentContact] = useState("");
-  const [rsvpDeadline, setRsvpDeadline] = useState("");
+  const [spotsMode, setSpotsMode] = useState<"unlimited" | "limited">(() =>
+    (editData?.spots_mode as "unlimited" | "limited") ?? "unlimited"
+  );
+  const [spotsLimit, setSpotsLimit] = useState(() =>
+    editData?.spots_limit ? String(editData.spots_limit) : ""
+  );
+  const [costAmount, setCostAmount] = useState(() =>
+    editData?.price ? String(editData.price) : ""
+  );
+  const [costCurrency, setCostCurrency] = useState<"CAD" | "USD">(() =>
+    (editData?.currency as "CAD" | "USD") ?? "CAD"
+  );
+  const [costPaymentContact, setCostPaymentContact] = useState(() =>
+    editData?.payment_contact ?? ""
+  );
+  const [rsvpDeadline, setRsvpDeadline] = useState(() =>
+    editData?.rsvp_deadline ?? ""
+  );
 
   // Lock scroll when any sheet is open
   useEffect(() => {

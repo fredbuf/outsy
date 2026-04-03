@@ -149,7 +149,7 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
           onClick={(e) => e.target === e.currentTarget && setOpen(false)}
           style={{
             position: "fixed", inset: 0, zIndex: 300,
-            background: "rgba(0,0,0,0.55)",
+            background: "rgba(0,0,0,0.72)",
             display: "flex", alignItems: "flex-end", justifyContent: "center",
           }}
         >
@@ -174,13 +174,15 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
                 flexShrink: 0,
               }}
             >
-              <span style={{ fontSize: 16, fontWeight: 700 }}>Invite friends</span>
+              <div style={{ width: 28, flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Invite friends</span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 style={{
                   background: "none", border: "none", cursor: "pointer",
                   fontSize: 20, opacity: 0.5, lineHeight: 1, color: "inherit",
+                  width: 28, flexShrink: 0,
                 }}
               >
                 ×

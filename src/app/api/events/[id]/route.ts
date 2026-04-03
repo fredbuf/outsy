@@ -158,6 +158,25 @@ export async function PATCH(
   const isApproved = newVisibility === "private" ? true : existing.is_approved;
   const isRejected = newVisibility === "private" ? false : existing.is_rejected;
 
+  // Optional private-event fields
+  const cohostIdsRaw = body.cohostIds;
+  const cohostIds = Array.isArray(cohostIdsRaw)
+    ? cohostIdsRaw.filter((v) => typeof v === "string" && UUID_RE.test(v))
+    : [];
+
+  const spotsMode = body.spotsMode === "limited" ? "limited" : "unlimited";
+  const spotsLimitRaw = typeof body.spotsLimit === "number" && body.spotsLimit > 0 ? body.spotsLimit : null;
+  const priceRaw = typeof body.price === "number" && body.price > 0 ? body.price : null;
+  const currency = priceRaw ? (body.currency === "USD" ? "USD" : "CAD") : null;
+  const paymentMethod = priceRaw && body.paymentMethod === "interac" ? "interac" : null;
+  const paymentContact = paymentMethod
+    ? (typeof body.paymentContact === "string" ? body.paymentContact.trim().slice(0, 200) || null : null)
+    : null;
+  const rsvpDeadlineDate =
+    typeof body.rsvpDeadline === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.rsvpDeadline.trim())
+      ? body.rsvpDeadline.trim()
+      : null;
+
   const { error: updateError } = await supabase
     .from("events")
     .update({
@@ -173,6 +192,16 @@ export async function PATCH(
       is_approved: isApproved,
       is_rejected: isRejected,
       image_url: imageUrl,
+      ...(newVisibility === "private" ? {
+        cohost_ids: cohostIds.length > 0 ? cohostIds : null,
+        spots_mode: spotsMode,
+        spots_limit: spotsLimitRaw,
+        price: priceRaw,
+        currency,
+        payment_method: paymentMethod,
+        payment_contact: paymentContact,
+        rsvp_deadline: rsvpDeadlineDate,
+      } : {}),
     })
     .eq("id", id)
     .eq("source", "manual")

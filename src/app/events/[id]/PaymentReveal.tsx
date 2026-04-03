@@ -56,55 +56,57 @@ export function PaymentReveal({
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 400,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex", alignItems: "flex-end",
+            background: "rgba(0,0,0,0.72)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
           }}
-          onClick={() => setOpen(false)}
+          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
         >
           <div
             style={{
               width: "100%",
+              maxWidth: 540,
               background: "var(--background, #111)",
-              borderRadius: "22px 22px 0 0",
+              borderRadius: "20px 20px 0 0",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
               color: "var(--foreground, #eae8e4)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.25)" }} />
             </div>
 
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
+            <div style={{
+              display: "flex", alignItems: "center",
+              padding: "12px 20px",
+              borderBottom: "1px solid var(--border)",
+              flexShrink: 0,
+            }}>
+              <div style={{ width: 28, flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
+                Payment
+              </span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close"
                 style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 34, height: 34, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.08)",
-                  border: "none", cursor: "pointer",
-                  color: "inherit", flexShrink: 0,
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: 20, opacity: 0.5, lineHeight: 1, color: "inherit",
+                  width: 28, flexShrink: 0,
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                ×
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
-                Payment
-              </span>
-              {/* Spacer to balance the close button */}
-              <div style={{ width: 34, flexShrink: 0 }} />
             </div>
 
             {/* Body */}
             <div style={{ padding: "24px 24px 8px" }}>
-              <div style={{ height: 1, background: "rgba(255,255,255,0.10)", marginBottom: 24 }} />
-
               {/* Price line */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
                 <span style={{ fontSize: 14, opacity: 0.55 }}>Amount</span>

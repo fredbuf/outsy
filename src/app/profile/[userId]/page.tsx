@@ -18,6 +18,15 @@ const fetchProfile = cache(async (userId: string) => {
   return data;
 });
 
+async function fetchFriendCount(userId: string): Promise<number> {
+  const { count } = await supabaseServer()
+    .from("friendships")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "accepted")
+    .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`);
+  return count ?? 0;
+}
+
 type HostedEvent = {
   id: string;
   title: string;
@@ -213,14 +222,16 @@ export default async function PublicProfilePage({
   const profile = await fetchProfile(userId);
   if (!profile) notFound();
 
-  const [upcoming, past] = await Promise.all([
+  const [upcoming, past, friendCount] = await Promise.all([
     fetchUpcomingEvents(userId),
     fetchPastEvents(userId),
+    fetchFriendCount(userId),
   ]);
 
   const displayName = profile.display_name
     ?? (profile.username ? `@${profile.username}` : "Outsy member");
   const hasEvents = upcoming.length > 0 || past.length > 0;
+  const totalEvents = upcoming.length + past.length;
 
   return (
     <main
@@ -231,6 +242,7 @@ export default async function PublicProfilePage({
         padding: "24px 16px 56px",
         display: "grid",
         gap: 28,
+        background: "radial-gradient(ellipse 120% 60% at 50% -5%, rgba(124, 58, 237, 0.09) 0%, transparent 65%)",
       }}
     >
       <Link href="/events" style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}>
@@ -238,40 +250,74 @@ export default async function PublicProfilePage({
       </Link>
 
       {/* ── Profile header ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8 }}>
+        {/* Avatar */}
         {profile.avatar_url ? (
           <img
             src={profile.avatar_url}
             alt={displayName}
             style={{
-              width: 72, height: 72, borderRadius: "50%",
-              objectFit: "cover", flexShrink: 0,
+              width: 96, height: 96, borderRadius: "50%",
+              objectFit: "cover", display: "block",
               border: "2px solid var(--border-medium)",
             }}
           />
         ) : (
           <div
             style={{
-              width: 72, height: 72, borderRadius: "50%",
+              width: 96, height: 96, borderRadius: "50%",
               background: getAvatarColor(displayName),
-              flexShrink: 0, display: "flex", alignItems: "center",
-              justifyContent: "center", fontSize: 24, fontWeight: 700,
+              display: "flex", alignItems: "center",
+              justifyContent: "center", fontSize: 32, fontWeight: 700,
               color: "#fff", userSelect: "none",
+              border: "2px solid var(--border-medium)",
             }}
           >
             {getInitials(displayName)}
           </div>
         )}
 
-        <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2 }}>{displayName}</h1>
+        {/* Name + username */}
+        <div style={{ textAlign: "center" }}>
+          <h1 style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em", margin: 0 }}>
+            {displayName}
+          </h1>
           {profile.username && (
-            <span style={{ fontSize: 13, opacity: 0.45 }}>@{profile.username}</span>
+            <div style={{ fontSize: 14, opacity: 0.5, marginTop: 4 }}>@{profile.username}</div>
           )}
-          {/* Client island: shows Add friend / Request sent / Accept / Friends / Message */}
-          <FriendshipButton profileId={userId} profileUsername={profile.username} />
         </div>
-      </div>
+
+        {/* Add friend / Message button */}
+        <FriendshipButton profileId={userId} profileUsername={profile.username} />
+
+        {/* Summary counters */}
+        <div
+          style={{
+            display: "flex",
+            width: "100%",
+            maxWidth: 300,
+            marginTop: 4,
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+          }}
+        >
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px" }}>
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{friendCount}</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>Friends</span>
+          </div>
+          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px" }}>
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>0</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
+          </div>
+          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px" }}>
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{totalEvents}</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>Events</span>
+          </div>
+        </div>
+      </section>
 
       {/* ── Events ── */}
       {hasEvents ? (

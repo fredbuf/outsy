@@ -156,7 +156,7 @@ export function ShareButton({
 
   const overlayStyle: React.CSSProperties = {
     position: "fixed", inset: 0, zIndex: 300,
-    background: "rgba(0,0,0,0.55)",
+    background: "rgba(0,0,0,0.72)",
     display: "flex", alignItems: "flex-end", justifyContent: "center",
   };
 
@@ -170,6 +170,7 @@ export function ShareButton({
   const closeBtn: React.CSSProperties = {
     background: "none", border: "none", cursor: "pointer",
     fontSize: 20, opacity: 0.5, lineHeight: 1, color: "inherit",
+    width: 28, flexShrink: 0,
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -231,7 +232,8 @@ export function ShareButton({
         >
           <div style={sheetStyle}>
             <div style={sheetHeaderStyle}>
-              <span style={{ fontSize: 16, fontWeight: 700 }}>Share</span>
+              <div style={{ width: 28, flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Share</span>
               <button type="button" onClick={() => setSheet(null)} style={closeBtn}>×</button>
             </div>
             <div style={{ paddingBlock: 6, paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
@@ -333,7 +335,8 @@ export function ShareButton({
         >
           <div style={{ ...sheetStyle, maxHeight: "72dvh" }}>
             <div style={sheetHeaderStyle}>
-              <span style={{ fontSize: 16, fontWeight: 700 }}>Send to friend</span>
+              <div style={{ width: 28, flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Send to friend</span>
               <button type="button" onClick={() => setSheet(null)} style={closeBtn}>×</button>
             </div>
 
