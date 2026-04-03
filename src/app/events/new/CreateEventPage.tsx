@@ -187,13 +187,22 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [error, setError] = useState<string | null>(null);
   const [publicSubmitted, setPublicSubmitted] = useState(false);
 
-  // Lock scroll when date sheet open
+  // Cohost (private events only)
+  type CohostProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null };
+  const [cohostId, setCohostId] = useState<string | null>(null);
+  const [cohostProfile, setCohostProfile] = useState<CohostProfile | null>(null);
+  const [cohostSheetOpen, setCohostSheetOpen] = useState(false);
+  const [cohostFriends, setCohostFriends] = useState<CohostProfile[]>([]);
+  const [cohostFriendsLoading, setCohostFriendsLoading] = useState(false);
+  const [cohostSearch, setCohostSearch] = useState("");
+
+  // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = dateSheetOpen ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || cohostSheetOpen) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen]);
+  }, [dateSheetOpen, cohostSheetOpen]);
 
   // Fetch host profile
   useEffect(() => {
@@ -238,6 +247,19 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       autocompleteRef.current = null;
     };
   }, [locationSheetOpen, isPrivate, mapsReady]);
+
+  // Load friends when cohost sheet opens
+  useEffect(() => {
+    if (!cohostSheetOpen || !session?.access_token) return;
+    setCohostFriendsLoading(true);
+    fetch("/api/friends", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((json) => { if (json?.ok) setCohostFriends(json.friends ?? []); })
+      .catch(() => {})
+      .finally(() => setCohostFriendsLoading(false));
+  }, [cohostSheetOpen, session?.access_token]);
 
   // Click outside venue suggestions
   useEffect(() => {
@@ -372,6 +394,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             lat: privateLat ?? undefined,
             lng: privateLng ?? undefined,
             placeId: privatePlaceId ?? undefined,
+            cohostId: cohostId ?? undefined,
           }
         : {
             ...basePayload,
@@ -494,6 +517,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setPrivateLat(null);
               setPrivateLng(null);
               setPrivatePlaceId(null);
+              setCohostId(null);
+              setCohostProfile(null);
               setVenueName("");
               setVenueAddress("");
               setVenueCity("Montréal");
@@ -557,7 +582,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         <div
           style={{
             position: "relative",
-            minHeight: 460,
+            aspectRatio: "3/4",
             // No-image state: rich purple gradient
             background: imagePreview
               ? undefined
@@ -821,6 +846,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
           {/* ── Hosted by ───────────────────────────────────────────── */}
           {user && (
+            <>
             <div
               style={{
                 display: "flex",
@@ -856,20 +882,88 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   {displayName}
                 </div>
               </div>
-              <button
-                type="button"
-                disabled
-                title="Coming soon"
+              {isPrivate ? (
+                <button
+                  type="button"
+                  onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
+                  style={{
+                    padding: "5px 12px", borderRadius: 8,
+                    border: "1px solid var(--border-strong)",
+                    background: "transparent", cursor: "pointer",
+                    fontSize: 12, color: "inherit", flexShrink: 0,
+                  }}
+                >
+                  + Cohost
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="Coming soon"
+                  style={{
+                    padding: "5px 12px", borderRadius: 8,
+                    border: "1px solid var(--border-strong)",
+                    background: "transparent", cursor: "not-allowed",
+                    fontSize: 12, opacity: 0.35, color: "inherit", flexShrink: 0,
+                  }}
+                >
+                  + Cohost
+                </button>
+              )}
+            </div>
+
+            {/* Selected cohost row */}
+            {isPrivate && cohostProfile && (
+              <div
                 style={{
-                  padding: "5px 12px", borderRadius: 8,
-                  border: "1px solid var(--border-strong)",
-                  background: "transparent", cursor: "not-allowed",
-                  fontSize: 12, opacity: 0.35, color: "inherit", flexShrink: 0,
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "12px 0 12px",
+                  borderBottom: "1px solid var(--border)",
                 }}
               >
-                + Cohost
-              </button>
-            </div>
+                {cohostProfile.avatar_url ? (
+                  <img
+                    src={cohostProfile.avatar_url}
+                    alt={cohostProfile.display_name ?? ""}
+                    style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 34, height: 34, borderRadius: "50%",
+                      background: getAvatarColor(cohostProfile.display_name),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700, color: "#fff",
+                      flexShrink: 0, userSelect: "none",
+                    }}
+                  >
+                    {getInitials(cohostProfile.display_name)}
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Co-host</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {cohostProfile.display_name ?? `@${cohostProfile.username}`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setCohostId(null); setCohostProfile(null); }}
+                  aria-label="Remove co-host"
+                  style={{
+                    width: 26, height: 26, borderRadius: "50%",
+                    border: "none", background: "var(--surface-raised)",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "inherit", opacity: 0.55, flexShrink: 0,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            )}
+            </>
           )}
 
           {/* ── Description ─────────────────────────────────────────── */}
@@ -1012,6 +1106,95 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         </div>
       )}
 
+      {/* ── Cohost picker sheet ─────────────────────────────────────── */}
+      {cohostSheetOpen && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => e.target === e.currentTarget && setCohostSheetOpen(false)}
+        >
+          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", maxHeight: "80vh", display: "flex", flexDirection: "column", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+            </div>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0", flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setCohostSheetOpen(false)}
+                aria-label="Close"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Add co-host</span>
+              <div style={{ width: 34, flexShrink: 0 }} />
+            </div>
+
+            {/* Search */}
+            <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
+              <input
+                value={cohostSearch}
+                onChange={(e) => setCohostSearch(e.target.value)}
+                placeholder="Search friends…"
+                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 16, background: "var(--surface-raised)", color: "inherit", outline: "none", fontFamily: "inherit" }}
+              />
+            </div>
+
+            {/* Friend list */}
+            <div style={{ overflowY: "auto", flex: 1, padding: "8px 20px 0" }}>
+              {cohostFriendsLoading ? (
+                <p style={{ opacity: 0.45, fontSize: 14, textAlign: "center", padding: "32px 0" }}>Loading…</p>
+              ) : cohostFriends.length === 0 ? (
+                <p style={{ opacity: 0.45, fontSize: 14, textAlign: "center", padding: "32px 0" }}>No friends yet — add some from your profile.</p>
+              ) : (() => {
+                const q = cohostSearch.toLowerCase();
+                const filtered = cohostFriends.filter((f) => {
+                  if (!q) return true;
+                  return (f.display_name ?? "").toLowerCase().includes(q) || (f.username ?? "").toLowerCase().includes(q);
+                });
+                if (filtered.length === 0) return <p style={{ opacity: 0.45, fontSize: 14, padding: "16px 0" }}>No results.</p>;
+                return filtered.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => { setCohostId(f.id); setCohostProfile(f); setCohostSheetOpen(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      width: "100%", padding: "10px 0", background: "none", border: "none",
+                      borderBottom: "1px solid var(--border)", cursor: "pointer",
+                      color: "inherit", textAlign: "left", fontFamily: "inherit",
+                    }}
+                  >
+                    {f.avatar_url ? (
+                      <img src={f.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 38, height: 38, borderRadius: "50%", background: getAvatarColor(f.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, userSelect: "none" }}>
+                        {getInitials(f.display_name)}
+                      </div>
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {f.display_name ?? `@${f.username}`}
+                      </div>
+                      {f.username && <div style={{ fontSize: 12, opacity: 0.45 }}>@{f.username}</div>}
+                    </div>
+                    {cohostId === f.id && (
+                      <svg style={{ marginLeft: "auto", flexShrink: 0 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </button>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Location sheet ──────────────────────────────────────────── */}
       {locationSheetOpen && (
         <div
@@ -1141,9 +1324,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                         opacity: geoLoading ? 0.6 : 1, fontFamily: "inherit",
                       }}
                     >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                      <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2 L4.5 20.5 L12 17 L19.5 20.5 Z" />
                       </svg>
                       {geoLoading ? "Getting location…" : "Use current location"}
                     </button>
