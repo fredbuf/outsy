@@ -543,6 +543,7 @@ export default function MapPage() {
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [selected, setSelected] = useState<MapEvent | null>(null);
+  const [deepLinkedEvent, setDeepLinkedEvent] = useState<MapEvent | null>(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [selectedAvatars, setSelectedAvatars] = useState<TileAvatar[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -574,24 +575,28 @@ export default function MapPage() {
     const lng = parseFloat(params.get("lng") ?? "");
     if (eventId && !isNaN(lat) && !isNaN(lng)) {
       deepLinkRef.current = { eventId, lat, lng };
+      // Fetch the event independently — no date or visibility filter so past/private events work too
+      supabaseBrowser()
+        .from("events")
+        .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name)")
+        .eq("id", eventId)
+        .single()
+        .then(({ data }) => { if (data) setDeepLinkedEvent(data as unknown as MapEvent); });
     } else {
       const q = params.get("q");
       if (q) { setSearchQuery(q); setDebouncedSearchQuery(q); }
     }
   }, []);
 
-  // Auto-select deep-linked event once both events and map are loaded.
+  // Auto-select deep-linked event once both the event and map are ready.
   useEffect(() => {
-    if (!deepLinkRef.current || events.length === 0 || !mapsLoaded) return;
-    const { eventId, lat, lng } = deepLinkRef.current;
-    const match = events.find((e) => e.id === eventId);
-    if (match) {
-      setSelected(match);
-      mapRef.current?.panTo({ lat, lng });
-      mapRef.current?.setZoom(15);
-      deepLinkRef.current = null; // apply only once
-    }
-  }, [events, mapsLoaded]);
+    if (!deepLinkRef.current || !deepLinkedEvent || !mapsLoaded) return;
+    const { lat, lng } = deepLinkRef.current;
+    setSelected(deepLinkedEvent);
+    mapRef.current?.panTo({ lat, lng });
+    mapRef.current?.setZoom(15);
+    deepLinkRef.current = null; // apply only once
+  }, [deepLinkedEvent, mapsLoaded]);
 
   // Debounce search so filteredEvents / venueLeaderMap don't recompute on every keystroke.
   // mapSuggestions and the input value still use the raw searchQuery for instant feedback.
@@ -884,12 +889,13 @@ export default function MapPage() {
       .map((x) => x.event);
   }, [events, searchQuery, suggestionsDismissed]);
 
-  // Close preview card when the selected event is filtered out
+  // Close preview card when the selected event is filtered out,
+  // but never auto-dismiss the deep-linked event (it may not be in filteredEvents).
   useEffect(() => {
-    if (selected && !filteredEvents.some((e) => e.id === selected.id)) {
+    if (selected && !filteredEvents.some((e) => e.id === selected.id) && selected.id !== deepLinkedEvent?.id) {
       setSelected(null);
     }
-  }, [filteredEvents, selected]);
+  }, [filteredEvents, selected, deepLinkedEvent]);
 
   // Fetch upcoming public events that have venue coordinates.
   // Limit is set high enough to cover all foreseeable custom date picks
@@ -1101,6 +1107,45 @@ export default function MapPage() {
       markersRef.current.set(event.id, marker);
     });
   }, [filteredEvents, mapsLoaded]);
+
+  // Place a marker for the deep-linked event when it's not already in filteredEvents.
+  // This effect is defined AFTER the main marker effect so it runs after markers are rebuilt.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapsLoaded || !deepLinkedEvent) return;
+    if (markersRef.current.has(deepLinkedEvent.id)) return; // main effect already placed it
+    const lat = deepLinkedEvent.venues?.lat;
+    const lng = deepLinkedEvent.venues?.lng;
+    if (typeof lat !== "number" || typeof lng !== "number") return;
+
+    const AdvancedMarker = MAP_ID
+      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
+      : null;
+
+    let marker;
+    if (AdvancedMarker) {
+      marker = new AdvancedMarker({
+        map,
+        position: { lat, lng },
+        content: createMarkerEl(deepLinkedEvent.image_url, false, deepLinkedEvent.category_primary),
+        title: deepLinkedEvent.title,
+        zIndex: 1,
+      });
+    } else {
+      marker = new google.maps.Marker({
+        map,
+        position: { lat, lng },
+        title: deepLinkedEvent.title,
+        icon: MARKER_DEFAULT,
+        zIndex: 1,
+      });
+    }
+    marker.addListener("click", () => {
+      setSelected(deepLinkedEvent);
+      map.panTo({ lat, lng });
+    });
+    markersRef.current.set(deepLinkedEvent.id, marker);
+  }, [deepLinkedEvent, mapsLoaded, filteredEvents]);
 
   // Swap marker icon when selected event changes
   useEffect(() => {
