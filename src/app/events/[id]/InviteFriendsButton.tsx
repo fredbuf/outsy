@@ -24,7 +24,7 @@ function avatarColor(name: string): string {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function InviteFriendsButton({ eventId }: { eventId: string }) {
+export function InviteFriendsButton({ eventId, large }: { eventId: string; large?: boolean }) {
   const { user, session } = useAuth();
   const [open, setOpen] = useState(false);
   const [friends, setFriends] = useState<FriendProfile[] | null>(null);
@@ -100,7 +100,24 @@ export function InviteFriendsButton({ eventId }: { eventId: string }) {
       <button
         type="button"
         onClick={openModal}
-        style={{
+        style={large ? {
+          flex: 1,
+          padding: "18px 12px",
+          borderRadius: 16,
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 9,
+          color: "inherit",
+          fontSize: 14,
+          fontWeight: 600,
+        } : {
           alignSelf: "start",
           padding: "10px 16px",
           borderRadius: 12,
@@ -117,7 +134,7 @@ export function InviteFriendsButton({ eventId }: { eventId: string }) {
         }}
       >
         {/* person+ icon */}
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg width={large ? 20 : 15} height={large ? 20 : 15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <line x1="19" y1="8" x2="19" y2="14" />

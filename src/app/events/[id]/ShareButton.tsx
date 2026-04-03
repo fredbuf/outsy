@@ -32,9 +32,11 @@ type Sheet = null | "options" | "picker";
 export function ShareButton({
   title,
   eventId,
+  large,
 }: {
   title: string;
   eventId?: string;
+  large?: boolean;
 }) {
   const router = useRouter();
   const { user, session } = useAuth();
@@ -180,7 +182,25 @@ export function ShareButton({
         onClick={openSheet}
         title={copied ? "Copied!" : "Share event"}
         aria-label="Share event"
-        style={{
+        style={large ? {
+          flex: 1,
+          padding: "18px 12px",
+          borderRadius: 16,
+          background: copied ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 9,
+          color: "inherit",
+          fontSize: 14,
+          fontWeight: 600,
+          transition: "background 0.15s",
+        } : {
           display: "flex", alignItems: "center", justifyContent: "center",
           width: 40, height: 40, borderRadius: 12,
           border: "1px solid var(--border-strong)",
@@ -190,16 +210,17 @@ export function ShareButton({
         }}
       >
         {copied ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width={large ? 20 : 16} height={large ? 20 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width={large ? 20 : 16} height={large ? 20 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
             <polyline points="16 6 12 2 8 6" />
             <line x1="12" y1="2" x2="12" y2="15" />
           </svg>
         )}
+        {large && <span>{copied ? "Copied!" : "Share"}</span>}
       </button>
 
       {/* Options sheet */}
