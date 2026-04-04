@@ -906,6 +906,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         />
 
         {/* ── Lower section ────────────────────────────────────────── */}
+        <div style={{ background: "rgba(14,8,5,0.94)" }}>
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
 
           {/* ── Public-only: venue address + city + category + tickets ── */}
@@ -1276,6 +1277,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               : "Will appear in the public feed after review."}
           </p>
         </div>
+        </div>{/* end lower-section bg */}
       </form>
 
       {/* ── Photo action sheet ──────────────────────────────────────── */}
