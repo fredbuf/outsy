@@ -725,7 +725,6 @@ export function EventsList() {
     const run = async () => {
       setLoading(true);
       setFetchError(null);
-      setEvents([]);
       setExhausted(false);
       setNextPage(1);
 
@@ -958,7 +957,7 @@ export function EventsList() {
 
       {fetchError ? (
         <p style={{ color: "#dc2626" }}>Could not load events: {fetchError}</p>
-      ) : (isFiltered ? (filteredPoolLoading && filteredPool.length === 0) : loading) ? (
+      ) : (isFiltered ? (filteredPoolLoading && filteredPool.length === 0) : (loading && events.length === 0)) ? (
         <p>Loading events…</p>
       ) : showEmptySearchState ? (
         /* ── Empty search state ─────────────────────────────────────────── */
@@ -999,7 +998,7 @@ export function EventsList() {
         )
       ) : isFiltered ? (
         /* ── Filtered results: flat grid, no discovery sections ─────────── */
-        <section style={{ display: "grid", gap: 12 }}>
+        <section style={{ display: "grid", gap: 12, opacity: filteredPoolLoading && filteredPool.length > 0 ? 0.45 : 1, transition: "opacity 150ms ease" }}>
           <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
             {filtered.map((e) => {
               const rsvpCount = tileRsvp.counts[e.id] ?? 0;
@@ -1054,7 +1053,7 @@ export function EventsList() {
           </div>
         </section>
       ) : (
-        <>
+        <div style={{ display: "grid", gap: 16, opacity: loading && events.length > 0 ? 0.45 : 1, transition: "opacity 150ms ease" }}>
           {/* ── This week: horizontal scroll ─────────────────────────────── */}
           {thisWeekEvents.length > 0 && (
             <section style={{ display: "grid", gap: 10 }}>
@@ -1214,11 +1213,11 @@ export function EventsList() {
               })}
             </div>
           </section>
-        </>
+        </div>
       )}
 
       {/* Load more — only in default (non-filtered) mode */}
-      {!isFiltered && !loading && !showEmptySearchState && (
+      {!isFiltered && !loading && events.length > 0 && !showEmptySearchState && (
         <div style={{ textAlign: "center", paddingTop: 8 }}>
           {exhausted ? (
             filtered.length > 0 ? (
