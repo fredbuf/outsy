@@ -20,14 +20,6 @@ type CohostProfile = {
   username: string | null;
 };
 
-type RecentActivityItem = {
-  response: "going" | "maybe" | "cant_go";
-  updated_at: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  userId: string | null;
-};
-
 type Attendee = { display_name: string | null; avatar_url: string | null };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -49,22 +41,6 @@ function getAvatarColor(name: string | null): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
-}
-
-function rsvpActivityLabel(r: "going" | "maybe" | "cant_go"): { text: string; color: string } {
-  if (r === "going") return { text: "is going", color: "#10b981" };
-  if (r === "maybe") return { text: "might go", color: "#f59e0b" };
-  return { text: "can't make it", color: "#ef4444" };
 }
 
 // ── Props ──────────────────────────────────────────────────────────────────────
@@ -91,7 +67,6 @@ type Props = {
   paymentMethod: string | null;
   paymentContact: string | null;
   rsvpDeadline: string | null;
-  recentActivity: RecentActivityItem[];
   rsvpCounts: { going: number; maybe: number; cant_go: number };
   attendees: Attendee[];
   // Moments
@@ -109,7 +84,7 @@ export function PrivateEventSwipePage(props: Props) {
     dateLine, timeLine, privateMapHref, venueName, description,
     spotsLimited, spotsLimit, eventPrice, eventCurrency,
     paymentMethod, paymentContact, rsvpDeadline,
-    recentActivity, rsvpCounts, attendees,
+    rsvpCounts, attendees,
     guestsCanPost, guestsCanReact, initialMoments,
   } = props;
 
@@ -317,46 +292,6 @@ export function PrivateEventSwipePage(props: Props) {
                     initialCounts={rsvpCounts}
                     initialAttendees={attendees}
                   />
-
-                  {/* Activity preview */}
-                  {recentActivity.length > 0 && (
-                    <div style={{ paddingTop: 6, paddingBottom: 6 }}>
-                      {recentActivity.map((item, i) => {
-                        const label = rsvpActivityLabel(item.response);
-                        return (
-                          <div
-                            key={i}
-                            style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 10, paddingBottom: 10 }}
-                          >
-                            {item.userId ? (
-                              <Link href={`/profile/${item.userId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
-                                {item.avatar_url ? (
-                                  <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
-                                ) : (
-                                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                                    {getInitials(item.display_name)}
-                                  </div>
-                                )}
-                              </Link>
-                            ) : item.avatar_url ? (
-                              <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                            ) : (
-                              <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                                {getInitials(item.display_name)}
-                              </div>
-                            )}
-                            <span style={{ fontSize: 13, flex: 1 }}>
-                              <strong>{item.display_name ?? "Someone"}</strong>{" "}
-                              <span style={{ color: label.color }}>{label.text}</span>
-                            </span>
-                            <span style={{ fontSize: 12, opacity: 0.35, flexShrink: 0 }}>
-                              {relativeTime(item.updated_at)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
 
                   {/* Hosting card */}
                   {creator && (

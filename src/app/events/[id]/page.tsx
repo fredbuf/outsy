@@ -321,9 +321,8 @@ export default async function EventPage({
       moments_guests_can_react?: boolean | null;
     };
     const cohostIds = evtExt.cohost_ids ?? [];
-    const [cohostProfiles, recentActivity, initialMoments] = await Promise.all([
+    const [cohostProfiles, initialMoments] = await Promise.all([
       fetchCohostProfiles(cohostIds),
-      fetchRecentActivity(id),
       fetchMomentsForEvent(id),
     ]);
     const spotsLimited = evtExt.spots_mode === "limited" && (evtExt.spots_limit ?? 0) > 0;
@@ -365,7 +364,6 @@ export default async function EventPage({
         paymentMethod={evtExt.payment_method ?? null}
         paymentContact={evtExt.payment_contact ?? null}
         rsvpDeadline={rsvpDeadline}
-        recentActivity={recentActivity}
         rsvpCounts={rsvpCounts}
         attendees={attendees}
         guestsCanPost={guestsCanPost}

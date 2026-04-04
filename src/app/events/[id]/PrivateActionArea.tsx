@@ -74,7 +74,6 @@ function HostView({
         style={{
           display: "flex", alignItems: "center",
           gap: 12, paddingTop: 18, paddingBottom: 18,
-          borderBottom: "1px solid var(--border)",
         }}
       >
         {initialCounts.going > 0 || initialCounts.maybe > 0 ? (
@@ -123,7 +122,6 @@ function GuestView({
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 12, paddingTop: 18, paddingBottom: 18,
-          borderBottom: "1px solid var(--border)",
         }}
       >
         {initialCounts.going > 0 || initialCounts.maybe > 0 ? (
