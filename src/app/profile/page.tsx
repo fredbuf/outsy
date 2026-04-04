@@ -228,6 +228,11 @@ export default function ProfilePage() {
     return () => { document.body.style.overflow = ""; };
   }, [editOpen, activeSheet]);
 
+  useEffect(() => {
+    document.body.classList.add("is-profile-page");
+    return () => { document.body.classList.remove("is-profile-page"); };
+  }, []);
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!session?.access_token) return;
