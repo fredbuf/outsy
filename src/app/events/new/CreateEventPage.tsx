@@ -664,8 +664,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         .cep-options::-webkit-scrollbar { display: none; }
       `}</style>
 
-      {/* ── Ambient background ─────────────────────────────────────────── */}
-      {imagePreview ? (
+      {/* ── Ambient background — image state only ──────────────────────── */}
+      {imagePreview && (
         <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
           <img
             src={imagePreview}
@@ -680,8 +680,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             }}
           />
         </div>
-      ) : (
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(155deg, #1e1340 0%, #4c1d95 38%, #7c3aed 70%, #a78bfa 100%)", opacity: 0.18, pointerEvents: "none" }} />
       )}
 
       <div style={{ position: "relative", zIndex: 1, ...darkVars }}>
@@ -696,10 +694,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             aspectRatio: "3/4",
             borderRadius: "0 0 28px 28px",
             overflow: "hidden",
-            // No-image state: rich purple gradient
-            background: imagePreview
-              ? undefined
-              : "linear-gradient(155deg, #1e1340 0%, #4c1d95 38%, #7c3aed 70%, #a78bfa 100%)",
+            // No-image: neutral dark surface. Image: let the photo fill the bg.
+            background: imagePreview ? undefined : "#1c1917",
           }}
         >
           {/* Background image */}
@@ -715,11 +711,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             />
           )}
 
-          {/* Overlay — top nav band + bottom hero gradient matching event page exactly */}
+          {/* Overlay — minimal top scrim always; full hero gradient only with image */}
           <div
             style={{
               position: "absolute", inset: 0, pointerEvents: "none",
-              background: "linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 22%), linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
+              background: imagePreview
+                // Full event-page treatment: dark top band + heavy bottom gradient
+                ? "linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 22%), linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)"
+                // No image: just enough to keep the nav bar readable
+                : "linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 18%)",
             }}
           />
 
@@ -906,7 +906,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         />
 
         {/* ── Lower section ────────────────────────────────────────── */}
-        <div style={{ background: "rgba(14,8,5,0.94)" }}>
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
 
           {/* ── Public-only: venue address + city + category + tickets ── */}
@@ -1277,7 +1276,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               : "Will appear in the public feed after review."}
           </p>
         </div>
-        </div>{/* end lower-section bg */}
       </form>
 
       {/* ── Photo action sheet ──────────────────────────────────────── */}
