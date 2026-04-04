@@ -564,7 +564,7 @@ export default function SocialPage() {
 
   if (!user || !session) {
     return (
-      <main style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
+      <main className="app-bg" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
         <p style={{ fontSize: 15, opacity: 0.6 }}>Sign in to see your activity and messages.</p>
         <button
           type="button"
@@ -583,7 +583,7 @@ export default function SocialPage() {
 
   return (
     <main
-      className="page-main"
+      className="page-main app-bg"
       style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px" }}
     >
       {/* Header */}

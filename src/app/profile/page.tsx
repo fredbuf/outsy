@@ -357,14 +357,13 @@ export default function ProfilePage() {
 
   return (
     <main
-      className="page-main"
+      className="page-main app-bg"
       style={{
         maxWidth: 640,
         margin: "0 auto",
         padding: "28px 16px 64px",
         display: "grid",
         gap: 36,
-        background: "radial-gradient(ellipse 120% 60% at 50% -5%, rgba(124, 58, 237, 0.09) 0%, transparent 65%)",
       }}
     >
       {/* Hidden file input */}

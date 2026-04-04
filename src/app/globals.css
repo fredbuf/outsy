@@ -129,6 +129,36 @@ body {
   animation: sk-pulse 1.6s ease-in-out infinite;
 }
 
+/* ── App-level ambient background ──────────────────────────────────────── */
+/* A very slow, low-opacity violet radial gradient that gently breathes.   */
+/* Apply .app-bg to any page <main> or wrapper that should have this feel. */
+@keyframes app-bg-drift {
+  0%   { opacity: 1;    transform: scale(1)    translateY(0px);  }
+  50%  { opacity: 0.52; transform: scale(1.10) translateY(-18px); }
+  100% { opacity: 1;    transform: scale(1)    translateY(0px);  }
+}
+
+.app-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 130% 60% at 50% -8%,
+    rgba(124, 58, 237, 0.12) 0%,
+    transparent 68%
+  );
+  pointer-events: none;
+  z-index: -1;
+  animation: app-bg-drift 24s ease-in-out infinite;
+  will-change: opacity, transform;
+  transform-origin: 50% 0%;
+}
+
 /* ── Profile event card hover ───────────────────────────────────────────── */
 .profile-event-card {
   transition: box-shadow 0.18s ease, transform 0.18s ease;

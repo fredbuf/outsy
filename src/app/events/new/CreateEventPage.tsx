@@ -689,6 +689,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             CANVAS — full composition zone
             ════════════════════════════════════════════════════════════ */}
         <div
+          className={imagePreview ? undefined : "app-bg"}
           style={{
             position: "relative",
             aspectRatio: "3/4",
