@@ -335,6 +335,16 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     };
   }, [imagePreview]);
 
+  // Toggle aurora background: active when no image, removed when one is uploaded
+  useEffect(() => {
+    if (!imagePreview) {
+      document.body.classList.add("is-aurora-page");
+    } else {
+      document.body.classList.remove("is-aurora-page");
+    }
+    return () => { document.body.classList.remove("is-aurora-page"); };
+  }, [imagePreview]);
+
   function handleImageChange(file: File | null) {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     if (!file) {

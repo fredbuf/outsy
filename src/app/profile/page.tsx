@@ -229,8 +229,8 @@ export default function ProfilePage() {
   }, [editOpen, activeSheet]);
 
   useEffect(() => {
-    document.body.classList.add("is-profile-page");
-    return () => { document.body.classList.remove("is-profile-page"); };
+    document.body.classList.add("is-aurora-page");
+    return () => { document.body.classList.remove("is-aurora-page"); };
   }, []);
 
   async function handleSave(e: React.FormEvent) {

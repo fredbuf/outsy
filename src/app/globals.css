@@ -214,7 +214,7 @@ body {
 /* ── Profile page: vivid full-bleed aurora, dark body fill ──────────────── */
 
 /* 1. Force the whole viewport dark so nothing is white below the content. */
-body.is-profile-page {
+body.is-aurora-page {
   background: #111110;
 }
 
@@ -228,7 +228,7 @@ body.is-profile-page {
 
 /* 3. Vivid aurora starts at the very top of <main> (below header).
       top: 0 is intentional — header is NOT touched.               */
-body.is-profile-page .page-top-glow {
+body.is-aurora-page .page-top-glow {
   top: 0;
   height: 55vh;
   background: radial-gradient(ellipse 65% 55% at 50% -10%, rgba(37, 99, 235, 0.40) 0%, transparent 70%);
@@ -238,7 +238,7 @@ body.is-profile-page .page-top-glow {
 }
 
 /* Larger, more saturated violet orb */
-body.is-profile-page .page-top-glow::before {
+body.is-aurora-page .page-top-glow::before {
   width: 115%;
   height: 340px;
   top: -150px;
@@ -247,7 +247,7 @@ body.is-profile-page .page-top-glow::before {
 }
 
 /* Larger, more saturated pink orb shifted to the right */
-body.is-profile-page .page-top-glow::after {
+body.is-aurora-page .page-top-glow::after {
   width: 90%;
   height: 270px;
   top: -110px;
@@ -256,7 +256,7 @@ body.is-profile-page .page-top-glow::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body.is-profile-page .page-top-glow { animation: none !important; }
+  body.is-aurora-page .page-top-glow { animation: none !important; }
 }
 
 /* ── Profile event card hover ───────────────────────────────────────────── */

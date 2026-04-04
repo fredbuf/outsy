@@ -554,6 +554,11 @@ export default function SocialPage() {
   const [activityUnread, setActivityUnread] = useState(false);
   const [messagesUnread, setMessagesUnread] = useState(false);
 
+  useEffect(() => {
+    document.body.classList.add("is-aurora-page");
+    return () => { document.body.classList.remove("is-aurora-page"); };
+  }, []);
+
   function handleTabSwitch(t: Tab) {
     setTab(t);
     // Clear the messages dot when the user opens that tab (no server-side read tracking for messages)
@@ -564,7 +569,7 @@ export default function SocialPage() {
 
   if (!user || !session) {
     return (
-      <main className="app-page" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
+      <main className="app-page" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center", minHeight: "100dvh" }}>
         <div className="page-top-glow" aria-hidden="true" />
         <p style={{ fontSize: 15, opacity: 0.6 }}>Sign in to see your activity and messages.</p>
         <button
@@ -585,7 +590,7 @@ export default function SocialPage() {
   return (
     <main
       className="page-main app-page"
-      style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px" }}
+      style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px", minHeight: "100dvh" }}
     >
       <div className="page-top-glow" aria-hidden="true" />
       {/* Header */}
