@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { FriendProfile } from "@/app/api/friends/route";
 
@@ -39,7 +38,6 @@ export function ShareButton({
   eventId?: string;
   large?: boolean;
 }) {
-  const router = useRouter();
   const { user, session } = useAuth();
 
   // Sheet state
@@ -49,7 +47,11 @@ export function ShareButton({
   const [friends, setFriends] = useState<FriendProfile[] | null>(null);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Optional message to attach to the event share
+  const [message, setMessage] = useState("");
 
   // Copy-link feedback
   const [copied, setCopied] = useState(false);
@@ -121,6 +123,7 @@ export function ShareButton({
     setSendingTo(friend.id);
     setSendError(null);
     try {
+      // 1. Send the event card
       const res = await fetch(`/api/social/messages/${friend.id}`, {
         method: "POST",
         headers: {
@@ -130,13 +133,29 @@ export function ShareButton({
         body: JSON.stringify({ eventId }),
       });
       const data = (await res.json()) as { ok: boolean; error?: string };
-      if (data.ok) {
-        setSheet(null);
-        router.push(`/social/messages/${friend.id}`);
-      } else {
+
+      if (!data.ok) {
         setSendError(data.error ?? "Failed to send.");
         setSendingTo(null);
+        return;
       }
+
+      // 2. If user added a message, send it as a follow-up text
+      const trimmed = message.trim();
+      if (trimmed) {
+        await fetch(`/api/social/messages/${friend.id}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ body: trimmed }),
+        });
+      }
+
+      // Mark as sent — stay on the page
+      setSentTo((prev) => new Set(prev).add(friend.id));
+      setSendingTo(null);
     } catch {
       setSendError("Network error.");
       setSendingTo(null);
@@ -340,14 +359,36 @@ export function ShareButton({
           style={overlayStyle}
           onClick={(e) => e.target === e.currentTarget && setSheet(null)}
         >
-          <div style={{ ...sheetStyle, maxHeight: "72dvh" }}>
+          <div style={{ ...sheetStyle, maxHeight: "82dvh" }}>
             <div style={sheetHeaderStyle}>
               <div style={{ width: 28, flexShrink: 0 }} />
               <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Send to friend</span>
               <button type="button" onClick={() => setSheet(null)} style={closeBtn}>×</button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto" }}>
+            {/* Optional message input */}
+            <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Add a message… (optional)"
+                maxLength={200}
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "rgba(255,255,255,0.07)",
+                  color: "inherit",
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", marginTop: 8 }}>
               {sendError && (
                 <div style={{ padding: "8px 20px", fontSize: 13, color: "#dc2626" }}>{sendError}</div>
               )}
@@ -363,18 +404,18 @@ export function ShareButton({
                   {friends.map((friend) => {
                     const name = friend.display_name ?? friend.username ?? "User";
                     const isSending = sendingTo === friend.id;
-                    const isDone = false; // navigates away on success
+                    const isDone = sentTo.has(friend.id);
                     return (
                       <button
                         key={friend.id}
                         type="button"
-                        onClick={() => sendToFriend(friend)}
+                        onClick={() => !isDone && sendToFriend(friend)}
                         disabled={!!sendingTo || isDone}
                         style={{
                           display: "flex", alignItems: "center", gap: 12,
                           width: "100%", padding: "11px 20px",
                           background: "transparent", border: "none",
-                          cursor: sendingTo ? "not-allowed" : "pointer",
+                          cursor: isDone ? "default" : sendingTo ? "not-allowed" : "pointer",
                           textAlign: "left",
                           opacity: sendingTo && !isSending ? 0.4 : 1,
                           transition: "opacity 0.12s",
@@ -397,9 +438,18 @@ export function ShareButton({
                           </div>
                         )}
                         <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{name}</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0, color: isSending ? "inherit" : "var(--accent)", opacity: isSending ? 0.5 : 1 }}>
-                          {isSending ? "Sending…" : "Send"}
-                        </span>
+                        {isDone ? (
+                          <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0, color: "#4ade80", display: "flex", alignItems: "center", gap: 4 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Sent
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0, color: isSending ? "inherit" : "var(--accent)", opacity: isSending ? 0.5 : 1 }}>
+                            {isSending ? "Sending…" : "Send"}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

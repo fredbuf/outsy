@@ -943,7 +943,7 @@ export function EventsList() {
                 border: `1px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`,
                 background: active ? "var(--foreground)" : "transparent",
                 color: active ? "var(--background)" : "inherit",
-                fontWeight: active ? 700 : 400,
+                fontWeight: 600,
                 fontSize: 13,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
@@ -958,7 +958,7 @@ export function EventsList() {
 
       {fetchError ? (
         <p style={{ color: "#dc2626" }}>Could not load events: {fetchError}</p>
-      ) : (isFiltered ? filteredPoolLoading : loading) ? (
+      ) : (isFiltered ? (filteredPoolLoading && filteredPool.length === 0) : loading) ? (
         <p>Loading events…</p>
       ) : showEmptySearchState ? (
         /* ── Empty search state ─────────────────────────────────────────── */

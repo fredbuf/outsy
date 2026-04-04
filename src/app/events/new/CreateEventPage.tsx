@@ -1301,7 +1301,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           <div
             style={{
               width: "100%",
-              background: "var(--background)",
+              background: "#111110",
               borderRadius: "22px 22px 0 0",
               paddingBottom: "max(24px, env(safe-area-inset-bottom))",
               overflow: "hidden",
@@ -1347,7 +1347,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
           onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
         >
-          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
             </div>
@@ -1407,7 +1407,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
           onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
         >
-          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
             </div>
@@ -1471,7 +1471,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
           onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
         >
-          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
             </div>
@@ -1511,7 +1511,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
           onClick={(e) => e.target === e.currentTarget && setCohostSheetOpen(false)}
         >
-          <div style={{ width: "100%", background: "var(--background)", borderRadius: "22px 22px 0 0", maxHeight: "80vh", display: "flex", flexDirection: "column", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", maxHeight: "80vh", display: "flex", flexDirection: "column", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
             {/* Drag handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
@@ -1623,7 +1623,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           <div
             style={{
               width: "100%",
-              background: "var(--background)",
+              background: "#111110",
               borderRadius: "22px 22px 0 0",
               maxHeight: "90vh", overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
@@ -1765,7 +1765,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       <ul style={{
                         position: "absolute", top: "100%", left: 0, right: 0,
                         zIndex: 50, margin: "4px 0 0", padding: 0, listStyle: "none",
-                        background: "var(--background)", border: "1px solid var(--border-strong)",
+                        background: "#111110", border: "1px solid var(--border-strong)",
                         borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
                         overflow: "hidden",
                       }}>
@@ -1815,7 +1815,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           <div
             style={{
               width: "100%",
-              background: "var(--background)",
+              background: "#111110",
               borderRadius: "22px 22px 0 0",
               maxHeight: "90vh", overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
