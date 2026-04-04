@@ -901,8 +901,10 @@ export default function MapPage() {
   }, [filteredEvents, selected, deepLinkedEvent]);
 
   // Exit deep-link mode when the tile is dismissed — map reverts to default view.
+  // Only after auto-select has run (deepLinkRef.current becomes null) to avoid
+  // immediately clearing deepLinkedEvent before selection is applied.
   useEffect(() => {
-    if (!selected && deepLinkedEvent) {
+    if (!selected && deepLinkedEvent && deepLinkRef.current === null) {
       setDeepLinkedEvent(null);
     }
   }, [selected, deepLinkedEvent]);
