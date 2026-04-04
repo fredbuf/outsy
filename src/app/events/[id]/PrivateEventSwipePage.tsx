@@ -509,7 +509,7 @@ export function PrivateEventSwipePage(props: Props) {
           style={{
             width: page === 0 ? 22 : 7, height: 7,
             borderRadius: 4,
-            background: page === 0 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.30)",
+            background: page === 0 ? "#fff" : "rgba(255,255,255,0.55)",
             border: "none", padding: 0,
             cursor: "pointer",
             transition: "width 0.2s ease, background 0.2s ease",
@@ -522,7 +522,7 @@ export function PrivateEventSwipePage(props: Props) {
           style={{
             width: page === 1 ? 22 : 7, height: 7,
             borderRadius: 4,
-            background: page === 1 ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.30)",
+            background: page === 1 ? "#fff" : "rgba(255,255,255,0.55)",
             border: "none", padding: 0,
             cursor: "pointer",
             transition: "width 0.2s ease, background 0.2s ease",
