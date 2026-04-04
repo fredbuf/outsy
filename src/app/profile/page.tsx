@@ -357,7 +357,7 @@ export default function ProfilePage() {
 
   return (
     <main
-      className="page-main app-bg"
+      className="page-main app-page"
       style={{
         maxWidth: 640,
         margin: "0 auto",
@@ -366,6 +366,7 @@ export default function ProfilePage() {
         gap: 36,
       }}
     >
+      <div className="page-top-glow" aria-hidden="true" />
       {/* Hidden file input */}
       <input
         ref={fileInputRef}

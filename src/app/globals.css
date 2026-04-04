@@ -129,34 +129,50 @@ body {
   animation: sk-pulse 1.6s ease-in-out infinite;
 }
 
-/* ── App-level ambient background ──────────────────────────────────────── */
-/* A very slow, low-opacity violet radial gradient that gently breathes.   */
-/* Apply .app-bg to any page <main> or wrapper that should have this feel. */
-@keyframes app-bg-drift {
-  0%   { opacity: 1;    transform: scale(1)    translateY(0px);  }
-  50%  { opacity: 0.52; transform: scale(1.10) translateY(-18px); }
-  100% { opacity: 1;    transform: scale(1)    translateY(0px);  }
-}
+/* ── Dark app-page base + top atmospheric glow ─────────────────────────── */
+/*                                                                          */
+/* .app-page   — forces dark base + dark CSS vars. Add to page <main>.     */
+/* .page-top-glow — place as FIRST child of .app-page; paints an           */
+/*                  atmospheric multi-color halo near the top of the page. */
+/*                  Uses z-index:-1 within app-page's isolation context,   */
+/*                  so it sits above the dark base but below all content.  */
 
-.app-bg {
+.app-page {
   position: relative;
   isolation: isolate;
+  background: #111110;
+  color: #eae8e4;
+  color-scheme: dark;
+  --background: #111110;
+  --foreground: #eae8e4;
+  --border: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.18);
+  --border-medium: rgba(255,255,255,0.13);
+  --surface-subtle: rgba(255,255,255,0.04);
+  --surface-raised: rgba(255,255,255,0.09);
+  --btn-bg: rgba(255,255,255,0.07);
+  --btn-bg-active: rgba(255,255,255,0.13);
+  --accent: #a78bfa;
+  --accent-subtle: rgba(167,139,250,0.14);
 }
 
-.app-bg::before {
-  content: "";
+@keyframes page-glow-breathe {
+  0%, 100% { opacity: 1;    }
+  50%       { opacity: 0.52; }
+}
+
+.page-top-glow {
   position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 130% 60% at 50% -8%,
-    rgba(124, 58, 237, 0.12) 0%,
-    transparent 68%
-  );
+  top: 0; left: 0; right: 0;
+  height: 52vh;
+  background:
+    radial-gradient(ellipse 65% 90% at 18% -20%, rgba(139, 92,246,0.22) 0%, transparent 58%),
+    radial-gradient(ellipse 50% 70% at 82% -12%, rgba(220, 80, 80,0.14) 0%, transparent 52%),
+    radial-gradient(ellipse 80% 60% at 50% -30%, rgba( 14,165,233,0.09) 0%, transparent 65%);
   pointer-events: none;
   z-index: -1;
-  animation: app-bg-drift 24s ease-in-out infinite;
-  will-change: opacity, transform;
-  transform-origin: 50% 0%;
+  animation: page-glow-breathe 20s ease-in-out infinite;
+  will-change: opacity;
 }
 
 /* ── Profile event card hover ───────────────────────────────────────────── */

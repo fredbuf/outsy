@@ -249,7 +249,8 @@ export default function AddFriendPage() {
 
   if (!user) {
     return (
-      <main className="app-bg" style={{ maxWidth: 480, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
+      <main className="app-page" style={{ maxWidth: 480, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
+        <div className="page-top-glow" aria-hidden="true" />
         <p style={{ fontSize: 15, opacity: 0.6 }}>Sign in to find friends.</p>
         <button
           type="button"
@@ -272,9 +273,10 @@ export default function AddFriendPage() {
 
   return (
     <main
-      className="page-main app-bg"
+      className="page-main app-page"
       style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px" }}
     >
+      <div className="page-top-glow" aria-hidden="true" />
       {/* Back */}
       <Link href="/profile" style={{ opacity: 0.55, fontSize: 14, textDecoration: "none", display: "block", marginBottom: 20 }}>
         ← Back

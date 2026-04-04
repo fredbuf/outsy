@@ -689,16 +689,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             CANVAS — full composition zone
             ════════════════════════════════════════════════════════════ */}
         <div
-          className={imagePreview ? undefined : "app-bg"}
+          className={imagePreview ? undefined : "app-page"}
           style={{
             position: "relative",
             aspectRatio: "3/4",
             borderRadius: "0 0 28px 28px",
             overflow: "hidden",
-            // No-image: neutral dark surface. Image: let the photo fill the bg.
-            background: imagePreview ? undefined : "#1c1917",
           }}
         >
+          {!imagePreview && <div className="page-top-glow" aria-hidden="true" />}
           {/* Background image */}
           {imagePreview && (
             <img

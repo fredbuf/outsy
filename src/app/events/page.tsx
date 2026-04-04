@@ -2,7 +2,8 @@ import { EventsList } from "./EventsList";
 
 export default function EventsPage() {
   return (
-    <main className="page-main app-bg" style={{ padding: 24, maxWidth: 980, margin: "0 auto", display: "grid", gap: 24 }}>
+    <main className="page-main app-page" style={{ padding: 24, maxWidth: 980, margin: "0 auto", display: "grid", gap: 24 }}>
+      <div className="page-top-glow" aria-hidden="true" />
       <header>
         <h1 className="page-h1" style={{ fontSize: 32, fontWeight: 700, textAlign: "center", lineHeight: 1.3 }}>
           <span style={{ display: "block" }}>What&apos;s happening in</span>

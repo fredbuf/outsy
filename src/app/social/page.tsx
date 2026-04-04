@@ -564,7 +564,8 @@ export default function SocialPage() {
 
   if (!user || !session) {
     return (
-      <main className="app-bg" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
+      <main className="app-page" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center" }}>
+        <div className="page-top-glow" aria-hidden="true" />
         <p style={{ fontSize: 15, opacity: 0.6 }}>Sign in to see your activity and messages.</p>
         <button
           type="button"
@@ -583,9 +584,10 @@ export default function SocialPage() {
 
   return (
     <main
-      className="page-main app-bg"
+      className="page-main app-page"
       style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px" }}
     >
+      <div className="page-top-glow" aria-hidden="true" />
       {/* Header */}
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, textAlign: "center" }}>Inbox</h1>
 
