@@ -555,6 +555,62 @@ function MiniCalendar({
   );
 }
 
+// ── Skeleton loading placeholders ────────────────────────────────────────────
+// Displayed only on initial load (no cached events yet).
+// Mirrors the shape of "This week" cards + "All events" grid so the layout
+// doesn't collapse and the shell stays visually stable.
+
+function SkeletonCard({ aspectRatio = "65%" }: { aspectRatio?: string }) {
+  return (
+    <div
+      className="skeleton"
+      style={{
+        borderRadius: 14,
+        background: "rgba(255,255,255,0.08)",
+        paddingBottom: aspectRatio,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    />
+  );
+}
+
+function SkeletonResults() {
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      {/* "This week" row */}
+      <div style={{ display: "grid", gap: 10 }}>
+        <div className="skeleton" style={{ height: 20, width: 90, borderRadius: 6, background: "rgba(255,255,255,0.10)" }} />
+        <div style={{ display: "flex", gap: 12, overflow: "hidden" }}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="skeleton"
+              style={{
+                flexShrink: 0,
+                width: "min(82vw, 320px)",
+                height: 230,
+                borderRadius: 24,
+                background: "rgba(255,255,255,0.08)",
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      {/* "All events" grid */}
+      <div style={{ display: "grid", gap: 10 }}>
+        <div className="skeleton" style={{ height: 20, width: 90, borderRadius: 6, background: "rgba(255,255,255,0.10)" }} />
+        <div
+          className="events-grid"
+          style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+        >
+          {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EventsList() {
   const { user, session } = useAuth();
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -844,7 +900,9 @@ export function EventsList() {
   );
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+      {/* ── Stable shell: always visible regardless of loading/empty state ── */}
+      <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
       {/* Search + Filters button */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
@@ -928,7 +986,7 @@ export function EventsList() {
       </div>
 
       {/* Category chip row */}
-      <div className="chip-row" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+      <div className="chip-row" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, minWidth: 0 }}>
         {(["all", "concerts", "nightlife", "arts_culture", "comedy", "sports", "family"] as const).map((c) => {
           const active = category === c;
           return (
@@ -954,11 +1012,14 @@ export function EventsList() {
           );
         })}
       </div>
+      </div>{/* end stable shell */}
 
+      {/* ── Results area: only this section changes on load / empty state ── */}
+      <div style={{ minWidth: 0 }}>
       {fetchError ? (
         <p style={{ color: "#dc2626" }}>Could not load events: {fetchError}</p>
       ) : (isFiltered ? (filteredPoolLoading && filteredPool.length === 0) : (loading && events.length === 0)) ? (
-        <p>Loading events…</p>
+        <SkeletonResults />
       ) : showEmptySearchState ? (
         /* ── Empty search state ─────────────────────────────────────────── */
         <div style={{ display: "grid", gap: 16, paddingTop: 8 }}>
@@ -1215,6 +1276,7 @@ export function EventsList() {
           </section>
         </div>
       )}
+      </div>{/* end results area */}
 
       {/* Load more — only in default (non-filtered) mode */}
       {!isFiltered && !loading && events.length > 0 && !showEmptySearchState && (
