@@ -130,10 +130,8 @@ export function PrivateEventSwipePage(props: Props) {
     if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 55) {
       if (dx < 0 && page === 0) {
         setPage(1);
-        window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
       } else if (dx > 0 && page === 1) {
         setPage(0);
-        window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
       }
     }
     touchStartX.current = null;
@@ -304,7 +302,6 @@ export function PrivateEventSwipePage(props: Props) {
                 width: "200%",
                 transform: `translateX(${page === 0 ? "0%" : "-50%"})`,
                 transition: "transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                willChange: "transform",
               }}
             >
               {/* ── Info panel ───────────────────────────────────────────── */}
@@ -499,21 +496,20 @@ export function PrivateEventSwipePage(props: Props) {
 
       {/* ── Page indicator dots — fixed above bottom nav ─────────────────── */}
       <div
-        aria-hidden="true"
         style={{
           position: "fixed",
           bottom: 76,
           left: 0, right: 0,
           display: "flex", justifyContent: "center", alignItems: "center",
           gap: 6,
-          zIndex: 50,
+          zIndex: 100,
           pointerEvents: "none",
         }}
       >
         <button
           type="button"
           aria-label="Info"
-          onClick={() => { setPage(0); window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }); }}
+          onClick={() => setPage(0)}
           style={{
             width: page === 0 ? 22 : 7, height: 7,
             borderRadius: 4,
@@ -527,7 +523,7 @@ export function PrivateEventSwipePage(props: Props) {
         <button
           type="button"
           aria-label="Moments"
-          onClick={() => { setPage(1); window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior }); }}
+          onClick={() => setPage(1)}
           style={{
             width: page === 1 ? 22 : 7, height: 7,
             borderRadius: 4,
