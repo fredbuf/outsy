@@ -146,14 +146,19 @@ export function ShareButton({
   // ── Shared sheet wrapper ──────────────────────────────────────────────────
 
   const sheetStyle: React.CSSProperties = {
-    background: "var(--background)",
+    background: "#111110",
+    color: "#eae8e4",
     borderRadius: "20px 20px 0 0",
     width: "100%",
     maxWidth: 540,
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-  };
+    "--border": "rgba(255,255,255,0.10)",
+    "--border-strong": "rgba(255,255,255,0.18)",
+    "--surface-raised": "rgba(255,255,255,0.09)",
+    "--accent": "#a78bfa",
+  } as React.CSSProperties;
 
   const overlayStyle: React.CSSProperties = {
     position: "fixed", inset: 0, zIndex: 300,

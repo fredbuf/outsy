@@ -156,7 +156,8 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
         >
           <div
             style={{
-              background: "var(--background)",
+              background: "#111110",
+              color: "#eae8e4",
               borderRadius: "20px 20px 0 0",
               width: "100%",
               maxWidth: 540,
@@ -164,7 +165,12 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
-            }}
+              "--border": "rgba(255,255,255,0.10)",
+              "--border-strong": "rgba(255,255,255,0.18)",
+              "--surface-subtle": "rgba(255,255,255,0.04)",
+              "--surface-raised": "rgba(255,255,255,0.09)",
+              "--accent": "#a78bfa",
+            } as React.CSSProperties}
           >
             {/* Sheet header */}
             <div

@@ -226,15 +226,19 @@ export function AttendeeList({
         >
           <div
             style={{
-              background: "var(--background)",
-              border: "1px solid var(--border)",
+              background: "#111110",
+              color: "#eae8e4",
+              border: "1px solid rgba(255,255,255,0.12)",
               borderRadius: 16,
               width: "100%",
               maxWidth: 400,
               maxHeight: "70vh",
               display: "flex",
               flexDirection: "column",
-            }}
+              "--border": "rgba(255,255,255,0.10)",
+              "--border-strong": "rgba(255,255,255,0.18)",
+              "--accent": "#a78bfa",
+            } as React.CSSProperties}
           >
             {/* Modal header */}
             <div

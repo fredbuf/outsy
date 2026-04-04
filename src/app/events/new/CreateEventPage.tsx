@@ -97,6 +97,7 @@ export type EditEventData = {
   payment_method?: string | null;
   payment_contact?: string | null;
   rsvp_deadline?: string | null;
+  description_title?: string | null;
 };
 
 const inputStyle: React.CSSProperties = {
@@ -186,6 +187,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Description expand
   const [descriptionOpen, setDescriptionOpen] = useState(() => Boolean(editData?.description));
+  const [descriptionTitle, setDescriptionTitle] = useState(() => editData?.description_title ?? "");
 
   // Photo menu
   const [photoMenuOpen, setPhotoMenuOpen] = useState(false);
@@ -435,7 +437,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         imageUrl = imagePreview;
       }
 
-      const basePayload = { title, description, startAt, endAt, visibility, imageUrl };
+      const basePayload = { title, description, descriptionTitle: descriptionTitle.trim() || undefined, startAt, endAt, visibility, imageUrl };
       const payload = isPrivate
         ? {
             ...basePayload,
@@ -573,6 +575,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setPublicSubmitted(false);
               setTitle("");
               setDescription("");
+              setDescriptionTitle("");
               setStartDate("");
               setStartTime("");
               setEndDate("");
@@ -632,6 +635,19 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer",
   };
 
+  const darkVars = {
+    color: "#eae8e4",
+    "--background":     "rgba(20,11,7,0.72)",
+    "--foreground":     "#eae8e4",
+    "--border":         "rgba(255,255,255,0.10)",
+    "--border-strong":  "rgba(255,255,255,0.18)",
+    "--btn-bg":         "rgba(255,255,255,0.07)",
+    "--btn-bg-active":  "rgba(255,255,255,0.13)",
+    "--surface-subtle": "rgba(255,255,255,0.04)",
+    "--surface-raised": "rgba(255,255,255,0.09)",
+    "--accent":         "#a78bfa",
+  } as React.CSSProperties;
+
   return (
     <>
       <Script
@@ -648,6 +664,27 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         .cep-options::-webkit-scrollbar { display: none; }
       `}</style>
 
+      {/* ── Ambient background ─────────────────────────────────────────── */}
+      {imagePreview ? (
+        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
+          <img
+            src={imagePreview}
+            alt=""
+            style={{
+              position: "absolute", inset: 0,
+              width: "100%", height: "100%",
+              objectFit: "cover",
+              filter: "blur(80px) saturate(1.8) brightness(0.35)",
+              transform: "scale(1.15)",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
+      ) : (
+        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "linear-gradient(155deg, #1e1340 0%, #4c1d95 38%, #7c3aed 70%, #a78bfa 100%)", opacity: 0.18, pointerEvents: "none" }} />
+      )}
+
+      <div style={{ position: "relative", zIndex: 1, ...darkVars }}>
       <form onSubmit={handleSubmit}>
 
         {/* ════════════════════════════════════════════════════════════
@@ -1060,7 +1097,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
             const chipBase: React.CSSProperties = {
               display: "flex", alignItems: "center", gap: 6,
-              padding: "8px 12px", borderRadius: 10, flexShrink: 0,
+              padding: "8px 16px", borderRadius: 20, flexShrink: 0,
               cursor: "pointer", fontSize: 13, fontWeight: 500,
               color: "inherit", background: "transparent",
               fontFamily: "inherit",
@@ -1146,21 +1183,38 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             }}
           >
             {descriptionOpen || description ? (
-              <textarea
-                autoFocus={descriptionOpen && !description}
-                placeholder="What's this event about?"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={() => { if (!description) setDescriptionOpen(false); }}
-                rows={4}
-                style={{
-                  display: "block", width: "100%", boxSizing: "border-box",
-                  padding: "14px 16px", border: "none",
-                  fontSize: 14, background: "transparent", color: "inherit",
-                  resize: "vertical", outline: "none",
-                  fontFamily: "inherit", lineHeight: 1.6,
-                }}
-              />
+              <>
+                {/* Optional title */}
+                <input
+                  type="text"
+                  placeholder="Section title (optional)"
+                  value={descriptionTitle}
+                  onChange={(e) => setDescriptionTitle(e.target.value)}
+                  style={{
+                    display: "block", width: "100%", boxSizing: "border-box",
+                    padding: "14px 16px 10px", border: "none",
+                    fontSize: 15, fontWeight: 600,
+                    background: "transparent", color: "inherit",
+                    outline: "none", fontFamily: "inherit",
+                  }}
+                />
+                <div style={{ height: 1, background: "var(--border)", margin: "0 16px" }} />
+                <textarea
+                  autoFocus={descriptionOpen && !description}
+                  placeholder="What's this event about?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={() => { if (!description && !descriptionTitle) setDescriptionOpen(false); }}
+                  rows={4}
+                  style={{
+                    display: "block", width: "100%", boxSizing: "border-box",
+                    padding: "10px 16px 14px", border: "none",
+                    fontSize: 14, background: "transparent", color: "inherit",
+                    resize: "vertical", outline: "none",
+                    fontFamily: "inherit", lineHeight: 1.6,
+                  }}
+                />
+              </>
             ) : (
               <button
                 type="button"
@@ -1913,6 +1967,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           </div>
         </div>
       )}
+      </div>{/* end dark wrapper */}
     </>
   );
 }
