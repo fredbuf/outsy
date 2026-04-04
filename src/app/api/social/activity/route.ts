@@ -23,15 +23,22 @@ export type ActivityEventSummary = {
   image_url: string | null;
 };
 
+export type MomentMeta = {
+  event_id: string;
+  event_title: string;
+};
+
 export type ActivityItem = {
   id: string;
-  type: "friend_request_received" | "friend_request_accepted" | "event_invite";
+  type: "friend_request_received" | "friend_request_accepted" | "event_invite" | "moment_posted";
   actor: ActivityActor;
   entity_id: string | null;
   // friend_request_received: true while friendship is still pending
   friendshipPending: boolean;
   // event_invite: event details
   event: ActivityEventSummary | null;
+  // moment_posted: event context from notification metadata
+  momentMeta: MomentMeta | null;
   read: boolean;
   created_at: string;
 };
@@ -48,7 +55,7 @@ export async function GET(req: Request) {
 
   const { data: notifs, error } = await supabase
     .from("notifications")
-    .select("id,type,actor_id,entity_id,read,created_at")
+    .select("id,type,actor_id,entity_id,metadata,read,created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -131,6 +138,16 @@ export async function GET(req: Request) {
       avatar_url: null,
     };
     const entityId = n.entity_id as string | null;
+    const metadata = (n.metadata ?? {}) as Record<string, unknown>;
+
+    // moment_posted: event context lives in notification metadata
+    const momentMeta: MomentMeta | null =
+      n.type === "moment_posted" &&
+      typeof metadata.event_id === "string" &&
+      typeof metadata.event_title === "string"
+        ? { event_id: metadata.event_id, event_title: metadata.event_title }
+        : null;
+
     return {
       id: n.id as string,
       type: n.type as ActivityItem["type"],
@@ -144,6 +161,7 @@ export async function GET(req: Request) {
         n.type === "event_invite" && entityId != null
           ? (eventsMap.get(entityId) ?? null)
           : null,
+      momentMeta,
       read: n.read as boolean,
       created_at: n.created_at as string,
     };

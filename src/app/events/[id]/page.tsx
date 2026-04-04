@@ -492,6 +492,29 @@ export default async function EventPage({
         } as React.CSSProperties}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
 
+            {/* Info / Moments tab strip */}
+            <div style={{ display: "flex", gap: 0, margin: "20px 0 4px", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
+              <span
+                style={{
+                  padding: "10px 20px", fontSize: 14, fontWeight: 700,
+                  color: "#eae8e4", borderBottom: "2px solid #a78bfa",
+                  marginBottom: -1, cursor: "default",
+                }}
+              >
+                Info
+              </span>
+              <Link
+                href={`/events/${id}/moments`}
+                style={{
+                  padding: "10px 20px", fontSize: 14, fontWeight: 600,
+                  color: "rgba(255,255,255,0.45)", textDecoration: "none",
+                  borderBottom: "2px solid transparent", marginBottom: -1,
+                }}
+              >
+                Moments
+              </Link>
+            </div>
+
             {/* ③ RSVP or host controls — client component picks the right view */}
             <PrivateActionArea
               eventId={id}
@@ -844,6 +867,29 @@ export default async function EventPage({
           "--accent":         "#a78bfa",
         } as React.CSSProperties}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
+
+            {/* Info / Moments tab strip */}
+            <div style={{ display: "flex", gap: 0, margin: "20px 0 4px", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
+              <span
+                style={{
+                  padding: "10px 20px", fontSize: 14, fontWeight: 700,
+                  color: "#eae8e4", borderBottom: "2px solid #a78bfa",
+                  marginBottom: -1, cursor: "default",
+                }}
+              >
+                Info
+              </span>
+              <Link
+                href={`/events/${id}/moments`}
+                style={{
+                  padding: "10px 20px", fontSize: 14, fontWeight: 600,
+                  color: "rgba(255,255,255,0.45)", textDecoration: "none",
+                  borderBottom: "2px solid transparent", marginBottom: -1,
+                }}
+              >
+                Moments
+              </Link>
+            </div>
 
             {/* RSVP / Tickets */}
             <div style={{ paddingTop: 32, paddingBottom: 4 }}>

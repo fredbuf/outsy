@@ -4,7 +4,8 @@ import { supabaseServer } from "./supabase-server";
 export type NotificationType =
   | "friend_request_received"
   | "friend_request_accepted"
-  | "event_invite";
+  | "event_invite"
+  | "moment_posted";
 
 export async function createNotification({
   userId,

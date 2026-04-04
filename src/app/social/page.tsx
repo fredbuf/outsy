@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/components/AuthProvider";
-import type { ActivityItem } from "@/app/api/social/activity/route";
+import type { ActivityItem, MomentMeta } from "@/app/api/social/activity/route";
 import type { ConversationPreview } from "@/app/api/social/conversations/route";
 
 // ── Avatar helpers ─────────────────────────────────────────────────────────────
@@ -263,6 +263,50 @@ function FriendRequestAcceptedRow({ item, onRead }: { item: ActivityItem; onRead
   );
 }
 
+function MomentPostedRow({
+  item,
+  onRead,
+}: {
+  item: ActivityItem & { momentMeta: MomentMeta };
+  onRead: () => void;
+}) {
+  const actorName = item.actor.display_name ?? item.actor.username ?? "Someone";
+  const { event_id, event_title } = item.momentMeta;
+  const momentId = item.entity_id;
+  const href = momentId
+    ? `/events/${event_id}/moments?moment=${momentId}`
+    : `/events/${event_id}/moments`;
+
+  return (
+    <Link href={href} style={{ textDecoration: "none", color: "inherit" }} onClick={onRead}>
+      <div
+        style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "12px 0", borderBottom: "1px solid var(--border)",
+          cursor: "pointer",
+        }}
+      >
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 14,
+            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+          }}>
+            <span style={{ fontWeight: 600 }}>{actorName}</span>
+            {" posted a Moment"}
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 2 }}>
+            {event_title} · {relativeTime(item.created_at)}
+          </div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.3, flexShrink: 0 }}>
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </div>
+    </Link>
+  );
+}
+
 function ActivityTab({
   token,
   onUnreadChange,
@@ -356,6 +400,15 @@ function ActivityTab({
             <EventInviteRow
               key={item.id}
               item={item}
+              onRead={() => markRead(item.id)}
+            />
+          );
+        }
+        if (item.type === "moment_posted" && item.momentMeta) {
+          return (
+            <MomentPostedRow
+              key={item.id}
+              item={item as ActivityItem & { momentMeta: MomentMeta }}
               onRead={() => markRead(item.id)}
             />
           );
