@@ -385,20 +385,6 @@ body.is-aurora-page .page-top-glow::after {
     font-size: 24px !important;
   }
 
-  /* Header: reduce side padding so nav items have room */
-  .site-header {
-    padding: 10px 14px !important;
-  }
-
-  /* Hide redundant "Events" nav link on mobile — logo already links there */
-  .nav-hide-mobile {
-    display: none !important;
-  }
-
-  /* Switch nav items to icon-only on mobile */
-  .nav-label { display: none; }
-  .nav-icon  { display: flex; align-items: center; }
-
   /* Force event card grid to single column */
   .events-grid {
     grid-template-columns: 1fr !important;

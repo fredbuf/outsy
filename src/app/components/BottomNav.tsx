@@ -45,6 +45,11 @@ function InboxIcon({ active }: { active: boolean }) {
   );
 }
 
+// ── Spring easing ─────────────────────────────────────────────────────────────
+// cubic-bezier(0.34, 1.56, 0.64, 1) — slight overshoot for native-mobile feel
+
+const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+
 // ── NavTab ────────────────────────────────────────────────────────────────────
 
 function NavTab({
@@ -74,19 +79,34 @@ function NavTab({
         borderRadius: 999,
         textDecoration: "none",
         color: active ? "#c4b5fd" : "rgba(255,255,255,0.42)",
-        background: active ? "rgba(124,58,237,0.18)" : "transparent",
-        transition: "color 0.15s, background 0.15s",
+        background: active ? "rgba(124,58,237,0.22)" : "transparent",
+        boxShadow: active ? "0 0 0 1px rgba(124,58,237,0.30) inset" : "none",
+        transition: `color 0.22s ${SPRING}, background 0.22s ${SPRING}, box-shadow 0.22s ${SPRING}`,
         position: "relative",
         minWidth: 54,
         cursor: "pointer",
       }}
     >
-      {children}
+      {/* Icon wrapper with spring scale */}
+      <span
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transform: active ? "scale(1.12) translateY(-1px)" : "scale(1) translateY(0)",
+          transition: `transform 0.28s ${SPRING}`,
+        }}
+      >
+        {children}
+      </span>
       <span style={{
         fontSize: 10,
         fontWeight: 600,
         lineHeight: 1,
         letterSpacing: "0.01em",
+        opacity: active ? 1 : 0.7,
+        transform: active ? "translateY(0)" : "translateY(0.5px)",
+        transition: `opacity 0.22s ${SPRING}, transform 0.22s ${SPRING}`,
       }}>
         {label}
       </span>
@@ -124,12 +144,15 @@ function CreateTab({ active }: { active: boolean }) {
         height: 48,
         borderRadius: "50%",
         background: active ? "#6d28d9" : "#7c3aed",
-        boxShadow: "0 2px 16px rgba(124,58,237,0.55)",
+        boxShadow: active
+          ? "0 2px 20px rgba(124,58,237,0.75), 0 0 0 1px rgba(255,255,255,0.15) inset"
+          : "0 2px 16px rgba(124,58,237,0.55), 0 0 0 1px rgba(255,255,255,0.10) inset",
         textDecoration: "none",
         color: "#fff",
         flexShrink: 0,
         marginInline: 4,
-        transition: "background 0.15s, box-shadow 0.15s",
+        transition: `background 0.22s ${SPRING}, box-shadow 0.22s ${SPRING}, transform 0.22s ${SPRING}`,
+        transform: active ? "scale(0.93)" : "scale(1)",
         cursor: "pointer",
       }}
     >
@@ -196,16 +219,17 @@ export function BottomNav() {
         zIndex: 150,
         display: "flex",
         alignItems: "center",
-        background: "rgba(12,9,18,0.92)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        // Liquid glass: gradient highlight + translucent dark base
+        background: "linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(0,0,0,0) 100%), rgba(12,9,18,0.68)",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
         border: "1px solid rgba(255,255,255,0.12)",
         borderRadius: 999,
         padding: "5px 6px",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(124,58,237,0.08) inset",
+        // Outer shadow + inner top-highlight
+        boxShadow: "0 8px 40px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.08) inset, 0 0 0 1px rgba(124,58,237,0.06) inset",
         gap: 2,
         pointerEvents: "auto",
-        // Prevent text selection on rapid taps
         userSelect: "none",
         WebkitUserSelect: "none",
       }}
