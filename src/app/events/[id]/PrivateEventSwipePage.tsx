@@ -435,9 +435,9 @@ export function PrivateEventSwipePage(props: Props) {
                       <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
                         Details
                       </p>
-                      <div style={{ display: "grid", gap: 12 }}>
+                      <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
                         {spotsLimited && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14 }}>
                             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
                               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
                               <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
@@ -454,7 +454,7 @@ export function PrivateEventSwipePage(props: Props) {
                           />
                         )}
                         {rsvpDeadline && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14 }}>
                             <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
                               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                             </svg>
