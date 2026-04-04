@@ -211,9 +211,14 @@ body {
   .page-top-glow::after { animation: none !important; }
 }
 
-/* ── Profile page: vivid full-bleed aurora + transparent header ─────────── */
+/* ── Profile page: vivid full-bleed aurora, dark body fill ──────────────── */
 
-/* Slowly cycle all orb hues so the aurora feels alive */
+/* 1. Force the whole viewport dark so nothing is white below the content. */
+body.is-profile-page {
+  background: #111110;
+}
+
+/* 2. Slowly cycle all orb hues so the aurora feels alive. */
 @keyframes profile-aurora-hue {
   0%   { filter: hue-rotate(0deg);   }
   33%  { filter: hue-rotate(28deg);  }
@@ -221,24 +226,14 @@ body {
   100% { filter: hue-rotate(0deg);   }
 }
 
-/* Make the site header glass-transparent on the profile page so
-   the aurora glows behind it, matching the app screenshot.       */
-body.is-profile-page .site-header {
-  background: rgba(17, 17, 16, 0.18) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
-  backdrop-filter: blur(18px) saturate(1.3);
-  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-/* Extend the aurora upward past the main's top edge so it bleeds
-   behind the now-transparent header (−72px ≈ header height).     */
+/* 3. Vivid aurora starts at the very top of <main> (below header).
+      top: 0 is intentional — header is NOT touched.               */
 body.is-profile-page .page-top-glow {
-  top: -72px;
-  height: calc(55vh + 72px);
+  top: 0;
+  height: 55vh;
   background: radial-gradient(ellipse 65% 55% at 50% -10%, rgba(37, 99, 235, 0.40) 0%, transparent 70%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 80%);
   mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 80%);
-  /* Color-cycling on top of the orb drift animations */
   animation: profile-aurora-hue 18s ease-in-out infinite;
 }
 

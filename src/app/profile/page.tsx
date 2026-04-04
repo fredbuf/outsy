@@ -367,6 +367,7 @@ export default function ProfilePage() {
         maxWidth: 640,
         margin: "0 auto",
         padding: "28px 16px 64px",
+        minHeight: "100dvh",
         display: "grid",
         gap: 36,
       }}
