@@ -566,15 +566,13 @@ export default function MapPage() {
   // and change in lockstep, so the ref is always up to date when the effect runs).
   const venueLeaderMapRef = useRef<Map<string, MapEvent>>(new Map());
 
-  // Deep-link: parse ?eventId=&lat=&lng= on mount (or fall back to ?q= venue search).
-  const deepLinkRef = useRef<{ eventId: string; lat: number; lng: number } | null>(null);
+  // Deep-link: parse ?eventId= on mount (or fall back to ?q= venue search).
+  const deepLinkRef = useRef<{ eventId: string } | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("eventId");
-    const lat = parseFloat(params.get("lat") ?? "");
-    const lng = parseFloat(params.get("lng") ?? "");
-    if (eventId && !isNaN(lat) && !isNaN(lng)) {
-      deepLinkRef.current = { eventId, lat, lng };
+    if (eventId) {
+      deepLinkRef.current = { eventId };
       // Fetch the event independently — no date or visibility filter so past/private events work too
       supabaseBrowser()
         .from("events")
@@ -591,10 +589,13 @@ export default function MapPage() {
   // Auto-select deep-linked event once both the event and map are ready.
   useEffect(() => {
     if (!deepLinkRef.current || !deepLinkedEvent || !mapsLoaded) return;
-    const { lat, lng } = deepLinkRef.current;
     setSelected(deepLinkedEvent);
-    mapRef.current?.panTo({ lat, lng });
-    mapRef.current?.setZoom(15);
+    const lat = deepLinkedEvent.venues?.lat;
+    const lng = deepLinkedEvent.venues?.lng;
+    if (typeof lat === "number" && typeof lng === "number") {
+      mapRef.current?.panTo({ lat, lng });
+      mapRef.current?.setZoom(15);
+    }
     deepLinkRef.current = null; // apply only once
   }, [deepLinkedEvent, mapsLoaded]);
 
@@ -750,6 +751,8 @@ export default function MapPage() {
   // venue-dedup so all events at a venue are surfaced in the carousel.
   const venueEvents = useMemo(() => {
     if (!selected) return [];
+    // In deep-link mode always show just the one event — bypass pool/date logic
+    if (deepLinkedEvent && selected.id === deepLinkedEvent.id) return [deepLinkedEvent];
     const selLat = selected.venues?.lat;
     const selLng = selected.venues?.lng;
     if (typeof selLat !== "number" || typeof selLng !== "number") return [selected];
@@ -811,7 +814,7 @@ export default function MapPage() {
       })
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, events, defaultEvents, debouncedSearchQuery, selectedCategory, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
+  }, [selected, deepLinkedEvent, events, defaultEvents, debouncedSearchQuery, selectedCategory, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
 
   // Maps each venue key to the soonest upcoming event at that venue in the
   // active pool — used so marker images always match the first carousel card.
@@ -896,6 +899,13 @@ export default function MapPage() {
       setSelected(null);
     }
   }, [filteredEvents, selected, deepLinkedEvent]);
+
+  // Exit deep-link mode when the tile is dismissed — map reverts to default view.
+  useEffect(() => {
+    if (!selected && deepLinkedEvent) {
+      setDeepLinkedEvent(null);
+    }
+  }, [selected, deepLinkedEvent]);
 
   // Fetch upcoming public events that have venue coordinates.
   // Limit is set high enough to cover all foreseeable custom date picks
@@ -1051,6 +1061,15 @@ export default function MapPage() {
     const map = mapRef.current;
     if (!map || !mapsLoaded) return;
 
+    if (deepLinkedEvent) {
+      // Deep-link mode: clear all regular markers; deep-linked marker effect places the single one
+      markersRef.current.forEach((m) => m.setMap(null));
+      markersRef.current = new Map();
+      prevMarkerKeyRef.current = ""; // reset so normal mode rebuilds when deep-link exits
+      prevSelectedIdRef.current = null;
+      return;
+    }
+
     // Skip full rebuild when the event set hasn't changed (e.g. userPos update
     // that only affects defaultEvents sort order but not the visible event IDs).
     const markerKey = filteredEvents.map((e) => e.id).join(",");
@@ -1106,7 +1125,7 @@ export default function MapPage() {
 
       markersRef.current.set(event.id, marker);
     });
-  }, [filteredEvents, mapsLoaded]);
+  }, [filteredEvents, mapsLoaded, deepLinkedEvent]);
 
   // Place a marker for the deep-linked event when it's not already in filteredEvents.
   // This effect is defined AFTER the main marker effect so it runs after markers are rebuilt.

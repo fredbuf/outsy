@@ -296,14 +296,7 @@ export default async function EventPage({
   /* ── Private event: social layout ──────────────────────────────────────── */
   if (event.visibility === "private") {
     const address = venue?.address_line1 ?? null;
-    const privateVenueLat = (venue as { lat?: number | null } | null)?.lat ?? null;
-    const privateVenueLng = (venue as { lng?: number | null } | null)?.lng ?? null;
-    const privateMapHref =
-      privateVenueLat !== null && privateVenueLng !== null
-        ? `/map?eventId=${id}&lat=${privateVenueLat}&lng=${privateVenueLng}`
-        : venue?.name
-        ? `/map?q=${encodeURIComponent(venue.name)}`
-        : null;
+    const privateMapHref = venue ? `/map?eventId=${id}` : null;
     const recentActivity = await fetchRecentActivity(id);
 
     // New optional fields added by the private event form
@@ -680,14 +673,7 @@ export default async function EventPage({
   const recentActivity = await fetchRecentActivity(id);
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";
-  const venueLat = (venue as { lat?: number | null } | null)?.lat ?? null;
-  const venueLng = (venue as { lng?: number | null } | null)?.lng ?? null;
-  const mapHref =
-    venueLat !== null && venueLng !== null
-      ? `/map?eventId=${id}&lat=${venueLat}&lng=${venueLng}`
-      : venue?.name
-      ? `/map?q=${encodeURIComponent(venue.name)}`
-      : "/map";
+  const mapHref = venue ? `/map?eventId=${id}` : "/map";
   const startD = new Date(event.start_at);
   const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
   const dateLine = startD.toLocaleString("en-US", {
