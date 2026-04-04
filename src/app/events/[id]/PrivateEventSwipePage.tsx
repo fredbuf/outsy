@@ -494,16 +494,12 @@ export function PrivateEventSwipePage(props: Props) {
 
       </div>
 
-      {/* ── Page indicator dots — fixed above bottom nav ─────────────────── */}
+      {/* ── Page indicator dots — at the bottom of the content ────────────── */}
       <div
         style={{
-          position: "fixed",
-          bottom: 76,
-          left: 0, right: 0,
           display: "flex", justifyContent: "center", alignItems: "center",
           gap: 6,
-          zIndex: 100,
-          pointerEvents: "none",
+          padding: "24px 0 32px",
         }}
       >
         <button
@@ -517,7 +513,6 @@ export function PrivateEventSwipePage(props: Props) {
             border: "none", padding: 0,
             cursor: "pointer",
             transition: "width 0.2s ease, background 0.2s ease",
-            pointerEvents: "auto",
           }}
         />
         <button
@@ -531,7 +526,6 @@ export function PrivateEventSwipePage(props: Props) {
             border: "none", padding: 0,
             cursor: "pointer",
             transition: "width 0.2s ease, background 0.2s ease",
-            pointerEvents: "auto",
           }}
         />
       </div>
