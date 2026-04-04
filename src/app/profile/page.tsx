@@ -364,23 +364,9 @@ export default function ProfilePage() {
         padding: "28px 16px 64px",
         display: "grid",
         gap: 36,
-<<<<<<< HEAD
       }}
     >
       <div className="page-top-glow" aria-hidden="true" />
-=======
-        position: "relative",
-        isolation: "isolate",
-      }}
-    >
-      {/* Aurora animated background */}
-      <div className="profile-aurora" aria-hidden="true">
-        <div className="profile-aurora-orb profile-aurora-orb-1" />
-        <div className="profile-aurora-orb profile-aurora-orb-2" />
-        <div className="profile-aurora-orb profile-aurora-orb-3" />
-      </div>
-
->>>>>>> c4fbf0d (/new background)
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
