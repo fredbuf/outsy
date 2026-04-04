@@ -436,34 +436,51 @@ function ConversationRow({ conv }: { conv: ConversationPreview }) {
       <div
         style={{
           display: "flex", alignItems: "center", gap: 12,
-          padding: "12px 0", borderBottom: "1px solid var(--border)", cursor: "pointer",
+          padding: "12px 14px",
+          marginBottom: 6,
+          borderRadius: 16,
+          border: isUnread ? "1px solid rgba(124,58,237,0.25)" : "1px solid rgba(255,255,255,0.06)",
+          background: isUnread ? "rgba(124,58,237,0.08)" : "rgba(255,255,255,0.04)",
+          cursor: "pointer",
+          transition: "background 0.15s, border-color 0.15s",
         }}
       >
-        <AvatarCircle avatarUrl={conv.avatar_url} name={name} />
+        {/* Avatar with unread ring */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <AvatarCircle avatarUrl={conv.avatar_url} name={name} size={44} />
+          {isUnread && (
+            <span
+              aria-hidden
+              style={{
+                position: "absolute", bottom: 1, right: 1,
+                width: 10, height: 10, borderRadius: "50%",
+                background: "#7c3aed",
+                border: "2px solid #0d0b14",
+              }}
+            />
+          )}
+        </div>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: isUnread ? 700 : 600, lineHeight: 1.2 }}>{name}</div>
           <div style={{
-            fontSize: 13, marginTop: 2,
+            fontSize: 13, marginTop: 3,
             overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
-            opacity: isUnread ? 0.8 : 0.5,
+            opacity: isUnread ? 0.75 : 0.4,
             fontWeight: isUnread ? 500 : 400,
           }}>
             {clipped}
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, opacity: 0.4 }}>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, opacity: 0.35 }}>
             {relativeTime(conv.lastMessage.created_at)}
           </span>
-          {isUnread && (
-            <span
-              aria-hidden
-              style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: "var(--accent)",
-              }}
-            />
-          )}
+          {/* Arrow hint */}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.2 }}>
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
         </div>
       </div>
     </Link>
@@ -600,8 +617,9 @@ export default function SocialPage() {
       <div
         style={{
           display: "flex", gap: 0,
-          background: "var(--surface-subtle)",
-          borderRadius: 12, padding: 3,
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 14, padding: 3,
           marginBottom: 20,
         }}
       >
@@ -611,13 +629,13 @@ export default function SocialPage() {
             type="button"
             onClick={() => handleTabSwitch(t)}
             style={{
-              flex: 1, padding: "8px 0", borderRadius: 9,
+              flex: 1, padding: "9px 0", borderRadius: 11,
               border: "none", fontWeight: 600, fontSize: 14,
               cursor: "pointer",
-              background: tab === t ? "var(--background)" : "transparent",
-              color: "inherit",
-              boxShadow: tab === t ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
-              transition: "background 0.15s",
+              background: tab === t ? "rgba(124,58,237,0.22)" : "transparent",
+              color: tab === t ? "#c4b5fd" : "rgba(255,255,255,0.5)",
+              boxShadow: tab === t ? "0 0 0 1px rgba(124,58,237,0.35) inset" : "none",
+              transition: "background 0.15s, color 0.15s",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}
           >

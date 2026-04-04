@@ -156,6 +156,11 @@ body {
   --accent-subtle: rgba(167,139,250,0.14);
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 @keyframes page-glow-orb-1 {
   0%, 100% { transform: translate(0px,  0px) scale(1);    }
   33%       { transform: translate(28px, -18px) scale(1.07); }
@@ -304,8 +309,47 @@ body.is-aurora-page .page-top-glow::after {
   right: max(0px, calc(50% - 270px));
   display: flex;
   flex-direction: column;
-  background: var(--background);
+  background: #0d0b14;
   z-index: 200; /* above sticky site header (z-index: 100) */
+  isolation: isolate;
+  color: #eae8e4;
+  color-scheme: dark;
+}
+
+/* Ambient purple glow at the bottom — matches the reference image */
+.chat-screen::before {
+  content: "";
+  position: absolute;
+  bottom: 40px;
+  right: -10%;
+  width: 80%;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,58,237,0.20) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Top violet hint */
+.chat-screen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -20%;
+  width: 80%;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(109,40,217,0.12) 0%, transparent 70%);
+  filter: blur(50px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-screen::before {
+    animation: page-glow-orb-2 18s ease-in-out infinite;
+  }
 }
 
 /* ── Mobile responsiveness (≤ 540 px) ──────────────────────────────────── */
