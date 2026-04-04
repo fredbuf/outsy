@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { FriendProfile } from "@/app/api/friends/route";
 
@@ -144,7 +145,7 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
       </button>
 
       {/* Friend picker bottom sheet */}
-      {open && (
+      {open && createPortal(
         <div
           onClick={(e) => e.target === e.currentTarget && setOpen(false)}
           style={{
@@ -297,7 +298,8 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

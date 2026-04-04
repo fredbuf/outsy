@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
@@ -209,7 +210,7 @@ export function AttendeeList({
       </div>
 
       {/* Attendee modal */}
-      {open && (
+      {open && createPortal(
         <div
           onClick={(e) => e.target === e.currentTarget && setOpen(false)}
           style={{
@@ -322,7 +323,8 @@ export function AttendeeList({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

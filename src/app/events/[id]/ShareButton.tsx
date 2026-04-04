@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { FriendProfile } from "@/app/api/friends/route";
@@ -225,7 +226,7 @@ export function ShareButton({
       </button>
 
       {/* Options sheet */}
-      {sheet === "options" && (
+      {sheet === "options" && createPortal(
         <div
           style={overlayStyle}
           onClick={(e) => e.target === e.currentTarget && setSheet(null)}
@@ -324,11 +325,12 @@ export function ShareButton({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Friend picker sheet */}
-      {sheet === "picker" && (
+      {sheet === "picker" && createPortal(
         <div
           style={overlayStyle}
           onClick={(e) => e.target === e.currentTarget && setSheet(null)}
@@ -400,7 +402,8 @@ export function ShareButton({
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
