@@ -185,6 +185,75 @@ body {
   transform: translateY(-2px);
 }
 
+/* ── Profile page aurora background ────────────────────────────────────── */
+@keyframes aurora-orb-1 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33%       { transform: translate(28px, -18px) scale(1.07); }
+  66%       { transform: translate(-22px, 12px) scale(0.94); }
+}
+@keyframes aurora-orb-2 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  40%       { transform: translate(-36px, 14px) scale(1.09); }
+  80%       { transform: translate(22px, -16px) scale(0.93); }
+}
+@keyframes aurora-orb-3 {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50%       { transform: translate(18px, 22px) scale(1.11); }
+}
+
+.profile-aurora {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 320px;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
+}
+
+.profile-aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  will-change: transform;
+}
+
+.profile-aurora-orb-1 {
+  width: 130%;
+  height: 280px;
+  top: -130px;
+  left: -15%;
+  background: radial-gradient(circle at 50% 50%, rgba(124, 58, 237, 0.72) 0%, transparent 70%);
+  animation: aurora-orb-1 11s ease-in-out infinite;
+}
+
+.profile-aurora-orb-2 {
+  width: 75%;
+  height: 200px;
+  top: -70px;
+  right: -10%;
+  background: radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.5) 0%, transparent 70%);
+  animation: aurora-orb-2 14s ease-in-out infinite;
+}
+
+.profile-aurora-orb-3 {
+  width: 55%;
+  height: 170px;
+  top: -50px;
+  left: 8%;
+  background: radial-gradient(circle at 50% 50%, rgba(79, 70, 229, 0.42) 0%, transparent 70%);
+  animation: aurora-orb-3 17s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-aurora-orb {
+    animation: none !important;
+  }
+}
+
 /* ── Profile action buttons ─────────────────────────────────────────────── */
 .profile-btn-primary {
   transition: background 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
