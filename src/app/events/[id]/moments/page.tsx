@@ -35,18 +35,52 @@ async function fetchEventForMoments(id: string) {
 }
 
 async function fetchMoments(eventId: string): Promise<MomentRow[]> {
-  const { data } = await supabaseServer()
+  const supabase = supabaseServer();
+
+  const { data: rows, error } = await supabase
     .from("moments")
     .select(
       "id,event_id,author_id,body,is_pinned,reactions_enabled,created_at," +
-        "profiles(display_name,avatar_url,username)," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false });
 
-  return (data ?? []) as unknown as MomentRow[];
+  if (error) {
+    console.error("[fetchMoments/page] query failed:", error.message);
+    return [];
+  }
+
+  const moments = (rows ?? []) as unknown as Array<Record<string, unknown>>;
+
+  // Batch-fetch author profiles separately (avoids FK relationship assumption)
+  const authorIds = [...new Set(moments.map((r) => r.author_id as string))];
+  const profilesMap = new Map<
+    string,
+    { display_name: string | null; avatar_url: string | null; username: string | null }
+  >();
+  if (authorIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id,display_name,avatar_url,username")
+      .in("id", authorIds);
+    if (profilesError) {
+      console.error("[fetchMoments/page] profiles fetch failed:", profilesError.message);
+    }
+    for (const p of profiles ?? []) {
+      profilesMap.set(p.id as string, {
+        display_name: p.display_name as string | null,
+        avatar_url: p.avatar_url as string | null,
+        username: p.username as string | null,
+      });
+    }
+  }
+
+  return moments.map((row) => ({
+    ...row,
+    profiles: profilesMap.get(row.author_id as string) ?? null,
+  })) as unknown as MomentRow[];
 }
 
 export default async function MomentsPage({

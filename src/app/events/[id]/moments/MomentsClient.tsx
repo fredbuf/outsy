@@ -156,6 +156,16 @@ function Avatar({
 
 // ── Compose area ──────────────────────────────────────────────────────────────
 
+type PostedMoment = {
+  id: string;
+  event_id: string;
+  author_id: string;
+  body: string;
+  is_pinned: boolean;
+  reactions_enabled: boolean;
+  created_at: string;
+};
+
 function ComposeArea({
   eventId,
   isHostOrCohost,
@@ -165,7 +175,7 @@ function ComposeArea({
   eventId: string;
   isHostOrCohost: boolean;
   token: string;
-  onPosted: () => void;
+  onPosted: (moment: PostedMoment) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -205,10 +215,10 @@ function ComposeArea({
           is_pinned: isPinned,
         }),
       });
-      const data = (await res.json()) as { ok: boolean; error?: string };
-      if (data.ok) {
+      const data = (await res.json()) as { ok: boolean; moment?: PostedMoment; error?: string };
+      if (data.ok && data.moment) {
         handleCancel();
-        onPosted();
+        onPosted(data.moment);
       } else {
         setError(data.error ?? "Failed to post.");
       }
@@ -713,14 +723,39 @@ export function MomentsClient({
   const fetchMoments = useCallback(async () => {
     try {
       const res = await fetch(`/api/events/${eventId}/moments`);
-      const data = (await res.json()) as { ok: boolean; moments?: MomentRow[] };
+      const data = (await res.json()) as { ok: boolean; moments?: MomentRow[]; error?: string };
       if (data.ok && data.moments) {
         setMoments(data.moments.map((m) => buildDisplay(m, user?.id ?? null)));
+      } else if (!data.ok) {
+        console.error("[fetchMoments] API error:", data.error);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error("[fetchMoments] network error:", err);
     }
   }, [eventId, user?.id]);
+
+  function handlePosted(newMoment: PostedMoment) {
+    // Optimistically prepend so it appears immediately
+    const optimistic: DisplayMoment = {
+      id: newMoment.id,
+      author_id: newMoment.author_id,
+      body: newMoment.body,
+      is_pinned: newMoment.is_pinned,
+      reactions_enabled: newMoment.reactions_enabled,
+      created_at: newMoment.created_at,
+      author: null,
+      reactionGroups: VALID_EMOJI.map((emoji) => ({ emoji, count: 0, isMine: false })),
+      rawReactions: [],
+    };
+    setMoments((prev) => {
+      const unpinned = newMoment.is_pinned
+        ? prev.map((m) => ({ ...m, is_pinned: false }))
+        : prev;
+      return [optimistic, ...unpinned];
+    });
+    // Background refetch to populate author profiles
+    fetchMoments();
+  }
 
   function handleDeleted(id: string) {
     setMoments((prev) => prev.filter((m) => m.id !== id));
@@ -782,7 +817,7 @@ export function MomentsClient({
               eventId={eventId}
               isHostOrCohost={isHostOrCohost}
               token={session.access_token}
-              onPosted={fetchMoments}
+              onPosted={handlePosted}
             />
           </div>
         )}

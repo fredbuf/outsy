@@ -23,11 +23,11 @@ export async function GET(
   const { id: eventId } = await params;
   const supabase = supabaseServer();
 
-  const { data, error } = await supabase
+  // Fetch moments without the profiles join (avoids FK relationship assumption)
+  const { data: rows, error } = await supabase
     .from("moments")
     .select(
       "id,event_id,author_id,body,is_pinned,reactions_enabled,created_at," +
-        "profiles(display_name,avatar_url,username)," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -35,10 +35,41 @@ export async function GET(
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("[GET moments] query failed:", error.message);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, moments: data ?? [] });
+  const moments = (rows ?? []) as unknown as Array<Record<string, unknown>>;
+
+  // Batch-fetch author profiles separately
+  const authorIds = [...new Set(moments.map((r) => r.author_id as string))];
+  const profilesMap = new Map<
+    string,
+    { display_name: string | null; avatar_url: string | null; username: string | null }
+  >();
+  if (authorIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id,display_name,avatar_url,username")
+      .in("id", authorIds);
+    if (profilesError) {
+      console.error("[GET moments] profiles fetch failed:", profilesError.message);
+    }
+    for (const p of profiles ?? []) {
+      profilesMap.set(p.id as string, {
+        display_name: p.display_name as string | null,
+        avatar_url: p.avatar_url as string | null,
+        username: p.username as string | null,
+      });
+    }
+  }
+
+  const result = moments.map((row) => ({
+    ...row,
+    profiles: profilesMap.get(row.author_id as string) ?? null,
+  }));
+
+  return NextResponse.json({ ok: true, moments: result });
 }
 
 // POST /api/events/[id]/moments — create a moment
