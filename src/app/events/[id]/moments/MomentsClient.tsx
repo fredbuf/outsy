@@ -673,6 +673,7 @@ export function MomentsClient({
   guestsCanPost,
   guestsCanReact,
   initialMoments,
+  embedded = false,
 }: {
   eventId: string;
   eventTitle: string;
@@ -683,6 +684,8 @@ export function MomentsClient({
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
+  /** When true, skip the outer main/ambient/nav/tabs — parent provides the shell */
+  embedded?: boolean;
 }) {
   const { user, session } = useAuth();
   const searchParams = useSearchParams();
@@ -753,6 +756,94 @@ export function MomentsClient({
   }
 
   const isEmpty = moments.length === 0;
+
+  const content = (
+    <div
+      style={{
+        color: "#eae8e4",
+        "--border": "rgba(255,255,255,0.10)",
+        "--border-strong": "rgba(255,255,255,0.18)",
+        "--btn-bg": "rgba(255,255,255,0.07)",
+        "--surface-raised": "rgba(255,255,255,0.08)",
+        "--background": "rgba(20,11,7,0.55)",
+        "--foreground": "#eae8e4",
+        "--accent": "#a78bfa",
+      } as React.CSSProperties}
+    >
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 80px" }}>
+
+        {/* Compose — visible to users who can post */}
+        {canPost && session && (
+          <div style={{ marginBottom: 20 }}>
+            <ComposeArea
+              eventId={eventId}
+              isHostOrCohost={isHostOrCohost}
+              token={session.access_token}
+              onPosted={fetchMoments}
+            />
+          </div>
+        )}
+
+        {/* Sign-in nudge for guests who can't post */}
+        {!user && (
+          <div style={{ marginBottom: 20, textAlign: "center" }}>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("outsy:open-signin"))}
+              style={{
+                fontSize: 13, opacity: 0.5, background: "none",
+                border: "none", cursor: "pointer", color: "inherit",
+                textDecoration: "underline",
+              }}
+            >
+              Sign in to react or post
+            </button>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {isEmpty && (
+          <div style={{ padding: "64px 0", textAlign: "center" }}>
+            <div style={{ opacity: 0.15, marginBottom: 16, display: "flex", justifyContent: "center" }}>
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 600, opacity: 0.55, margin: "0 0 6px" }}>
+              No moments yet
+            </p>
+            <p style={{ fontSize: 13, opacity: 0.35, margin: 0 }}>
+              {isHostOrCohost
+                ? "Share updates, hype, and reminders with your attendees."
+                : "The host hasn't posted anything yet."}
+            </p>
+          </div>
+        )}
+
+        {/* Moments list */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {moments.map((moment) => (
+            <MomentCard
+              key={moment.id}
+              moment={moment}
+              eventId={eventId}
+              currentUserId={user?.id ?? null}
+              isHostOrCohost={isHostOrCohost}
+              guestsCanReact={guestsCanReact}
+              token={session?.access_token ?? null}
+              highlighted={moment.id === deepLinkedMomentId}
+              onDeleted={handleDeleted}
+              onPinToggled={handlePinToggled}
+              onReactionToggle={handleReactionToggle}
+            />
+          ))}
+        </div>
+
+      </div>
+    </div>
+  );
+
+  if (embedded) return content;
 
   return (
     <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
@@ -857,90 +948,7 @@ export function MomentsClient({
           </div>
         </div>
 
-        {/* Content */}
-        <div
-          style={{
-            color: "#eae8e4",
-            "--border": "rgba(255,255,255,0.10)",
-            "--border-strong": "rgba(255,255,255,0.18)",
-            "--btn-bg": "rgba(255,255,255,0.07)",
-            "--surface-raised": "rgba(255,255,255,0.08)",
-            "--background": "rgba(20,11,7,0.55)",
-            "--foreground": "#eae8e4",
-            "--accent": "#a78bfa",
-          } as React.CSSProperties}
-        >
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 80px" }}>
-
-            {/* Compose — visible to users who can post */}
-            {canPost && session && (
-              <div style={{ marginBottom: 20 }}>
-                <ComposeArea
-                  eventId={eventId}
-                  isHostOrCohost={isHostOrCohost}
-                  token={session.access_token}
-                  onPosted={fetchMoments}
-                />
-              </div>
-            )}
-
-            {/* Sign-in nudge for guests who can't post */}
-            {!user && (
-              <div style={{ marginBottom: 20, textAlign: "center" }}>
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new Event("outsy:open-signin"))}
-                  style={{
-                    fontSize: 13, opacity: 0.5, background: "none",
-                    border: "none", cursor: "pointer", color: "inherit",
-                    textDecoration: "underline",
-                  }}
-                >
-                  Sign in to react or post
-                </button>
-              </div>
-            )}
-
-            {/* Empty state */}
-            {isEmpty && (
-              <div style={{ padding: "64px 0", textAlign: "center" }}>
-                <div style={{ opacity: 0.15, marginBottom: 16, display: "flex", justifyContent: "center" }}>
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                </div>
-                <p style={{ fontSize: 15, fontWeight: 600, opacity: 0.55, margin: "0 0 6px" }}>
-                  No moments yet
-                </p>
-                <p style={{ fontSize: 13, opacity: 0.35, margin: 0 }}>
-                  {isHostOrCohost
-                    ? "Share updates, hype, and reminders with your attendees."
-                    : "The host hasn't posted anything yet."}
-                </p>
-              </div>
-            )}
-
-            {/* Moments list */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {moments.map((moment) => (
-                <MomentCard
-                  key={moment.id}
-                  moment={moment}
-                  eventId={eventId}
-                  currentUserId={user?.id ?? null}
-                  isHostOrCohost={isHostOrCohost}
-                  guestsCanReact={guestsCanReact}
-                  token={session?.access_token ?? null}
-                  highlighted={moment.id === deepLinkedMomentId}
-                  onDeleted={handleDeleted}
-                  onPinToggled={handlePinToggled}
-                  onReactionToggle={handleReactionToggle}
-                />
-              ))}
-            </div>
-
-          </div>
-        </div>
+        {content}
       </div>
     </main>
   );

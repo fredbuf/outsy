@@ -11,8 +11,7 @@ import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton } from "./ShareButton";
 import { BackButton } from "./BackButton";
-import { PaymentReveal } from "./PaymentReveal";
-import { PrivateActionArea } from "./PrivateActionArea";
+import { PrivateEventSwipePage } from "./PrivateEventSwipePage";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -20,7 +19,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
+      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,moments_guests_can_post,moments_guests_can_react,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -274,6 +273,20 @@ function formatPrice(
 }
 
 
+async function fetchMomentsForEvent(eventId: string) {
+  const { data } = await supabaseServer()
+    .from("moments")
+    .select(
+      "id,event_id,author_id,body,is_pinned,reactions_enabled,created_at," +
+        "profiles(display_name,avatar_url,username)," +
+        "moment_reactions(user_id,emoji)"
+    )
+    .eq("event_id", eventId)
+    .order("is_pinned", { ascending: false })
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export default async function EventPage({
   params,
 }: {
@@ -293,13 +306,9 @@ export default async function EventPage({
     fetchAttendees(id),
   ]);
 
-  /* ── Private event: social layout ──────────────────────────────────────── */
+  /* ── Private event: swipe layout ───────────────────────────────────────── */
   if (event.visibility === "private") {
-    const address = venue?.address_line1 ?? null;
     const privateMapHref = venue ? `/map?eventId=${id}` : null;
-    const recentActivity = await fetchRecentActivity(id);
-
-    // New optional fields added by the private event form
     const evtExt = event as {
       cohost_ids?: string[] | null;
       spots_mode?: string | null;
@@ -308,15 +317,22 @@ export default async function EventPage({
       payment_method?: string | null;
       payment_contact?: string | null;
       rsvp_deadline?: string | null;
+      moments_guests_can_post?: boolean | null;
+      moments_guests_can_react?: boolean | null;
     };
     const cohostIds = evtExt.cohost_ids ?? [];
-    const cohostProfiles = await fetchCohostProfiles(cohostIds);
+    const [cohostProfiles, recentActivity, initialMoments] = await Promise.all([
+      fetchCohostProfiles(cohostIds),
+      fetchRecentActivity(id),
+      fetchMomentsForEvent(id),
+    ]);
     const spotsLimited = evtExt.spots_mode === "limited" && (evtExt.spots_limit ?? 0) > 0;
     const eventPrice = typeof evtExt.price === "number" && evtExt.price > 0 ? evtExt.price : null;
     const eventCurrency = (event as { currency?: string | null }).currency ?? "CAD";
     const rsvpDeadline = evtExt.rsvp_deadline ?? null;
+    const guestsCanPost = Boolean(evtExt.moments_guests_can_post ?? false);
+    const guestsCanReact = evtExt.moments_guests_can_react !== false;
 
-    // Date helpers for the details section
     const startD = new Date(event.start_at);
     const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
     const dateLine = startD.toLocaleString("en-US", {
@@ -325,370 +341,37 @@ export default async function EventPage({
     const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
+
     return (
-      <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
-
-        {/* ── Ambient background: blurred image tones fill the full page ── */}
-        {event.image_url ? (
-          <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
-            <img
-              src={event.image_url}
-              alt=""
-              width={800}
-              height={800}
-              style={{
-                position: "absolute", inset: 0,
-                width: "100%", height: "100%",
-                objectFit: "cover",
-                filter: "blur(80px) saturate(1.8) brightness(0.38)",
-                transform: "scale(1.15)",
-                pointerEvents: "none",
-              }}
-            />
-          </div>
-        ) : (
-          <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "#111110", pointerEvents: "none" }} />
-        )}
-
-        <div style={{ position: "relative", zIndex: 1 }}>
-
-        {/* ── Top card: full-bleed image with info overlay ──────────────────
-             Single unified container — image defines height, title/date/
-             location sit on a warm gradient at the bottom of the image.
-             Rounded bottom corners give the Apple Invites "card" feel.   */}
-        <div
-          style={{
-            position: "relative",
-            borderRadius: "0 0 28px 28px",
-            overflow: "hidden",
-          }}
-        >
-          {/* Image — defines the card height via aspectRatio */}
-          {event.image_url ? (
-            <img
-              src={event.image_url}
-              alt=""
-              style={{
-                display: "block",
-                width: "100%",
-                aspectRatio: "3/4",
-                objectFit: "cover",
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                aspectRatio: "3/4",
-                background: categoryBg(event.category_primary),
-              }}
-            />
-          )}
-
-          {/* Nav controls — float over the top of the image */}
-          <div
-            style={{
-              position: "absolute", top: 20, left: 16, right: 16,
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              zIndex: 2,
-            }}
-          >
-            <BackButton
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 40, height: 40, borderRadius: "50%",
-                background: "rgba(0,0,0,0.32)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                cursor: "pointer", color: "#fff", flexShrink: 0,
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
-                touchAction: "manipulation",
-              }}
-            >
-              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </BackButton>
-            <EventOwnerActions
-              compact
-              eventId={id}
-              creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-              source={event.source}
-            />
-          </div>
-
-          {/* Warm gradient + info text — overlaid on the bottom of the image */}
-          <div
-            style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "90px 28px 40px",
-              textAlign: "center",
-              background: "linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
-              zIndex: 1,
-            }}
-          >
-            <h1
-              style={{
-                color: "#fff",
-                fontSize: 32,
-                fontWeight: 800,
-                lineHeight: 1.15,
-                letterSpacing: "-0.02em",
-                margin: "0 0 12px",
-                textWrap: "balance",
-              } as React.CSSProperties}
-            >
-              {event.title}
-            </h1>
-            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              {dateLine}{timeLine ? ` · ${timeLine}` : ""}
-            </p>
-            {venue?.name && (
-              privateMapHref ? (
-                <Link
-                  href={privateMapHref}
-                  style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
-                >
-                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  {venue.name}
-                </Link>
-              ) : (
-                <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                  {venue.name}
-                </p>
-              )
-            )}
-          </div>
-        </div>
-
-        {/* ── Content area — forced dark surface ───────────────────────
-             CSS variables are overridden here so every child component
-             (ActionBar, CopyInviteLink, AttendeeList, etc.) automatically
-             uses dark-appropriate colours without per-component changes.  */}
-        <div style={{
-          background: "transparent",
-          color: "#eae8e4",
-          "--border":        "rgba(255,255,255,0.10)",
-          "--border-strong": "rgba(255,255,255,0.18)",
-          "--btn-bg":        "rgba(255,255,255,0.07)",
-          "--btn-bg-active": "rgba(255,255,255,0.13)",
-          "--surface-subtle":"rgba(255,255,255,0.04)",
-          "--background":    "rgba(20,11,7,0.55)",
-          "--foreground":    "#eae8e4",
-          "--accent":        "#a78bfa",
-        } as React.CSSProperties}>
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
-
-            {/* Info / Moments tab strip */}
-            <div style={{ display: "flex", gap: 0, margin: "20px 0 4px", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
-              <span
-                style={{
-                  padding: "10px 20px", fontSize: 14, fontWeight: 700,
-                  color: "#eae8e4", borderBottom: "2px solid #a78bfa",
-                  marginBottom: -1, cursor: "default",
-                }}
-              >
-                Info
-              </span>
-              <Link
-                href={`/events/${id}/moments`}
-                style={{
-                  padding: "10px 20px", fontSize: 14, fontWeight: 600,
-                  color: "rgba(255,255,255,0.45)", textDecoration: "none",
-                  borderBottom: "2px solid transparent", marginBottom: -1,
-                }}
-              >
-                Moments
-              </Link>
-            </div>
-
-            {/* ③ RSVP or host controls — client component picks the right view */}
-            <PrivateActionArea
-              eventId={id}
-              eventTitle={event.title}
-              creatorId={creatorId}
-              cohostIds={cohostIds}
-              initialCounts={rsvpCounts}
-              initialAttendees={attendees}
-            />
-
-          {/* ⑤ Activity preview — shown to everyone */}
-          {recentActivity.length > 0 && (
-            <div style={{ paddingTop: 6, paddingBottom: 6 }}>
-              {recentActivity.map((item, i) => {
-                const label = rsvpActivityLabel(item.response);
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      paddingTop: 10, paddingBottom: 10,
-                    }}
-                  >
-                    {item.userId ? (
-                      <Link href={`/profile/${item.userId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
-                        {item.avatar_url ? (
-                          <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
-                        ) : (
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                            {getInitials(item.display_name)}
-                          </div>
-                        )}
-                      </Link>
-                    ) : item.avatar_url ? (
-                      <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                        {getInitials(item.display_name)}
-                      </div>
-                    )}
-                    <span style={{ fontSize: 13, flex: 1 }}>
-                      <strong>{item.display_name ?? "Someone"}</strong>{" "}
-                      <span style={{ color: label.color }}>{label.text}</span>
-                    </span>
-                    <span style={{ fontSize: 12, opacity: 0.35, flexShrink: 0 }}>
-                      {relativeTime(item.updated_at)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* ⑥ Hosting card — host first, cohosts behind, description below */}
-          {creator && (
-            <div
-              style={{
-                marginTop: 4,
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                padding: "12px 16px",
-                textAlign: "center",
-              }}
-            >
-              <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>
-                Hosted by
-              </p>
-
-              {/* Avatar stack — host first (leftmost, highest z-index), cohosts behind */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                {creatorId ? (
-                  <Link
-                    href={`/profile/${creatorId}`}
-                    style={{ lineHeight: 0, display: "block", textDecoration: "none", position: "relative", zIndex: cohostProfiles.length + 1 }}
-                  >
-                    {creator.avatar_url ? (
-                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)" }}>
-                        {getInitials(creator.display_name)}
-                      </div>
-                    )}
-                  </Link>
-                ) : creator.avatar_url ? (
-                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
-                ) : (
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)", position: "relative", zIndex: cohostProfiles.length + 1 }}>
-                    {getInitials(creator.display_name)}
-                  </div>
-                )}
-                {cohostProfiles.map((cp, i) => (
-                  <Link
-                    key={cp.id}
-                    href={`/profile/${cp.id}`}
-                    style={{ lineHeight: 0, display: "block", textDecoration: "none", marginLeft: -10, position: "relative", zIndex: cohostProfiles.length - i }}
-                  >
-                    {cp.avatar_url ? (
-                      <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)" }}>
-                        {getInitials(cp.display_name)}
-                      </div>
-                    )}
-                  </Link>
-                ))}
-              </div>
-
-              {/* Description inside the card */}
-              {event.description && (
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
-                  <ExpandableDescription text={event.description} />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ⑦ Details card — same glass style, spots / cost / RSVP deadline */}
-          {(spotsLimited || eventPrice !== null || rsvpDeadline) && (
-            <div
-              style={{
-                marginTop: 10,
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.10)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                padding: "12px 16px",
-              }}
-            >
-              <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
-                Details
-              </p>
-              <div style={{ display: "grid", gap: 12 }}>
-                {spotsLimited && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
-                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    <span>{evtExt.spots_limit} spots available</span>
-                  </div>
-                )}
-                {eventPrice !== null && (
-                  <PaymentReveal
-                    price={eventPrice}
-                    currency={eventCurrency}
-                    paymentMethod={evtExt.payment_method ?? null}
-                    paymentContact={evtExt.payment_contact ?? null}
-                  />
-                )}
-                {rsvpDeadline && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
-                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
-                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                    </svg>
-                    <span>
-                      {`RSVP by ${(() => {
-                        const [y, m, d] = rsvpDeadline.split("-").map(Number);
-                        return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-                      })()}`}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          </div>{/* inner maxWidth div */}
-        </div>{/* content gradient wrapper */}
-        </div>{/* z-index wrapper */}
-      </main>
+      <PrivateEventSwipePage
+        id={id}
+        imageUrl={(event.image_url as string | null) ?? null}
+        title={event.title}
+        category={event.category_primary}
+        source={event.source}
+        creatorId={creatorId}
+        creator={creator}
+        cohostIds={cohostIds}
+        cohostProfiles={cohostProfiles}
+        dateLine={dateLine}
+        timeLine={timeLine}
+        privateMapHref={privateMapHref}
+        venueName={venue?.name ?? null}
+        description={(event.description as string | null) ?? null}
+        spotsLimited={spotsLimited}
+        spotsLimit={evtExt.spots_limit ?? null}
+        eventPrice={eventPrice}
+        eventCurrency={eventCurrency}
+        paymentMethod={evtExt.payment_method ?? null}
+        paymentContact={evtExt.payment_contact ?? null}
+        rsvpDeadline={rsvpDeadline}
+        recentActivity={recentActivity}
+        rsvpCounts={rsvpCounts}
+        attendees={attendees}
+        guestsCanPost={guestsCanPost}
+        guestsCanReact={guestsCanReact}
+        initialMoments={initialMoments as never}
+      />
     );
   }
 
@@ -867,29 +550,6 @@ export default async function EventPage({
           "--accent":         "#a78bfa",
         } as React.CSSProperties}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
-
-            {/* Info / Moments tab strip */}
-            <div style={{ display: "flex", gap: 0, margin: "20px 0 4px", borderBottom: "1px solid rgba(255,255,255,0.10)" }}>
-              <span
-                style={{
-                  padding: "10px 20px", fontSize: 14, fontWeight: 700,
-                  color: "#eae8e4", borderBottom: "2px solid #a78bfa",
-                  marginBottom: -1, cursor: "default",
-                }}
-              >
-                Info
-              </span>
-              <Link
-                href={`/events/${id}/moments`}
-                style={{
-                  padding: "10px 20px", fontSize: 14, fontWeight: 600,
-                  color: "rgba(255,255,255,0.45)", textDecoration: "none",
-                  borderBottom: "2px solid transparent", marginBottom: -1,
-                }}
-              >
-                Moments
-              </Link>
-            </div>
 
             {/* RSVP / Tickets */}
             <div style={{ paddingTop: 32, paddingBottom: 4 }}>
