@@ -1,10 +1,8 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "./AuthProvider";
-import { supabaseBrowser } from "@/lib/supabase-browser";
 
 // ── AppTopBar ──────────────────────────────────────────────────────────────────
 // Transparent top bar for immersive dark pages (e.g. /events).
@@ -13,28 +11,9 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export function AppTopBar() {
   const { user, loading } = useAuth();
-  const [dropOpen, setDropOpen] = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!dropOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
-        setDropOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [dropOpen]);
 
   function openSignIn() {
     window.dispatchEvent(new CustomEvent("outsy:open-signin"));
-  }
-
-  async function handleSignOut() {
-    setDropOpen(false);
-    await supabaseBrowser().auth.signOut();
   }
 
   const meta = user?.user_metadata as { avatar_url?: string; full_name?: string } | undefined;
@@ -68,7 +47,6 @@ export function AppTopBar() {
           color: "#eae8e4",
         }}
       >
-        {/* Location pin */}
         <svg
           width="16"
           height="16"
@@ -97,92 +75,39 @@ export function AppTopBar() {
             height: 36,
             borderRadius: "50%",
             background: "rgba(255,255,255,0.08)",
+            flexShrink: 0,
           }}
         />
       ) : user ? (
-        <div ref={dropRef} style={{ position: "relative" }}>
-          <button
-            onClick={() => setDropOpen((v) => !v)}
-            aria-label="Account menu"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              border: "2px solid rgba(167,139,250,0.55)",
-              overflow: "hidden",
-              cursor: "pointer",
-              background: "rgba(124,58,237,0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 0,
-            }}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Avatar"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#c4b5fd" }}>
-                {initials}
-              </span>
-            )}
-          </button>
-
-          {dropOpen && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 8px)",
-                right: 0,
-                minWidth: 160,
-                background: "rgba(18,14,30,0.92)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 14,
-                boxShadow: "0 12px 40px rgba(0,0,0,0.55)",
-                overflow: "hidden",
-                zIndex: 300,
-              }}
-            >
-              <Link
-                href="/profile"
-                onClick={() => setDropOpen(false)}
-                style={{
-                  display: "block",
-                  padding: "11px 16px",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "#eae8e4",
-                  textDecoration: "none",
-                  borderBottom: "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                Profile
-              </Link>
-              <button
-                onClick={handleSignOut}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "11px 16px",
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "rgba(234,232,228,0.65)",
-                  textAlign: "left",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Sign out
-              </button>
-            </div>
+        <Link
+          href="/profile"
+          aria-label="Your profile"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            border: "1.5px solid rgba(255,255,255,0.18)",
+            overflow: "hidden",
+            background: "rgba(255,255,255,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            textDecoration: "none",
+          }}
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Avatar"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#eae8e4" }}>
+              {initials}
+            </span>
           )}
-        </div>
+        </Link>
       ) : (
         <button
           onClick={openSignIn}

@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../components/AuthProvider";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,15 @@ function ShareIcon() {
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   );
 }
@@ -197,6 +207,7 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<FriendProfile[]>([]);
   const [activeSheet, setActiveSheet] = useState<"friends" | "following" | "events" | null>(null);
   const [sheetSearch, setSheetSearch] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || !session?.access_token) return;
@@ -224,9 +235,14 @@ export default function ProfilePage() {
   }, [authLoading, session?.access_token]);
 
   useEffect(() => {
-    document.body.style.overflow = (editOpen || activeSheet !== null) ? "hidden" : "";
+    document.body.style.overflow = (editOpen || activeSheet !== null || settingsOpen) ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [editOpen, activeSheet]);
+  }, [editOpen, activeSheet, settingsOpen]);
+
+  async function handleSignOut() {
+    setSettingsOpen(false);
+    await supabaseBrowser().auth.signOut();
+  }
 
   useEffect(() => {
     document.body.classList.add("is-aurora-page");
@@ -383,7 +399,31 @@ export default function ProfilePage() {
       />
 
       {/* ── Identity block ─────────────────────────────────────────────────── */}
-      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8 }}>
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8, position: "relative" }}>
+        {/* Settings button — top-right */}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Settings"
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            border: "1px solid var(--border-strong)",
+            background: "var(--surface-subtle)",
+            color: "inherit",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            opacity: 0.7,
+          }}
+        >
+          <GearIcon />
+        </button>
 
         {/* Avatar */}
         <div style={{ position: "relative", width: 96, height: 96 }}>
@@ -921,6 +961,78 @@ export default function ProfilePage() {
                 {saving ? "Saving…" : saveSuccess ? "Saved!" : "Save changes"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Settings sheet ───────────────────────────────────────────────────── */}
+      {settingsOpen && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setSettingsOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.50)",
+            zIndex: 300,
+            display: "flex",
+            alignItems: "flex-end",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--background)",
+              borderRadius: "20px 20px 0 0",
+              width: "100%",
+              paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+            }}
+          >
+            {/* Drag handle */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+            </div>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px 16px" }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Settings</h2>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(false)}
+                aria-label="Close"
+                style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-raised)", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6, color: "inherit" }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Menu items */}
+            <div style={{ borderTop: "1px solid var(--border)" }}>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  padding: "16px 20px",
+                  background: "none",
+                  border: "none",
+                  borderBottom: "1px solid var(--border)",
+                  cursor: "pointer",
+                  fontSize: 15,
+                  fontWeight: 500,
+                  color: "#ef4444",
+                  textAlign: "left",
+                  gap: 12,
+                }}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
       )}
