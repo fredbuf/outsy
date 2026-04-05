@@ -903,25 +903,23 @@ export function EventsList() {
     <div style={{ display: "grid", gap: 16, minWidth: 0, alignContent: "start" }}>
       {/* ── Stable shell: always visible regardless of loading/empty state ── */}
       <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-      {/* Search + Filters — glass pill */}
+      {/* Search + Filters */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        {/* Glass search pill */}
+        {/* Search bar — solid dark surface */}
         <div style={{
           position: "relative",
           flex: 1,
           display: "flex",
           alignItems: "center",
-          background: "rgba(18, 26, 36, 0.7)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          background: "#121821",
           border: "1px solid rgba(255,255,255,0.06)",
           borderRadius: 999,
-          padding: "0 8px 0 14px",
+          padding: "0 10px 0 14px",
           gap: 8,
           minWidth: 0,
         }}>
-          {/* Search icon */}
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8C98A8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+          {/* Search icon — low contrast */}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input
@@ -929,12 +927,13 @@ export function EventsList() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search events, venues, artists..."
+            className="search-input"
             style={{
               flex: 1,
               background: "none",
               border: "none",
               outline: "none",
-              padding: "11px 0",
+              padding: "9px 0",
               fontSize: 15,
               color: "#F5F7FA",
               minWidth: 0,
@@ -950,44 +949,42 @@ export function EventsList() {
                 inputRef.current?.focus();
               }}
               style={{
-                width: 26, height: 26, borderRadius: "50%",
-                border: "none", background: "rgba(255,255,255,0.06)",
+                width: 22, height: 22, borderRadius: "50%",
+                border: "none", background: "rgba(255,255,255,0.07)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", color: "#8C98A8", flexShrink: 0,
+                cursor: "pointer", color: "rgba(255,255,255,0.35)", flexShrink: 0,
               }}
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           )}
         </div>
-        {/* Filter button */}
+        {/* Filter button — matches search height and surface */}
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
           aria-label="Filters"
           style={{
-            width: 44, height: 44, borderRadius: "50%",
-            border: `1px solid ${activeFilterCount > 0 ? "rgba(94,168,255,0.35)" : "rgba(255,255,255,0.06)"}`,
-            background: activeFilterCount > 0 ? "rgba(94,168,255,0.10)" : "rgba(18,26,36,0.70)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            width: 40, height: 40, borderRadius: "50%",
+            border: `1px solid ${activeFilterCount > 0 ? "rgba(94,168,255,0.25)" : "rgba(255,255,255,0.06)"}`,
+            background: activeFilterCount > 0 ? "rgba(94,168,255,0.10)" : "#121821",
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", flexShrink: 0, position: "relative",
-            color: activeFilterCount > 0 ? "#5EA8FF" : "#8C98A8",
+            color: activeFilterCount > 0 ? "#5EA8FF" : "rgba(255,255,255,0.30)",
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="18" x2="20" y2="18" />
-            <circle cx="9" cy="6" r="2.3" fill="#0B0F14" stroke="currentColor" strokeWidth="2" />
-            <circle cx="16" cy="12" r="2.3" fill="#0B0F14" stroke="currentColor" strokeWidth="2" />
-            <circle cx="11" cy="18" r="2.3" fill="#0B0F14" stroke="currentColor" strokeWidth="2" />
+            <circle cx="9" cy="6" r="2.3" fill="#121821" stroke="currentColor" strokeWidth="2" />
+            <circle cx="16" cy="12" r="2.3" fill="#121821" stroke="currentColor" strokeWidth="2" />
+            <circle cx="11" cy="18" r="2.3" fill="#121821" stroke="currentColor" strokeWidth="2" />
           </svg>
           {activeFilterCount > 0 && (
-            <span style={{ position: "absolute", top: 3, right: 3, width: 7, height: 7, borderRadius: "50%", background: "#5EA8FF", border: "2px solid #0B0F14" }} />
+            <span style={{ position: "absolute", top: 3, right: 3, width: 6, height: 6, borderRadius: "50%", background: "#5EA8FF", border: "1.5px solid #0B0F14" }} />
           )}
         </button>
       </div>
