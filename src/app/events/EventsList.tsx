@@ -989,8 +989,8 @@ export function EventsList() {
         </button>
       </div>
 
-      {/* Category chip row */}
-      <div className="chip-row" style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, minWidth: 0 }}>
+      {/* Category chip row — liquid glass */}
+      <div className="chip-row" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, minWidth: 0 }}>
         {(["all", "concerts", "nightlife", "arts_culture", "comedy", "sports", "family"] as const).map((c) => {
           const active = category === c;
           return (
@@ -1001,18 +1001,23 @@ export function EventsList() {
               style={{
                 padding: "8px 18px",
                 borderRadius: 999,
-                border: "none",
-                background: active ? "rgba(94,168,255,0.13)" : "#121821",
-                color: active ? "#F5F7FA" : "#A8B3C2",
-                fontWeight: active ? 600 : 450,
+                border: `1px solid ${active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
+                background: active
+                  ? "rgba(255,255,255,0.14)"
+                  : "rgba(255,255,255,0.06)",
+                backdropFilter: "blur(20px) saturate(1.6)",
+                WebkitBackdropFilter: "blur(20px) saturate(1.6)",
+                color: active ? "#F5F7FA" : "rgba(255,255,255,0.55)",
+                fontWeight: active ? 600 : 400,
                 fontSize: 13,
+                letterSpacing: "-0.01em",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
-                transition: "background 0.15s ease, color 0.15s ease",
+                transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease",
                 boxShadow: active
-                  ? "inset 0 1px 0 rgba(255,255,255,0.06)"
-                  : "inset 0 1px 0 rgba(255,255,255,0.03)",
+                  ? "inset 0 1.5px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.12), 0 2px 12px rgba(0,0,0,0.28)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.08), 0 1px 6px rgba(0,0,0,0.18)",
               }}
             >
               {CATEGORY_LABELS[c]}
