@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -299,6 +299,7 @@ function CalendarGrid({
   const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth    = new Date(year, month + 1, 0).getDate();
   const todayKey       = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+  const touchStartX    = useRef<number | null>(null);
 
   // Build flat cell array: null = empty leading cell, number = day-of-month
   const cells: (number | null)[] = [
@@ -310,85 +311,169 @@ function CalendarGrid({
     return new Date(year, month, day).toLocaleDateString("en-CA", { timeZone: TZ });
   }
 
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 48) return;
+    if (dx < 0) onNext(); else onPrev();
+  }
+
   return (
-    <div>
+    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {/* Month navigation */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <button
           type="button"
           onClick={onPrev}
           aria-label="Previous month"
-          style={{ background: "var(--btn-bg)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center" }}
+          style={{
+            width: 36, height: 36, borderRadius: "50%", border: "none",
+            background: "rgba(255,255,255,0.07)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "var(--foreground)",
+          }}
         >
           <ChevronLeft />
         </button>
-        <span style={{ fontWeight: 700, fontSize: 15 }}>
+        <span style={{ fontWeight: 700, fontSize: 16 }}>
           {MONTH_NAMES[month]} {year}
         </span>
         <button
           type="button"
           onClick={onNext}
           aria-label="Next month"
-          style={{ background: "var(--btn-bg)", border: "none", borderRadius: 8, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center" }}
+          style={{
+            width: 36, height: 36, borderRadius: "50%", border: "none",
+            background: "rgba(255,255,255,0.07)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "var(--foreground)",
+          }}
         >
           <ChevronRight />
         </button>
       </div>
 
       {/* Weekday headers */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 8 }}>
         {WEEKDAYS.map((d) => (
-          <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, opacity: 0.4, letterSpacing: "0.04em", padding: "4px 0" }}>
+          <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, opacity: 0.35, letterSpacing: "0.04em", padding: "4px 0" }}>
             {d}
           </div>
         ))}
       </div>
 
       {/* Day cells */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
         {cells.map((day, i) => {
           if (day === null) return <div key={`empty-${i}`} />;
 
           const key     = cellDateKey(day);
-          const count   = eventsByDate.get(key)?.length ?? 0;
+          const events  = eventsByDate.get(key) ?? [];
+          const count   = events.length;
           const isToday = key === todayKey;
           const isSel   = key === selectedDate;
+          const imgSrc  = count > 0 ? events[0].image_url : null;
 
           return (
-            <button
+            <div
               key={key}
-              type="button"
               onClick={() => onSelectDate(isSel ? null : key)}
               style={{
-                position: "relative",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
-                padding: "6px 2px 8px",
-                borderRadius: 8,
-                border: "none",
-                cursor: count > 0 || isToday ? "pointer" : "default",
-                background: isSel
-                  ? "var(--accent)"
-                  : isToday
-                  ? "var(--accent-subtle)"
-                  : "transparent",
-                color: isSel ? "#fff" : "inherit",
-                fontWeight: isToday || isSel ? 700 : 400,
+                paddingTop: 2,
+                paddingBottom: 4,
+                cursor: "pointer",
               }}
             >
-              <span style={{ fontSize: 14, lineHeight: 1 }}>{day}</span>
-              {count > 0 && (
-                <span style={{
-                  marginTop: 3,
-                  width: 5, height: 5,
+              <div
+                style={{
+                  position: "relative",
+                  width: 36, height: 36,
                   borderRadius: "50%",
-                  background: isSel ? "rgba(255,255,255,0.85)" : "var(--accent)",
                   flexShrink: 0,
-                }} />
-              )}
-            </button>
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: imgSrc ? "visible" : "visible",
+                  background: imgSrc
+                    ? "transparent"
+                    : isToday
+                    ? "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)"
+                    : "transparent",
+                  boxShadow: isSel
+                    ? "0 0 0 2.5px #a78bfa"
+                    : isToday && !imgSrc
+                    ? "0 4px 16px rgba(124,58,237,0.45)"
+                    : "none",
+                }}
+              >
+                {imgSrc ? (
+                  <>
+                    <img
+                      src={imgSrc}
+                      alt=""
+                      style={{
+                        width: 36, height: 36,
+                        objectFit: "cover", borderRadius: "50%",
+                        display: "block",
+                        boxShadow: isSel ? "0 0 0 2.5px #a78bfa" : "none",
+                      }}
+                    />
+                    {/* Gradient overlay for number readability */}
+                    <div style={{
+                      position: "absolute", inset: 0, borderRadius: "50%",
+                      background: "linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.40) 100%)",
+                      pointerEvents: "none",
+                    }} />
+                    {/* Day number on top of image */}
+                    <span style={{
+                      position: "absolute",
+                      fontSize: 12, fontWeight: 700,
+                      color: "#fff",
+                      textShadow: "0 1px 3px rgba(0,0,0,0.85)",
+                      lineHeight: 1,
+                    }}>
+                      {day}
+                    </span>
+                    {/* Multi-event count badge */}
+                    {count > 1 && (
+                      <span style={{
+                        position: "absolute", bottom: -1, right: -1,
+                        width: 15, height: 15, borderRadius: "50%",
+                        background: "#7c3aed",
+                        border: "1.5px solid rgba(12,9,18,0.92)",
+                        fontSize: 8, fontWeight: 800,
+                        color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        lineHeight: 1,
+                      }}>
+                        {count}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span style={{
+                    fontSize: 14,
+                    fontWeight: isToday || isSel ? 700 : 400,
+                    color: isToday
+                      ? "#fff"
+                      : isSel
+                      ? "#a78bfa"
+                      : "rgba(234,232,228,0.72)",
+                    lineHeight: 1,
+                  }}>
+                    {day}
+                  </span>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
@@ -669,16 +754,45 @@ export default function SchedulePage() {
         {selectedDate && (
           <div style={{ marginTop: 24 }}>
             <div style={{
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
-              opacity: 0.4, textTransform: "uppercase",
-              paddingBottom: 6, borderBottom: "1px solid var(--border)", marginBottom: 2,
+              fontSize: 15, fontWeight: 700,
+              paddingBottom: 10, borderBottom: "1px solid var(--border)", marginBottom: 4,
             }}>
               {formatDateHeading(selectedDate + "T12:00:00")}
             </div>
             {selectedEvents.length === 0 ? (
-              <p style={{ fontSize: 14, opacity: 0.45, padding: "20px 0", textAlign: "center" }}>
-                No events on this day
-              </p>
+              <Link href="/events/new" style={{ textDecoration: "none", display: "block", marginTop: 10 }}>
+                <div style={{
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.02) 100%)",
+                  backdropFilter: "blur(20px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 18, padding: "14px 16px",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.20), 0 1px 0 rgba(255,255,255,0.06) inset",
+                  display: "flex", alignItems: "center", gap: 14,
+                }}>
+                  {/* Icon */}
+                  <div style={{
+                    width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                    background: "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    boxShadow: "0 4px 12px rgba(124,58,237,0.40)",
+                  }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </div>
+                  {/* Text */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#eae8e4", marginBottom: 2 }}>Create an event</div>
+                    <div style={{ fontSize: 12, color: "rgba(234,232,228,0.50)" }}>Host something on this day</div>
+                  </div>
+                  {/* Chevron */}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(234,232,228,0.35)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </div>
+              </Link>
             ) : (
               selectedEvents.map((e) => <EventRow key={`${e.role}-${e.id}`} event={e} />)
             )}
