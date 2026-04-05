@@ -990,7 +990,7 @@ export function EventsList() {
       </div>
 
       {/* Category chip row */}
-      <div className="chip-row" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, minWidth: 0 }}>
+      <div className="chip-row" style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, minWidth: 0 }}>
         {(["all", "concerts", "nightlife", "arts_culture", "comedy", "sports", "family"] as const).map((c) => {
           const active = category === c;
           return (
@@ -999,17 +999,20 @@ export function EventsList() {
               type="button"
               onClick={() => setCategory(c)}
               style={{
-                padding: "7px 16px",
+                padding: "8px 18px",
                 borderRadius: 999,
-                border: `1px solid ${active ? "rgba(94,168,255,0.30)" : "rgba(255,255,255,0.06)"}`,
-                background: active ? "rgba(94,168,255,0.12)" : "rgba(18,26,36,0.70)",
-                color: active ? "#5EA8FF" : "#8C98A8",
-                fontWeight: active ? 600 : 500,
+                border: "none",
+                background: active ? "rgba(94,168,255,0.13)" : "#121821",
+                color: active ? "#F5F7FA" : "#A8B3C2",
+                fontWeight: active ? 600 : 450,
                 fontSize: 13,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
-                transition: "all 0.15s ease",
+                transition: "background 0.15s ease, color 0.15s ease",
+                boxShadow: active
+                  ? "inset 0 1px 0 rgba(255,255,255,0.06)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.03)",
               }}
             >
               {CATEGORY_LABELS[c]}
