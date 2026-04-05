@@ -75,8 +75,8 @@ body:has(.bottom-nav) {
 
 /* ── Bottom nav tab hover (desktop) ──────────────────────────────────────  */
 .bottom-nav a:hover {
-  color: rgba(255,255,255,0.75) !important;
-  background: rgba(255,255,255,0.06) !important;
+  color: #C7D0DB !important;
+  background: rgba(255,255,255,0.05) !important;
 }
 
 /* ── Filters modal: centered on desktop, full-screen on mobile ─────────── */
@@ -125,9 +125,9 @@ body:has(.bottom-nav) {
   transition: box-shadow 0.15s ease;
 }
 .map-search-input:focus {
-  outline: 2px solid #7c3aed;
+  outline: 2px solid #3B82F6;
   outline-offset: 0;
-  box-shadow: 0 2px 16px rgba(124,58,237,0.18) !important;
+  box-shadow: 0 2px 16px rgba(59,130,246,0.18) !important;
 }
 
 
@@ -151,20 +151,20 @@ body:has(.bottom-nav) {
 .app-page {
   position: relative;
   isolation: isolate;
-  background: #111110;
-  color: #eae8e4;
+  background: #0B0F14;
+  color: #F5F7FA;
   color-scheme: dark;
-  --background: #111110;
-  --foreground: #eae8e4;
-  --border: rgba(255,255,255,0.10);
-  --border-strong: rgba(255,255,255,0.18);
-  --border-medium: rgba(255,255,255,0.13);
-  --surface-subtle: rgba(255,255,255,0.04);
-  --surface-raised: rgba(255,255,255,0.09);
-  --btn-bg: rgba(255,255,255,0.07);
-  --btn-bg-active: rgba(255,255,255,0.13);
-  --accent: #a78bfa;
-  --accent-subtle: rgba(167,139,250,0.14);
+  --background: #0B0F14;
+  --foreground: #F5F7FA;
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.10);
+  --border-medium: rgba(255,255,255,0.08);
+  --surface-subtle: rgba(255,255,255,0.03);
+  --surface-raised: rgba(18,26,36,0.70);
+  --btn-bg: rgba(18,26,36,0.70);
+  --btn-bg-active: rgba(94,168,255,0.12);
+  --accent: #5EA8FF;
+  --accent-subtle: rgba(94,168,255,0.12);
 }
 
 @keyframes spin {
@@ -190,13 +190,13 @@ body:has(.bottom-nav) {
   pointer-events: none;
   z-index: -1;
   overflow: hidden;
-  /* Static indigo/blue layer */
-  background: radial-gradient(ellipse 60% 50% at 50% -20%, rgba(79, 70, 229, 0.32) 0%, transparent 70%);
+  /* Static blue-grey atmospheric layer */
+  background: radial-gradient(ellipse 60% 50% at 50% -20%, rgba(30, 64, 120, 0.22) 0%, transparent 70%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
   mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
 }
 
-/* Violet orb — drifts gently */
+/* Blue-slate orb — drifts gently */
 .page-top-glow::before {
   content: "";
   position: absolute;
@@ -204,12 +204,12 @@ body:has(.bottom-nav) {
   top: -130px; left: -15%;
   border-radius: 50%;
   filter: blur(72px);
-  background: radial-gradient(circle at 50% 50%, rgba(124, 58, 237, 0.72) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.18) 0%, transparent 70%);
   will-change: transform;
   animation: page-glow-orb-1 11s ease-in-out infinite;
 }
 
-/* Pink/magenta orb — independent drift */
+/* Deep navy orb — independent drift */
 .page-top-glow::after {
   content: "";
   position: absolute;
@@ -217,7 +217,7 @@ body:has(.bottom-nav) {
   top: -70px; right: -10%;
   border-radius: 50%;
   filter: blur(72px);
-  background: radial-gradient(circle at 50% 50%, rgba(219, 39, 119, 0.50) 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(30, 58, 138, 0.14) 0%, transparent 70%);
   will-change: transform;
   animation: page-glow-orb-2 14s ease-in-out infinite;
 }
@@ -231,7 +231,7 @@ body:has(.bottom-nav) {
 
 /* 1. Force the whole viewport dark so nothing is white below the content. */
 body.is-aurora-page {
-  background: #111110;
+  background: #0B0F14;
 }
 
 /* 2. Slowly cycle all orb hues so the aurora feels alive. */
@@ -242,37 +242,48 @@ body.is-aurora-page {
   100% { filter: hue-rotate(0deg);   }
 }
 
-/* 3. Vivid aurora starts at the very top of <main> (below header).
-      top: 0 is intentional — header is NOT touched.               */
+/* 3. Deep blue atmosphere at top of <main>. */
 body.is-aurora-page .page-top-glow {
   top: 0;
   height: 55vh;
-  background: radial-gradient(ellipse 65% 55% at 50% -10%, rgba(37, 99, 235, 0.40) 0%, transparent 70%);
+  background: radial-gradient(ellipse 65% 55% at 50% -10%, rgba(37, 99, 235, 0.28) 0%, transparent 70%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 80%);
   mask-image: linear-gradient(to bottom, black 0%, black 38%, transparent 80%);
   animation: profile-aurora-hue 18s ease-in-out infinite;
 }
 
-/* Larger, more saturated violet orb */
+/* Blue orb — primary glow */
 body.is-aurora-page .page-top-glow::before {
   width: 115%;
   height: 340px;
   top: -150px;
   left: -8%;
-  background: radial-gradient(circle at 50% 50%, rgba(109, 40, 217, 0.92) 0%, transparent 65%);
+  background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.55) 0%, transparent 65%);
 }
 
-/* Larger, more saturated pink orb shifted to the right */
+/* Deep navy orb — secondary glow */
 body.is-aurora-page .page-top-glow::after {
   width: 90%;
   height: 270px;
   top: -110px;
   right: -15%;
-  background: radial-gradient(circle at 50% 50%, rgba(190, 24, 93, 0.72) 0%, transparent 65%);
+  background: radial-gradient(circle at 50% 50%, rgba(30, 64, 175, 0.42) 0%, transparent 65%);
 }
 
 @media (prefers-reduced-motion: reduce) {
   body.is-aurora-page .page-top-glow { animation: none !important; }
+}
+
+/* ── Event card links — iOS-like press feedback ─────────────────────────── */
+.events-grid a,
+.events-week-scroll a {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.events-grid a:active,
+.events-week-scroll a:active {
+  opacity: 0.88;
+  transform: scale(0.98);
 }
 
 /* ── Profile event card hover ───────────────────────────────────────────── */

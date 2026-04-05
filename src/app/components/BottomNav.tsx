@@ -78,9 +78,9 @@ function NavTab({
         padding: "7px 14px 6px",
         borderRadius: 999,
         textDecoration: "none",
-        color: active ? "#c4b5fd" : "rgba(255,255,255,0.42)",
-        background: active ? "rgba(124,58,237,0.22)" : "transparent",
-        boxShadow: active ? "0 0 0 1px rgba(124,58,237,0.30) inset" : "none",
+        color: active ? "#5EA8FF" : "#8C98A8",
+        background: active ? "rgba(94,168,255,0.10)" : "transparent",
+        boxShadow: active ? "0 0 0 1px rgba(94,168,255,0.18) inset" : "none",
         transition: `color 0.22s ${SPRING}, background 0.22s ${SPRING}, box-shadow 0.22s ${SPRING}`,
         position: "relative",
         minWidth: 54,
@@ -120,8 +120,8 @@ function NavTab({
             width: 7,
             height: 7,
             borderRadius: "50%",
-            background: "#a78bfa",
-            border: "2px solid #0c0912",
+            background: "#5EA8FF",
+            border: "2px solid #0B0F14",
           }}
         />
       )}
@@ -143,10 +143,10 @@ function CreateTab({ active }: { active: boolean }) {
         width: 48,
         height: 48,
         borderRadius: "50%",
-        background: active ? "#6d28d9" : "#7c3aed",
+        background: active ? "#2563EB" : "#3B82F6",
         boxShadow: active
-          ? "0 2px 20px rgba(124,58,237,0.75), 0 0 0 1px rgba(255,255,255,0.15) inset"
-          : "0 2px 16px rgba(124,58,237,0.55), 0 0 0 1px rgba(255,255,255,0.10) inset",
+          ? "0 2px 16px rgba(59,130,246,0.45), 0 0 0 1px rgba(255,255,255,0.12) inset"
+          : "0 2px 12px rgba(59,130,246,0.30), 0 0 0 1px rgba(255,255,255,0.08) inset",
         textDecoration: "none",
         color: "#fff",
         flexShrink: 0,
@@ -219,15 +219,15 @@ export function BottomNav() {
         zIndex: 150,
         display: "flex",
         alignItems: "center",
-        // Liquid glass: gradient highlight + translucent dark base
-        background: "linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(0,0,0,0) 100%), rgba(12,9,18,0.68)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
-        border: "1px solid rgba(255,255,255,0.12)",
+        // Glass pill — neutral dark, no glow
+        background: "rgba(16, 23, 34, 0.82)",
+        backdropFilter: "blur(24px) saturate(160%)",
+        WebkitBackdropFilter: "blur(24px) saturate(160%)",
+        border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 999,
         padding: "5px 6px",
-        // Outer shadow + inner top-highlight
-        boxShadow: "0 8px 40px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.08) inset, 0 0 0 1px rgba(124,58,237,0.06) inset",
+        // Subtle shadow + inner top-highlight
+        boxShadow: "0 8px 32px rgba(0,0,0,0.50), 0 1px 0 rgba(255,255,255,0.06) inset",
         gap: 2,
         pointerEvents: "auto",
         userSelect: "none",

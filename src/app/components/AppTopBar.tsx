@@ -43,26 +43,26 @@ export function AppTopBar() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          color: "#eae8e4",
+          gap: 5,
+          color: "#F5F7FA",
         }}
       >
         <svg
-          width="16"
-          height="16"
+          width="15"
+          height="15"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="currentColor"
+          stroke="#8C98A8"
           strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{ opacity: 0.7, flexShrink: 0 }}
+          style={{ flexShrink: 0 }}
           aria-hidden
         >
           <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
           <circle cx="12" cy="10" r="3" />
         </svg>
-        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em" }}>
+        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.025em", color: "#F5F7FA" }}>
           Montréal
         </span>
       </div>
@@ -86,9 +86,9 @@ export function AppTopBar() {
             width: 36,
             height: 36,
             borderRadius: "50%",
-            border: "1.5px solid rgba(255,255,255,0.18)",
+            border: "1.5px solid rgba(255,255,255,0.08)",
             overflow: "hidden",
-            background: "rgba(255,255,255,0.08)",
+            background: "rgba(18,26,36,0.70)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -103,7 +103,7 @@ export function AppTopBar() {
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#eae8e4" }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F7FA" }}>
               {initials}
             </span>
           )}
@@ -112,11 +112,11 @@ export function AppTopBar() {
         <button
           onClick={openSignIn}
           style={{
-            padding: "7px 14px",
-            borderRadius: 20,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "rgba(255,255,255,0.07)",
-            color: "#eae8e4",
+            padding: "7px 16px",
+            borderRadius: 999,
+            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(18,26,36,0.70)",
+            color: "#C7D0DB",
             fontSize: 13,
             fontWeight: 600,
             cursor: "pointer",

@@ -437,18 +437,18 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function categoryBg(cat: Category): string {
   switch (cat) {
-    case "concerts":     return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
-    case "nightlife":    return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
-    case "arts_culture": return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
-    case "comedy":       return "linear-gradient(150deg, #1a1a00 0%, #3d3000 100%)";
-    case "sports":       return "linear-gradient(150deg, #001a0d 0%, #00381a 100%)";
-    case "family":       return "linear-gradient(150deg, #001233 0%, #00296b 100%)";
-    default:             return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
+    case "concerts":     return "#0D1520";
+    case "nightlife":    return "#0A1018";
+    case "arts_culture": return "#0E1319";
+    case "comedy":       return "#0F1318";
+    case "sports":       return "#0A1216";
+    case "family":       return "#0C1220";
+    default:             return "#0B0F14";
   }
 }
 
 const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#3B82F6", "#0ea5e9", "#10b981", "#f59e0b",
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
 ];
 function getAvatarColor(name: string): string {
@@ -457,10 +457,10 @@ function getAvatarColor(name: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-function StarIcon({ filled }: { filled?: boolean }) {
+function HeartIcon({ filled }: { filled?: boolean }) {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   );
 }
@@ -535,9 +535,9 @@ function MiniCalendar({
                 textAlign: "center", padding: "6px 2px", border: "none", cursor: "pointer",
                 borderRadius: 6, fontSize: 13,
                 fontWeight: isSelected ? 700 : 400,
-                background: isSelected ? "#7c3aed" : inRange ? "rgba(124,58,237,0.14)" : "transparent",
-                color: isSelected ? "#fff" : isToday ? "#7c3aed" : "inherit",
-                outline: isToday && !isSelected ? "1.5px solid #7c3aed" : "none",
+                background: isSelected ? "#3B82F6" : inRange ? "rgba(59,130,246,0.14)" : "transparent",
+                color: isSelected ? "#fff" : isToday ? "#5EA8FF" : "inherit",
+                outline: isToday && !isSelected ? "1.5px solid #5EA8FF" : "none",
                 outlineOffset: -1,
               }}
             >
@@ -565,8 +565,8 @@ function SkeletonCard({ aspectRatio = "65%" }: { aspectRatio?: string }) {
     <div
       className="skeleton"
       style={{
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.08)",
+        borderRadius: 20,
+        background: "rgba(18,26,36,0.70)",
         paddingBottom: aspectRatio,
         position: "relative",
         overflow: "hidden",
@@ -580,7 +580,7 @@ function SkeletonResults() {
     <div style={{ display: "grid", gap: 16 }}>
       {/* "This week" row */}
       <div style={{ display: "grid", gap: 10 }}>
-        <div className="skeleton" style={{ height: 20, width: 90, borderRadius: 6, background: "rgba(255,255,255,0.10)" }} />
+        <div className="skeleton" style={{ height: 20, width: 90, borderRadius: 6, background: "rgba(18,26,36,0.80)" }} />
         <div style={{ display: "flex", gap: 12, overflow: "hidden" }}>
           {[0, 1, 2].map((i) => (
             <div
@@ -589,9 +589,9 @@ function SkeletonResults() {
               style={{
                 flexShrink: 0,
                 width: "min(82vw, 320px)",
-                height: 230,
-                borderRadius: 24,
-                background: "rgba(255,255,255,0.08)",
+                height: 240,
+                borderRadius: 28,
+                background: "rgba(18,26,36,0.70)",
               }}
             />
           ))}
@@ -599,7 +599,7 @@ function SkeletonResults() {
       </div>
       {/* "All events" grid */}
       <div style={{ display: "grid", gap: 10 }}>
-        <div className="skeleton" style={{ height: 20, width: 90, borderRadius: 6, background: "rgba(255,255,255,0.10)" }} />
+        <div className="skeleton" style={{ height: 20, width: 90, borderRadius: 6, background: "rgba(18,26,36,0.80)" }} />
         <div
           className="events-grid"
           style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
@@ -903,21 +903,41 @@ export function EventsList() {
     <div style={{ display: "grid", gap: 16, minWidth: 0, alignContent: "start" }}>
       {/* ── Stable shell: always visible regardless of loading/empty state ── */}
       <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-      {/* Search + Filters button */}
+      {/* Search + Filters — glass pill */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+        {/* Glass search pill */}
+        <div style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          background: "rgba(18, 26, 36, 0.7)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 999,
+          padding: "0 8px 0 14px",
+          gap: 8,
+          minWidth: 0,
+        }}>
+          {/* Search icon */}
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8C98A8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search events, venues, artists..."
             style={{
-              width: "100%",
-              padding: query ? "10px 36px 10px 12px" : "10px 12px",
-              borderRadius: 10,
-              border: "1px solid var(--border-strong)",
-              boxSizing: "border-box",
-              fontSize: 16,
+              flex: 1,
+              background: "none",
+              border: "none",
+              outline: "none",
+              padding: "11px 0",
+              fontSize: 15,
+              color: "#F5F7FA",
+              minWidth: 0,
             }}
           />
           {query && (
@@ -925,62 +945,49 @@ export function EventsList() {
               type="button"
               aria-label="Clear search"
               onMouseDown={(e) => {
-                e.preventDefault(); // keep focus on input
+                e.preventDefault();
                 setQuery("");
                 inputRef.current?.focus();
               }}
               style={{
-                position: "absolute",
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: 36,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "inherit",
-                opacity: 0.45,
-                padding: 0,
+                width: 26, height: 26, borderRadius: "50%",
+                border: "none", background: "rgba(255,255,255,0.06)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: "#8C98A8", flexShrink: 0,
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           )}
         </div>
+        {/* Filter button */}
         <button
           type="button"
           onClick={() => setFiltersOpen(true)}
           aria-label="Filters"
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: "50%",
-            border: `1.5px solid ${activeFilterCount > 0 ? "var(--foreground)" : "var(--border-strong)"}`,
-            background: activeFilterCount > 0 ? "var(--btn-bg-active)" : "transparent",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            color: "inherit",
-            flexShrink: 0,
-            position: "relative",
+            width: 44, height: 44, borderRadius: "50%",
+            border: `1px solid ${activeFilterCount > 0 ? "rgba(94,168,255,0.35)" : "rgba(255,255,255,0.06)"}`,
+            background: activeFilterCount > 0 ? "rgba(94,168,255,0.10)" : "rgba(18,26,36,0.70)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", flexShrink: 0, position: "relative",
+            color: activeFilterCount > 0 ? "#5EA8FF" : "#8C98A8",
           }}
         >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <line x1="4" y1="6" x2="20" y2="6" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="18" x2="20" y2="18" />
-            <circle cx="9" cy="6" r="2.3" fill="var(--background)" stroke="currentColor" strokeWidth="2" />
-            <circle cx="16" cy="12" r="2.3" fill="var(--background)" stroke="currentColor" strokeWidth="2" />
-            <circle cx="11" cy="18" r="2.3" fill="var(--background)" stroke="currentColor" strokeWidth="2" />
+            <circle cx="9" cy="6" r="2.3" fill="#0B0F14" stroke="currentColor" strokeWidth="2" />
+            <circle cx="16" cy="12" r="2.3" fill="#0B0F14" stroke="currentColor" strokeWidth="2" />
+            <circle cx="11" cy="18" r="2.3" fill="#0B0F14" stroke="currentColor" strokeWidth="2" />
           </svg>
           {activeFilterCount > 0 && (
-            <span style={{ position: "absolute", top: 2, right: 2, width: 8, height: 8, borderRadius: "50%", background: "var(--foreground)", border: "2px solid var(--background)" }} />
+            <span style={{ position: "absolute", top: 3, right: 3, width: 7, height: 7, borderRadius: "50%", background: "#5EA8FF", border: "2px solid #0B0F14" }} />
           )}
         </button>
       </div>
@@ -995,16 +1002,17 @@ export function EventsList() {
               type="button"
               onClick={() => setCategory(c)}
               style={{
-                padding: "6px 16px",
-                borderRadius: 20,
-                border: `1px solid ${active ? "var(--foreground)" : "var(--border-strong)"}`,
-                background: active ? "var(--foreground)" : "transparent",
-                color: active ? "var(--background)" : "inherit",
-                fontWeight: 600,
+                padding: "7px 16px",
+                borderRadius: 999,
+                border: `1px solid ${active ? "rgba(94,168,255,0.30)" : "rgba(255,255,255,0.06)"}`,
+                background: active ? "rgba(94,168,255,0.12)" : "rgba(18,26,36,0.70)",
+                color: active ? "#5EA8FF" : "#8C98A8",
+                fontWeight: active ? 600 : 500,
                 fontSize: 13,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
+                transition: "all 0.15s ease",
               }}
             >
               {CATEGORY_LABELS[c]}
@@ -1071,26 +1079,26 @@ export function EventsList() {
               const isRecurring = recurringSet.has(e.id);
               return (
                 <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
-                  <article style={{ borderRadius: 14, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
+                  <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
                     <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                       {e.image_url && (
                         <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                       )}
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
                       <button
                         type="button"
                         aria-label={starred ? "Remove from saved" : "Save event"}
                         onClick={(ev) => handleStar(e.id, ev)}
-                        style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
+                        style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
                       >
-                        <StarIcon filled={starred} />
+                        <HeartIcon filled={starred} />
                       </button>
-                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
-                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
-                        {eEdition && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>}
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
+                        <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                        {eEdition && <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>}
                         {e.venues?.name && (
-                          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                           </div>
                         )}
@@ -1119,16 +1127,16 @@ export function EventsList() {
           {thisWeekEvents.length > 0 && (
             <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>This week</h2>
+                <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>This week</h2>
                 <button
                   type="button"
                   onClick={() => setThisWeekOpen(true)}
-                  style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
+                  style={{ fontSize: 13, color: "#8C98A8", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
                 >
-                  See all ›
+                  See all
                 </button>
               </div>
-              <div style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+              <div className="events-week-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
@@ -1139,7 +1147,7 @@ export function EventsList() {
                   const isRecurring = recurringSet.has(e.id);
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
-                      <div style={{ position: "relative", width: "min(82vw, 320px)", height: 230, borderRadius: 24, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: "min(82vw, 320px)", height: 245, borderRadius: 28, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
@@ -1151,23 +1159,23 @@ export function EventsList() {
                           style={{
                             position: "absolute", top: 8, right: 8,
                             width: 30, height: 30, borderRadius: "50%", border: "none",
-                            background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)",
+                            background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             cursor: pending ? "wait" : "pointer",
                             color: starred ? "#fff" : "rgba(255,255,255,0.8)",
                             opacity: pending ? 0.6 : 1,
                           }}
                         >
-                          <StarIcon filled={starred} />
+                          <HeartIcon filled={starred} />
                         </button>
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px", display: "flex", flexDirection: "column", gap: 2 }}>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
+                          <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
                           {eEdition && (
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
+                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
                           )}
                           {e.venues?.name && (
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
@@ -1194,12 +1202,12 @@ export function EventsList() {
           {/* ── All events ───────────────────────────────────────────────── */}
           <section style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>All events</h2>
+              <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>All events</h2>
               {(category !== "all" || dateFilter !== "all" || timeFilter !== "all" || typeFilter !== "all") && (
                 <button
                   type="button"
                   onClick={() => { setCategory("all"); setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setTimeFilter("all"); setTypeFilter("all"); }}
-                  style={{ fontSize: 13, opacity: 0.55, background: "none", border: "none", cursor: "pointer", color: "inherit", fontWeight: 500, padding: 0 }}
+                  style={{ fontSize: 13, color: "#8C98A8", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
                 >
                   See all
                 </button>
@@ -1216,12 +1224,12 @@ export function EventsList() {
                 const isRecurring = recurringSet.has(e.id);
                 return (
                   <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
-                    <article style={{ borderRadius: 14, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
+                    <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
                       <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
-                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
                         {/* Star button */}
                         <button
                           type="button"
@@ -1230,28 +1238,28 @@ export function EventsList() {
                           style={{
                             position: "absolute", top: 8, right: 8,
                             width: 32, height: 32, borderRadius: "50%", border: "none",
-                            background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)",
+                            background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             cursor: pending ? "wait" : "pointer",
                             color: starred ? "#fff" : "rgba(255,255,255,0.85)",
                             opacity: pending ? 0.6 : 1,
                           }}
                         >
-                          <StarIcon filled={starred} />
+                          <HeartIcon filled={starred} />
                         </button>
                         {/* Text overlay */}
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
                           {/* 1. Date */}
-                          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
+                          <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
                           {/* 2. Series title (or full title when no separator found) */}
-                          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
                           {/* 2b. Edition / guest line — only when a separator was detected */}
                           {eEdition && (
-                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
+                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
                           )}
                           {/* 3. Venue — prefixed with ↻ when part of a recurring series */}
                           {e.venues?.name && (
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                             </div>
                           )}
@@ -1290,14 +1298,18 @@ export function EventsList() {
               onClick={handleLoadMore}
               disabled={loadingMore}
               style={{
-                padding: "10px 32px",
-                borderRadius: 10,
-                border: "1px solid var(--border-strong)",
-                background: "transparent",
+                padding: "11px 32px",
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(18,26,36,0.70)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 cursor: loadingMore ? "not-allowed" : "pointer",
                 fontWeight: 600,
-                fontSize: 15,
+                fontSize: 14,
+                color: "#C7D0DB",
                 opacity: loadingMore ? 0.5 : 1,
+                transition: "opacity 0.15s ease",
               }}
             >
               {loadingMore ? "Loading…" : "Load more"}
@@ -1312,15 +1324,15 @@ export function EventsList() {
           onClick={(e) => e.target === e.currentTarget && setThisWeekOpen(false)}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
         >
-          <div style={{ background: "var(--background)", width: "100%", maxHeight: "90dvh", borderRadius: "16px 16px 0 0", display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "#101722", width: "100%", maxHeight: "90dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.06)", borderBottom: "none" }}>
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px 12px", borderBottom: "1px solid var(--border)", flexShrink: 0, position: "relative" }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>This week</h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "-0.02em", color: "#F5F7FA" }}>This week</h2>
               <button
                 type="button"
                 onClick={() => setThisWeekOpen(false)}
                 aria-label="Close"
-                style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.4, padding: 4, color: "inherit" }}
+                style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.35, padding: 4, color: "#F5F7FA" }}
               >
                 ×
               </button>
@@ -1338,28 +1350,28 @@ export function EventsList() {
                   const isRecurring = recurringSet.has(e.id);
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
-                      <article style={{ borderRadius: 14, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
+                      <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
                         <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                           {e.image_url && (
                             <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                           )}
-                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
                           <button
                             type="button"
                             aria-label={starred ? "Remove from saved" : "Save event"}
                             onClick={(ev) => handleStar(e.id, ev)}
-                            style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(245,158,11,0.75)" : "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
+                            style={{ position: "absolute", top: 8, right: 8, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
                           >
-                            <StarIcon filled={starred} />
+                            <HeartIcon filled={starred} />
                           </button>
-                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 12px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
-                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(e.start_at)}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
+                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
                             {eEdition && (
-                              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
+                              <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
                             )}
                             {e.venues?.name && (
-                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
                               </div>
                             )}
@@ -1392,19 +1404,19 @@ export function EventsList() {
           onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
         >
-          <div style={{ background: "var(--background)", width: "100%", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", maxHeight: "85dvh" }}>
+          <div style={{ background: "#101722", width: "100%", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", maxHeight: "85dvh", border: "1px solid rgba(255,255,255,0.06)", borderBottom: "none" }}>
 
             {/* Fixed header: drag handle + title + X */}
             <div style={{ flexShrink: 0, padding: "12px 20px 0" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.12)" }} />
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16 }}>
-                <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
+                <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", color: "#F5F7FA" }}>Filters</span>
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(false)}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.35, lineHeight: 1, padding: 4, color: "#F5F7FA" }}
                 >
                   ×
                 </button>
@@ -1416,7 +1428,7 @@ export function EventsList() {
 
               {/* Date */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Date</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8C98A8", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 10 }}>Date</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {DATE_OPTIONS.map((opt) => {
                     const isPickDate = opt.id === "pick_date";
@@ -1435,9 +1447,10 @@ export function EventsList() {
                         type="button"
                         onClick={() => setDateFilter(opt.id)}
                         style={{
-                          padding: "7px 14px", borderRadius: 20, border: "none",
-                          background: isActive ? "#7c3aed" : "var(--surface-raised)",
-                          color: isActive ? "#fff" : "inherit",
+                          padding: "7px 14px", borderRadius: 999,
+                          background: isActive ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
+                          border: isActive ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                          color: isActive ? "#5EA8FF" : "#C7D0DB",
                           fontSize: 13, fontWeight: 600, cursor: "pointer",
                         }}
                       >
@@ -1457,7 +1470,7 @@ export function EventsList() {
 
               {/* Time */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Time</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8C98A8", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 10 }}>Time</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {TIME_OPTIONS.map((opt) => (
                     <button
@@ -1465,9 +1478,10 @@ export function EventsList() {
                       type="button"
                       onClick={() => setTimeFilter(opt.id)}
                       style={{
-                        padding: "7px 14px", borderRadius: 20, border: "none",
-                        background: timeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
-                        color: timeFilter === opt.id ? "#fff" : "inherit",
+                        padding: "7px 14px", borderRadius: 999,
+                        background: timeFilter === opt.id ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
+                        border: timeFilter === opt.id ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                        color: timeFilter === opt.id ? "#5EA8FF" : "#C7D0DB",
                         fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >
@@ -1479,7 +1493,7 @@ export function EventsList() {
 
               {/* Type */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>Type</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#8C98A8", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 10 }}>Type</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {TYPE_OPTIONS.map((opt) => (
                     <button
@@ -1487,9 +1501,10 @@ export function EventsList() {
                       type="button"
                       onClick={() => setTypeFilter(opt.id)}
                       style={{
-                        padding: "7px 14px", borderRadius: 20, border: "none",
-                        background: typeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
-                        color: typeFilter === opt.id ? "#fff" : "inherit",
+                        padding: "7px 14px", borderRadius: 999,
+                        background: typeFilter === opt.id ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
+                        border: typeFilter === opt.id ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                        color: typeFilter === opt.id ? "#5EA8FF" : "#C7D0DB",
                         fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >
@@ -1506,13 +1521,13 @@ export function EventsList() {
                   onClick={handleResetFilters}
                   style={{
                     padding: "10px",
-                    borderRadius: 10,
-                    border: "1px solid var(--border-strong)",
-                    background: "none",
+                    borderRadius: 999,
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(255,255,255,0.04)",
                     cursor: "pointer",
                     fontSize: 14,
                     fontWeight: 600,
-                    opacity: 0.6,
+                    color: "#8C98A8",
                   }}
                 >
                   Clear filters
@@ -1524,11 +1539,11 @@ export function EventsList() {
             </div>
 
             {/* Sticky CTA footer */}
-            <div style={{ flexShrink: 0, padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid var(--border-strong)", background: "var(--background)" }}>
+            <div style={{ flexShrink: 0, padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid rgba(255,255,255,0.06)", background: "#101722" }}>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "#7c3aed", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em" }}
+                style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", background: "#3B82F6", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em" }}
               >
                 {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
               </button>
