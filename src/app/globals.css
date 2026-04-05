@@ -101,6 +101,11 @@ body:has(.bottom-nav) {
   gap: 8px;
 }
 
+/* ── Search input placeholder ───────────────────────────────────────────── */
+.events-search-input::placeholder {
+  color: #556070;
+}
+
 /* ── Chip row: hide scrollbar ──────────────────────────────────────────── */
 .chip-row {
   scrollbar-width: none;
@@ -172,59 +177,17 @@ body:has(.bottom-nav) {
   to   { transform: rotate(360deg); }
 }
 
-@keyframes page-glow-orb-1 {
-  0%, 100% { transform: translate(0px,  0px) scale(1);    }
-  33%       { transform: translate(28px, -18px) scale(1.07); }
-  66%       { transform: translate(-22px, 12px) scale(0.94); }
-}
-@keyframes page-glow-orb-2 {
-  0%, 100% { transform: translate(0px,  0px) scale(1);    }
-  40%       { transform: translate(-36px, 14px) scale(1.09); }
-  80%       { transform: translate(22px, -16px) scale(0.93); }
-}
-
+/* .page-top-glow — very faint static wash used on select pages (e.g. profile aurora) */
 .page-top-glow {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 340px;
+  height: 320px;
   pointer-events: none;
   z-index: -1;
   overflow: hidden;
-  /* Static blue-grey atmospheric layer */
-  background: radial-gradient(ellipse 60% 50% at 50% -20%, rgba(30, 64, 120, 0.22) 0%, transparent 70%);
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
-  mask-image: linear-gradient(to bottom, black 0%, black 55%, transparent 100%);
-}
-
-/* Blue-slate orb — drifts gently */
-.page-top-glow::before {
-  content: "";
-  position: absolute;
-  width: 130%; height: 280px;
-  top: -130px; left: -15%;
-  border-radius: 50%;
-  filter: blur(72px);
-  background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.18) 0%, transparent 70%);
-  will-change: transform;
-  animation: page-glow-orb-1 11s ease-in-out infinite;
-}
-
-/* Deep navy orb — independent drift */
-.page-top-glow::after {
-  content: "";
-  position: absolute;
-  width: 75%; height: 200px;
-  top: -70px; right: -10%;
-  border-radius: 50%;
-  filter: blur(72px);
-  background: radial-gradient(circle at 50% 50%, rgba(30, 58, 138, 0.14) 0%, transparent 70%);
-  will-change: transform;
-  animation: page-glow-orb-2 14s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .page-top-glow::before,
-  .page-top-glow::after { animation: none !important; }
+  background: radial-gradient(ellipse 70% 45% at 50% -10%, rgba(30, 58, 120, 0.14) 0%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
 }
 
 /* ── Profile page: vivid full-bleed aurora, dark body fill ──────────────── */
@@ -254,19 +217,23 @@ body.is-aurora-page .page-top-glow {
 
 /* Blue orb — primary glow */
 body.is-aurora-page .page-top-glow::before {
-  width: 115%;
-  height: 340px;
-  top: -150px;
-  left: -8%;
+  content: "";
+  position: absolute;
+  width: 115%; height: 340px;
+  top: -150px; left: -8%;
+  border-radius: 50%;
+  filter: blur(72px);
   background: radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.55) 0%, transparent 65%);
 }
 
 /* Deep navy orb — secondary glow */
 body.is-aurora-page .page-top-glow::after {
-  width: 90%;
-  height: 270px;
-  top: -110px;
-  right: -15%;
+  content: "";
+  position: absolute;
+  width: 90%; height: 270px;
+  top: -110px; right: -15%;
+  border-radius: 50%;
+  filter: blur(72px);
   background: radial-gradient(circle at 50% 50%, rgba(30, 64, 175, 0.42) 0%, transparent 65%);
 }
 

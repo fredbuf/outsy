@@ -62,7 +62,7 @@ export function AppTopBar() {
           <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
           <circle cx="12" cy="10" r="3" />
         </svg>
-        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.025em", color: "#F5F7FA" }}>
+        <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: "#F5F7FA" }}>
           Montréal
         </span>
       </div>
@@ -113,9 +113,9 @@ export function AppTopBar() {
           onClick={openSignIn}
           style={{
             padding: "7px 16px",
-            borderRadius: 999,
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(18,26,36,0.70)",
+            borderRadius: 8,
+            border: "none",
+            background: "rgba(255,255,255,0.07)",
             color: "#C7D0DB",
             fontSize: 13,
             fontWeight: 600,
