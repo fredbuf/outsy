@@ -900,7 +900,7 @@ export function EventsList() {
   );
 
   return (
-    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0, alignContent: "start" }}>
       {/* ── Stable shell: always visible regardless of loading/empty state ── */}
       <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
       {/* Search + Filters button */}
