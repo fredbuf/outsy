@@ -1,9 +1,12 @@
 import { EventsList } from "./EventsList";
+import SetBodyClass from "../components/SetBodyClass";
 import { AppTopBar } from "../components/AppTopBar";
 
 export default function EventsPage() {
   return (
-    <main className="page-main app-page" style={{ padding: "20px 20px 0", maxWidth: 980, margin: "0 auto", display: "grid", gap: 24, minHeight: "100dvh", alignContent: "start" }}>
+    <main className="page-main app-page" style={{ padding: 24, maxWidth: 980, margin: "0 auto", display: "grid", gap: 20, minHeight: "100dvh", alignContent: "start" }}>
+      <SetBodyClass className="is-aurora-page" />
+      <div className="page-top-glow" aria-hidden="true" />
       <AppTopBar />
       <EventsList />
     </main>

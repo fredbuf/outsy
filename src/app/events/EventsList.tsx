@@ -900,19 +900,22 @@ export function EventsList() {
   );
 
   return (
-    <div style={{ display: "grid", gap: 28, minWidth: 0, alignContent: "start" }}>
+    <div style={{ display: "grid", gap: 16, minWidth: 0, alignContent: "start" }}>
       {/* ── Stable shell: always visible regardless of loading/empty state ── */}
-      <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
-      {/* Search + Filters */}
+      <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+      {/* Search + Filters — glass pill */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        {/* Search field */}
+        {/* Glass search pill */}
         <div style={{
           position: "relative",
           flex: 1,
           display: "flex",
           alignItems: "center",
-          background: "rgba(255,255,255,0.055)",
-          borderRadius: 12,
+          background: "rgba(18, 26, 36, 0.7)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 999,
           padding: "0 8px 0 14px",
           gap: 8,
           minWidth: 0,
@@ -926,7 +929,6 @@ export function EventsList() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search events, venues, artists..."
-            className="events-search-input"
             style={{
               flex: 1,
               background: "none",
@@ -966,12 +968,14 @@ export function EventsList() {
           onClick={() => setFiltersOpen(true)}
           aria-label="Filters"
           style={{
-            width: 44, height: 44, borderRadius: 12,
-            border: "none",
-            background: activeFilterCount > 0 ? "rgba(94,168,255,0.08)" : "rgba(255,255,255,0.055)",
+            width: 44, height: 44, borderRadius: "50%",
+            border: `1px solid ${activeFilterCount > 0 ? "rgba(94,168,255,0.35)" : "rgba(255,255,255,0.06)"}`,
+            background: activeFilterCount > 0 ? "rgba(94,168,255,0.10)" : "rgba(18,26,36,0.70)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", flexShrink: 0, position: "relative",
-            color: activeFilterCount > 0 ? "#5EA8FF" : "#556070",
+            color: activeFilterCount > 0 ? "#5EA8FF" : "#8C98A8",
           }}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -998,17 +1002,17 @@ export function EventsList() {
               type="button"
               onClick={() => setCategory(c)}
               style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: "none",
-                background: active ? "rgba(255,255,255,0.09)" : "transparent",
-                color: active ? "#F5F7FA" : "#556070",
+                padding: "7px 16px",
+                borderRadius: 999,
+                border: `1px solid ${active ? "rgba(94,168,255,0.30)" : "rgba(255,255,255,0.06)"}`,
+                background: active ? "rgba(94,168,255,0.12)" : "rgba(18,26,36,0.70)",
+                color: active ? "#5EA8FF" : "#8C98A8",
                 fontWeight: active ? 600 : 500,
                 fontSize: 13,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
-                transition: "color 0.15s ease, background 0.15s ease",
+                transition: "all 0.15s ease",
               }}
             >
               {CATEGORY_LABELS[c]}
@@ -1076,16 +1080,16 @@ export function EventsList() {
               return (
                 <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
                   <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
-                    <div style={{ position: "relative", width: "100%", paddingBottom: "72%", background: categoryBg(e.category_primary) }}>
+                    <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                       {e.image_url && (
                         <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                       )}
-                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.32) 45%, transparent 80%)" }} />
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
                       <button
                         type="button"
                         aria-label={starred ? "Remove from saved" : "Save event"}
                         onClick={(ev) => handleStar(e.id, ev)}
-                        style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", border: "none", background: starred ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.30)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#F5F7FA" : "rgba(255,255,255,0.65)", opacity: pending ? 0.6 : 1 }}
+                        style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
                       >
                         <HeartIcon filled={starred} />
                       </button>
@@ -1118,16 +1122,16 @@ export function EventsList() {
           </div>
         </section>
       ) : (
-        <div style={{ display: "grid", gap: 32, opacity: loading && events.length > 0 ? 0.45 : 1, transition: "opacity 150ms ease" }}>
+        <div style={{ display: "grid", gap: 16, opacity: loading && events.length > 0 ? 0.45 : 1, transition: "opacity 150ms ease" }}>
           {/* ── This week: horizontal scroll ─────────────────────────────── */}
           {thisWeekEvents.length > 0 && (
-            <section style={{ display: "grid", gap: 14 }}>
+            <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: "-0.02em", color: "#F5F7FA" }}>This week</h2>
+                <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>This week</h2>
                 <button
                   type="button"
                   onClick={() => setThisWeekOpen(true)}
-                  style={{ fontSize: 13, color: "#556070", background: "none", border: "none", cursor: "pointer", fontWeight: 400, padding: 0 }}
+                  style={{ fontSize: 13, color: "#8C98A8", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
                 >
                   See all
                 </button>
@@ -1143,7 +1147,7 @@ export function EventsList() {
                   const isRecurring = recurringSet.has(e.id);
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
-                      <div style={{ position: "relative", width: "min(78vw, 300px)", height: 260, borderRadius: 24, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: "min(82vw, 320px)", height: 245, borderRadius: 28, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
@@ -1196,14 +1200,14 @@ export function EventsList() {
           )}
 
           {/* ── All events ───────────────────────────────────────────────── */}
-          <section style={{ display: "grid", gap: 16 }}>
+          <section style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h2 style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: "-0.02em", color: "#F5F7FA" }}>All events</h2>
+              <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>All events</h2>
               {(category !== "all" || dateFilter !== "all" || timeFilter !== "all" || typeFilter !== "all") && (
                 <button
                   type="button"
                   onClick={() => { setCategory("all"); setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setTimeFilter("all"); setTypeFilter("all"); }}
-                  style={{ fontSize: 13, color: "#556070", background: "none", border: "none", cursor: "pointer", fontWeight: 400, padding: 0 }}
+                  style={{ fontSize: 13, color: "#8C98A8", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
                 >
                   See all
                 </button>
@@ -1221,11 +1225,11 @@ export function EventsList() {
                 return (
                   <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
                     <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
-                      <div style={{ position: "relative", width: "100%", paddingBottom: "72%", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
-                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.32) 45%, transparent 80%)" }} />
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
                         {/* Star button */}
                         <button
                           type="button"
@@ -1295,13 +1299,15 @@ export function EventsList() {
               disabled={loadingMore}
               style={{
                 padding: "11px 32px",
-                borderRadius: 10,
-                border: "none",
-                background: "rgba(255,255,255,0.06)",
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(18,26,36,0.70)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
                 cursor: loadingMore ? "not-allowed" : "pointer",
-                fontWeight: 500,
+                fontWeight: 600,
                 fontSize: 14,
-                color: "#8C98A8",
+                color: "#C7D0DB",
                 opacity: loadingMore ? 0.5 : 1,
                 transition: "opacity 0.15s ease",
               }}
@@ -1345,16 +1351,16 @@ export function EventsList() {
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
                       <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
-                        <div style={{ position: "relative", width: "100%", paddingBottom: "72%", background: categoryBg(e.category_primary) }}>
+                        <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                           {e.image_url && (
                             <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                           )}
-                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.32) 45%, transparent 80%)" }} />
+                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
                           <button
                             type="button"
                             aria-label={starred ? "Remove from saved" : "Save event"}
                             onClick={(ev) => handleStar(e.id, ev)}
-                            style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", border: "none", background: starred ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.30)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#F5F7FA" : "rgba(255,255,255,0.65)", opacity: pending ? 0.6 : 1 }}
+                            style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
                           >
                             <HeartIcon filled={starred} />
                           </button>
@@ -1441,10 +1447,10 @@ export function EventsList() {
                         type="button"
                         onClick={() => setDateFilter(opt.id)}
                         style={{
-                          padding: "7px 14px", borderRadius: 8,
-                          background: isActive ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)",
-                          border: "none",
-                          color: isActive ? "#F5F7FA" : "#8C98A8",
+                          padding: "7px 14px", borderRadius: 999,
+                          background: isActive ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
+                          border: isActive ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                          color: isActive ? "#5EA8FF" : "#C7D0DB",
                           fontSize: 13, fontWeight: 600, cursor: "pointer",
                         }}
                       >
@@ -1472,10 +1478,10 @@ export function EventsList() {
                       type="button"
                       onClick={() => setTimeFilter(opt.id)}
                       style={{
-                        padding: "7px 14px", borderRadius: 8,
-                        background: timeFilter === opt.id ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)",
-                        border: "none",
-                        color: timeFilter === opt.id ? "#F5F7FA" : "#8C98A8",
+                        padding: "7px 14px", borderRadius: 999,
+                        background: timeFilter === opt.id ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
+                        border: timeFilter === opt.id ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                        color: timeFilter === opt.id ? "#5EA8FF" : "#C7D0DB",
                         fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >
@@ -1495,10 +1501,10 @@ export function EventsList() {
                       type="button"
                       onClick={() => setTypeFilter(opt.id)}
                       style={{
-                        padding: "7px 14px", borderRadius: 8,
-                        background: typeFilter === opt.id ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)",
-                        border: "none",
-                        color: typeFilter === opt.id ? "#F5F7FA" : "#8C98A8",
+                        padding: "7px 14px", borderRadius: 999,
+                        background: typeFilter === opt.id ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
+                        border: typeFilter === opt.id ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
+                        color: typeFilter === opt.id ? "#5EA8FF" : "#C7D0DB",
                         fontSize: 13, fontWeight: 600, cursor: "pointer",
                       }}
                     >
@@ -1533,11 +1539,11 @@ export function EventsList() {
             </div>
 
             {/* Sticky CTA footer */}
-            <div style={{ flexShrink: 0, padding: "14px 20px calc(max(16px, env(safe-area-inset-bottom, 16px)))", borderTop: "1px solid rgba(255,255,255,0.05)", background: "#101722" }}>
+            <div style={{ flexShrink: 0, padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid rgba(255,255,255,0.06)", background: "#101722" }}>
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
-                style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "#F5F7FA", color: "#0B0F14", fontSize: 15, fontWeight: 600, cursor: "pointer", letterSpacing: "-0.01em" }}
+                style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", background: "#3B82F6", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em" }}
               >
                 {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
               </button>
