@@ -123,6 +123,7 @@ export default function AdminEventsPage() {
               border: "1px solid var(--border-strong)",
               width: 280,
               fontFamily: "monospace",
+              fontSize: 16,
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && adminKey.trim()) fetchPending(adminKey.trim());

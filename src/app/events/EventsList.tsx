@@ -934,7 +934,7 @@ export function EventsList() {
               border: "none",
               outline: "none",
               padding: "9px 0",
-              fontSize: 15,
+              fontSize: 16,
               color: "#F5F7FA",
               minWidth: 0,
             }}

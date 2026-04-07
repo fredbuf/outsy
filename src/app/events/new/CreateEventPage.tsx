@@ -104,7 +104,7 @@ const inputStyle: React.CSSProperties = {
   padding: "11px 14px",
   borderRadius: 10,
   border: "1px solid var(--border-strong)",
-  fontSize: 14,
+  fontSize: 16,
   background: "transparent",
   color: "inherit",
   width: "100%",
@@ -1203,7 +1203,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   style={{
                     display: "block", width: "100%", boxSizing: "border-box",
                     padding: "14px 16px 10px", border: "none",
-                    fontSize: 15, fontWeight: 600,
+                    fontSize: 16, fontWeight: 600,
                     background: "transparent", color: "inherit",
                     outline: "none", fontFamily: "inherit",
                   }}
@@ -1219,7 +1219,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   style={{
                     display: "block", width: "100%", boxSizing: "border-box",
                     padding: "10px 16px 14px", border: "none",
-                    fontSize: 14, background: "transparent", color: "inherit",
+                    fontSize: 16, background: "transparent", color: "inherit",
                     resize: "vertical", outline: "none",
                     fontFamily: "inherit", lineHeight: 1.6,
                   }}

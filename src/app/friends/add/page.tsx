@@ -313,7 +313,7 @@ export default function AddFriendPage() {
             borderRadius: 12,
             border: "1px solid var(--border-strong)",
             background: "var(--surface-subtle)",
-            fontSize: 15,
+            fontSize: 16,
             boxSizing: "border-box",
             outline: "none",
           }}

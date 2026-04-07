@@ -116,7 +116,7 @@ export function Header() {
             <input
               type="email" required placeholder="you@example.com"
               value={email} onChange={(e) => setEmail(e.target.value)}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 14 }}
+              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 16 }}
             />
             <button
               type="submit" disabled={signingIn || !email.trim()}

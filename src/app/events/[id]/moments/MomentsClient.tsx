@@ -287,7 +287,7 @@ function ComposeArea({
           border: "none",
           outline: "none",
           color: "inherit",
-          fontSize: 15,
+          fontSize: 16,
           lineHeight: 1.55,
           resize: "none",
           boxSizing: "border-box",
