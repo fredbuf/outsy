@@ -734,7 +734,10 @@ export function MomentsClient({
 
   const fetchMoments = useCallback(async () => {
     try {
-      const res = await fetch(`/api/events/${eventId}/moments`);
+      const res = await fetch(`/api/events/${eventId}/moments`, {
+        // Bypass browser/CDN cache — always read latest rows from Supabase.
+        cache: "no-store",
+      });
       const data = (await res.json()) as { ok: boolean; moments?: MomentRow[]; error?: string };
       if (data.ok && data.moments) {
         setMoments(data.moments.map((m) => buildDisplay(m, user?.id ?? null)));
@@ -745,6 +748,18 @@ export function MomentsClient({
       console.error("[fetchMoments] network error:", err);
     }
   }, [eventId, user?.id]);
+
+  // On mount, immediately fetch fresh moments from the API to override any stale
+  // initialMoments that the server may have delivered (router cache, data cache,
+  // or brief Supabase replication lag can all cause initialMoments to lag behind).
+  // Guard with a ref so auth-driven fetchMoments recreations don't cause extra fetches.
+  const fetchedOnMount = useRef(false);
+  useEffect(() => {
+    if (fetchedOnMount.current) return;
+    fetchedOnMount.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchMoments();
+  }, [fetchMoments]);
 
   function handlePosted(newMoment: PostedMoment) {
     // Optimistically prepend so it appears immediately
