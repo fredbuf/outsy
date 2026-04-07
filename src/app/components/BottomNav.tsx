@@ -191,8 +191,11 @@ export function BottomNav() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token]);
 
-  // Hide on pages where the bottom nav conflicts with immersive/full-screen UI
+  // Hide on pages where the bottom nav conflicts with immersive/full-screen UI.
+  // "/events/" (trailing slash) covers /events/new, /events/[id], /events/[id]/edit,
+  // /events/[id]/moments — but NOT "/events" (the list page, no trailing slash).
   if (
+    pathname?.startsWith("/events/") ||
     pathname?.startsWith("/social/messages/") ||
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/auth")
