@@ -18,7 +18,7 @@ export default async function EditEventPage({
   const { data: event } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,visibility,category_primary,source_url,image_url,venue_id,cohost_ids,spots_mode,spots_limit,price,currency,payment_method,payment_contact,rsvp_deadline,venues(name,address_line1,city,lat,lng)"
+      "id,title,description,description_title,start_at,end_at,visibility,category_primary,source_url,image_url,venue_id,cohost_ids,spots_mode,spots_limit,price,currency,payment_method,payment_contact,rsvp_deadline,venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("source", "manual")
@@ -31,6 +31,7 @@ export default async function EditEventPage({
   ) as { name?: string; address_line1?: string; city?: string; lat?: number | null; lng?: number | null } | null;
 
   const evtExt = event as typeof event & {
+    description_title?: string | null;
     cohost_ids?: string[] | null;
     spots_mode?: string | null;
     spots_limit?: number | null;
@@ -47,6 +48,7 @@ export default async function EditEventPage({
         id: event.id,
         title: event.title,
         description: event.description ?? null,
+        description_title: evtExt.description_title ?? null,
         start_at: event.start_at,
         end_at: event.end_at ?? null,
         visibility: event.visibility as "public" | "private",

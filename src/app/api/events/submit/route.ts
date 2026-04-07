@@ -15,11 +15,37 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const submissionWindow = new Map<string, number[]>();
 
 
+// Interpret a naive "YYYY-MM-DDTHH:MM" string as America/Toronto local time and
+// return a UTC ISO string. `new Date(naiveString)` on the server (UTC) would treat
+// it as UTC and cause a 4-hour offset vs Montreal display time.
 function toIso(value?: string | null): string | null {
   if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
+  // If the value already has a timezone offset, parse it directly.
+  if (/[Z+\-]\d*$/.test(value)) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  // Naive datetime — interpret as America/Toronto local time.
+  // Strategy: find the UTC offset for that wall-clock instant in Toronto,
+  // then subtract it to get the correct UTC time.
+  const [datePart, timePart = "00:00"] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  if (!year || !month || !day) return null;
+
+  // Use Intl to find the UTC offset at the given Toronto wall-clock time.
+  // We iterate once to resolve DST correctly.
+  const guessUtc = Date.UTC(year, month - 1, day, hour ?? 0, minute ?? 0);
+  const torontoParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(new Date(guessUtc));
+  const tp = Object.fromEntries(torontoParts.filter(p => p.type !== "literal").map(p => [p.type, Number(p.value)]));
+  const offsetMs = guessUtc - Date.UTC(tp.year, tp.month - 1, tp.day, tp.hour === 24 ? 0 : tp.hour, tp.minute, tp.second);
+  const utcMs = guessUtc + offsetMs;
+  const result = new Date(utcMs);
+  return Number.isNaN(result.getTime()) ? null : result.toISOString();
 }
 
 function sanitizeUrl(value?: string | null): string | null {
@@ -77,6 +103,7 @@ export async function POST(req: Request) {
 
   const title = String(payload.title ?? "").trim();
   const description = String(payload.description ?? "").trim() || null;
+  const descriptionTitle = typeof payload.descriptionTitle === "string" ? payload.descriptionTitle.trim().slice(0, 200) || null : null;
   const websiteField = String(payload.website ?? "").trim();
   const startAtIso = toIso(typeof payload.startAt === "string" ? payload.startAt : null);
   const endAtIso = toIso(typeof payload.endAt === "string" ? payload.endAt : null);
@@ -221,6 +248,7 @@ export async function POST(req: Request) {
       title,
       title_normalized: normalizeText(title),
       description,
+      description_title: descriptionTitle,
       start_at: startAtIso,
       end_at: endAtIso,
       timezone: "America/Toronto",

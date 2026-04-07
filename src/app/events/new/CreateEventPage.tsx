@@ -60,17 +60,24 @@ function formatDateLine(startDate: string, startTime: string, allDay: boolean): 
 }
 
 function toLocalDateStr(iso: string): string {
-  const d = new Date(iso);
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0"),
-  ].join("-");
+  // Interpret the UTC ISO string as America/Toronto local time for display.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const p = Object.fromEntries(parts.filter(x => x.type !== "literal").map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
 }
 
 function toLocalTimeStr(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  // Interpret the UTC ISO string as America/Toronto local time for display.
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(new Date(iso));
+  const p = Object.fromEntries(parts.filter(x => x.type !== "literal").map(x => [x.type, x.value]));
+  const h = p.hour === "24" ? "00" : p.hour;
+  return `${h}:${p.minute}`;
 }
 
 export type EditEventData = {

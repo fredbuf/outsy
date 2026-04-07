@@ -12,11 +12,30 @@ const CITY_MAX = 80;
 const URL_MAX = 500;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Interpret a naive "YYYY-MM-DDTHH:MM" string as America/Toronto local time and
+// return a UTC ISO string. `new Date(naiveString)` on the server (UTC) would treat
+// it as UTC and cause a 4-hour offset vs Montreal display time.
 function toIso(value?: string | null): string | null {
   if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString();
+  if (/[Z+\-]\d*$/.test(value)) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  const [datePart, timePart = "00:00"] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  if (!year || !month || !day) return null;
+  const guessUtc = Date.UTC(year, month - 1, day, hour ?? 0, minute ?? 0);
+  const torontoParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(new Date(guessUtc));
+  const tp = Object.fromEntries(torontoParts.filter(p => p.type !== "literal").map(p => [p.type, Number(p.value)]));
+  const offsetMs = guessUtc - Date.UTC(tp.year, tp.month - 1, tp.day, tp.hour === 24 ? 0 : tp.hour, tp.minute, tp.second);
+  const utcMs = guessUtc + offsetMs;
+  const result = new Date(utcMs);
+  return Number.isNaN(result.getTime()) ? null : result.toISOString();
 }
 
 function sanitizeUrl(value?: string | null): string | null {
@@ -90,6 +109,7 @@ export async function PATCH(
   }
 
   const description = String(body.description ?? "").trim() || null;
+  const descriptionTitle = typeof body.descriptionTitle === "string" ? body.descriptionTitle.trim().slice(0, 200) || null : null;
   if (description && description.length > DESCRIPTION_MAX) {
     return NextResponse.json({ ok: false, error: `Description must be ${DESCRIPTION_MAX} characters or fewer.` }, { status: 400 });
   }
@@ -205,6 +225,7 @@ export async function PATCH(
       title,
       title_normalized: normalizeText(title),
       description,
+      description_title: descriptionTitle,
       start_at: startAtIso,
       end_at: endAtIso,
       category_primary: category,
