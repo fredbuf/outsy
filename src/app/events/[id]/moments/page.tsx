@@ -1,6 +1,9 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
+
+// Never serve a cached page — always re-render so moments are fresh from Supabase.
+export const dynamic = "force-dynamic";
 import { MomentsClient } from "./MomentsClient";
 
 type MomentReactionRow = { user_id: string; emoji: string };
