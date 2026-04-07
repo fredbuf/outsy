@@ -195,6 +195,7 @@ export function BottomNav() {
   // "/events/" (trailing slash) covers /events/new, /events/[id], /events/[id]/edit,
   // /events/[id]/moments — but NOT "/events" (the list page, no trailing slash).
   if (
+    pathname === "/" ||
     pathname?.startsWith("/events/") ||
     pathname?.startsWith("/social/messages/") ||
     pathname?.startsWith("/admin") ||

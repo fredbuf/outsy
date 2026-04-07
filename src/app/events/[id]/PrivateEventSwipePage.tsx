@@ -435,12 +435,16 @@ export function PrivateEventSwipePage(props: Props) {
 
       </div>
 
-      {/* ── Page indicator dots — at the bottom of the content ────────────── */}
+      {/* ── Page indicator dots — fixed to bottom of screen ─────────────── */}
       <div
         style={{
+          position: "fixed",
+          bottom: "max(20px, env(safe-area-inset-bottom, 20px))",
+          left: 0, right: 0,
           display: "flex", justifyContent: "center", alignItems: "center",
           gap: 6,
-          padding: "24px 0 32px",
+          zIndex: 50,
+          pointerEvents: "none",
         }}
       >
         <button
@@ -450,10 +454,11 @@ export function PrivateEventSwipePage(props: Props) {
           style={{
             width: page === 0 ? 22 : 7, height: 7,
             borderRadius: 4,
-            background: page === 0 ? "#fff" : "rgba(255,255,255,0.55)",
+            background: page === 0 ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)",
             border: "none", padding: 0,
             cursor: "pointer",
-            transition: "width 0.2s ease, background 0.2s ease",
+            pointerEvents: "auto",
+            transition: "width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease",
           }}
         />
         <button
@@ -463,10 +468,11 @@ export function PrivateEventSwipePage(props: Props) {
           style={{
             width: page === 1 ? 22 : 7, height: 7,
             borderRadius: 4,
-            background: page === 1 ? "#fff" : "rgba(255,255,255,0.55)",
+            background: page === 1 ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)",
             border: "none", padding: 0,
             cursor: "pointer",
-            transition: "width 0.2s ease, background 0.2s ease",
+            pointerEvents: "auto",
+            transition: "width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease",
           }}
         />
       </div>
