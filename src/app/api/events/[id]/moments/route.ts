@@ -2,6 +2,9 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 
+// Never cache this route — always fetch fresh moments from Supabase.
+export const dynamic = "force-dynamic";
+
 const BODY_MAX = 1000;
 
 async function resolveAuth(req: Request) {

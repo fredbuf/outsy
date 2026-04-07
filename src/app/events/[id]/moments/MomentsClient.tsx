@@ -714,10 +714,22 @@ export function MomentsClient({
     initialMoments.map((m) => buildDisplay(m, user?.id ?? null))
   );
 
-  // Rebuild display when user identity resolves (for isMine on reactions)
+  // When user identity resolves, update only the isMine flags on existing moments.
+  // Do NOT reset to initialMoments — that would overwrite any moments loaded by
+  // fetchMoments() after a post, causing recently created moments to disappear.
   useEffect(() => {
-    setMoments(initialMoments.map((m) => buildDisplay(m, user?.id ?? null)));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const userId = user?.id ?? null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMoments((prev) =>
+      prev.map((m) => ({
+        ...m,
+        reactionGroups: VALID_EMOJI.map((emoji) => ({
+          emoji,
+          count: m.rawReactions.filter((r) => r.emoji === emoji).length,
+          isMine: m.rawReactions.some((r) => r.emoji === emoji && r.user_id === userId),
+        })),
+      }))
+    );
   }, [user?.id]);
 
   const fetchMoments = useCallback(async () => {
