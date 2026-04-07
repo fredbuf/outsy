@@ -1191,6 +1191,25 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               background: "var(--background)",
               overflow: "hidden",
             }}
+            onBlur={(e) => {
+              // Collapse the description block when focus leaves it entirely.
+              // We must NOT collapse when focus moves between children (e.g. from
+              // the textarea to the optional title input above it) — that was the
+              // original bug: textarea.onBlur fired before the title <input> could
+              // receive focus, unmounting it mid-tap.
+              //
+              // Capture currentTarget now; React nullifies it after the handler returns.
+              const container = e.currentTarget;
+              // relatedTarget is the element that is about to receive focus.
+              // If it's still inside this block, keep the section open.
+              if (container.contains(e.relatedTarget as Node | null)) return;
+              // Mobile Safari sometimes delivers relatedTarget: null even when
+              // focus is moving to a sibling input. Re-check after focus settles.
+              setTimeout(() => {
+                if (container.contains(document.activeElement)) return;
+                if (!description && !descriptionTitle) setDescriptionOpen(false);
+              }, 0);
+            }}
           >
             {descriptionOpen || description ? (
               <>
@@ -1214,7 +1233,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   placeholder="What's this event about?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  onBlur={() => { if (!description && !descriptionTitle) setDescriptionOpen(false); }}
                   rows={4}
                   style={{
                     display: "block", width: "100%", boxSizing: "border-box",
