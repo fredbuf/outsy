@@ -1002,9 +1002,11 @@ export default function MapPage() {
     }
   }, []);
 
-  // Initialize map — called once by next/script onLoad
+  // Initialize map — called by next/script onLoad on first visit, OR directly on
+  // remount when the Maps API is already loaded (onLoad won't re-fire for an
+  // already-loaded script, causing the white map on navigation return).
   const initMap = useCallback(() => {
-    if (!mapDivRef.current) return;
+    if (!mapDivRef.current || mapRef.current) return;
 
     const map = new google.maps.Map(mapDivRef.current, {
       zoom: 13,
@@ -1034,6 +1036,16 @@ export default function MapPage() {
 
     setMapsLoaded(true);
   }, [placeUserMarker]);
+
+  // When returning to /map, the component remounts fresh but the Google Maps
+  // script is already loaded — onLoad won't fire again. Call initMap directly
+  // if the API is available and we haven't initialized yet.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.google?.maps && !mapRef.current) {
+      initMap();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Recenter button handler
   const handleRecenter = useCallback(() => {
