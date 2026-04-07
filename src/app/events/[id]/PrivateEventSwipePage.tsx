@@ -284,6 +284,34 @@ export function PrivateEventSwipePage(props: Props) {
               <div style={{ width: "50%", boxSizing: "border-box" }}>
                 <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 120px" }}>
 
+                  {/* Page indicator dots */}
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "14px 0 4px" }}>
+                    <button
+                      type="button"
+                      aria-label="Info"
+                      onClick={() => setPage(0)}
+                      style={{
+                        width: page === 0 ? 20 : 6, height: 6,
+                        borderRadius: 3,
+                        background: page === 0 ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.30)",
+                        border: "none", padding: 0, cursor: "pointer",
+                        transition: "width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Moments"
+                      onClick={() => setPage(1)}
+                      style={{
+                        width: page === 1 ? 20 : 6, height: 6,
+                        borderRadius: 3,
+                        background: page === 1 ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.30)",
+                        border: "none", padding: 0, cursor: "pointer",
+                        transition: "width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease",
+                      }}
+                    />
+                  </div>
+
                   {/* RSVP / host controls */}
                   <PrivateActionArea
                     eventId={id}
@@ -435,47 +463,6 @@ export function PrivateEventSwipePage(props: Props) {
 
       </div>
 
-      {/* ── Page indicator dots — fixed to bottom of screen ─────────────── */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: "max(20px, env(safe-area-inset-bottom, 20px))",
-          left: 0, right: 0,
-          display: "flex", justifyContent: "center", alignItems: "center",
-          gap: 6,
-          zIndex: 50,
-          pointerEvents: "none",
-        }}
-      >
-        <button
-          type="button"
-          aria-label="Info"
-          onClick={() => setPage(0)}
-          style={{
-            width: page === 0 ? 22 : 7, height: 7,
-            borderRadius: 4,
-            background: page === 0 ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)",
-            border: "none", padding: 0,
-            cursor: "pointer",
-            pointerEvents: "auto",
-            transition: "width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease",
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Moments"
-          onClick={() => setPage(1)}
-          style={{
-            width: page === 1 ? 22 : 7, height: 7,
-            borderRadius: 4,
-            background: page === 1 ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.35)",
-            border: "none", padding: 0,
-            cursor: "pointer",
-            pointerEvents: "auto",
-            transition: "width 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease",
-          }}
-        />
-      </div>
     </main>
   );
 }
