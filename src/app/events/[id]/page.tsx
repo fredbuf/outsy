@@ -19,7 +19,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,moments_guests_can_post,moments_guests_can_react,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
+      "id,title,description,description_title,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,moments_guests_can_post,moments_guests_can_react,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -319,6 +319,7 @@ export default async function EventPage({
       rsvp_deadline?: string | null;
       moments_guests_can_post?: boolean | null;
       moments_guests_can_react?: boolean | null;
+      description_title?: string | null;
     };
     const cohostIds = evtExt.cohost_ids ?? [];
     const [cohostProfiles, initialMoments] = await Promise.all([
@@ -357,6 +358,7 @@ export default async function EventPage({
         privateMapHref={privateMapHref}
         venueName={venue?.name ?? null}
         description={(event.description as string | null) ?? null}
+        descriptionTitle={(evtExt.description_title as string | null) ?? null}
         spotsLimited={spotsLimited}
         spotsLimit={evtExt.spots_limit ?? null}
         eventPrice={eventPrice}
@@ -672,6 +674,11 @@ export default async function EventPage({
                 <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
                   About
                 </h2>
+                {(event as { description_title?: string | null }).description_title && (
+                  <p style={{ fontSize: 17, fontWeight: 600, textAlign: "center", margin: "0 0 10px" }}>
+                    {(event as { description_title?: string | null }).description_title}
+                  </p>
+                )}
                 <ExpandableDescription text={event.description} />
               </div>
             )}

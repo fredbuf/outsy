@@ -60,6 +60,7 @@ type Props = {
   privateMapHref: string | null;
   venueName: string | null;
   description: string | null;
+  descriptionTitle: string | null;
   spotsLimited: boolean;
   spotsLimit: number | null;
   eventPrice: number | null;
@@ -81,7 +82,7 @@ export function PrivateEventSwipePage(props: Props) {
   const {
     id, imageUrl, title, category, source,
     creatorId, creator, cohostIds, cohostProfiles,
-    dateLine, timeLine, privateMapHref, venueName, description,
+    dateLine, timeLine, privateMapHref, venueName, description, descriptionTitle,
     spotsLimited, spotsLimit, eventPrice, eventCurrency,
     paymentMethod, paymentContact, rsvpDeadline,
     rsvpCounts, attendees,
@@ -349,6 +350,11 @@ export function PrivateEventSwipePage(props: Props) {
                       {/* Description */}
                       {description && (
                         <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
+                          {descriptionTitle && (
+                            <p style={{ fontSize: 17, fontWeight: 600, textAlign: "center", margin: "0 0 10px" }}>
+                              {descriptionTitle}
+                            </p>
+                          )}
                           <ExpandableDescription text={description} />
                         </div>
                       )}
