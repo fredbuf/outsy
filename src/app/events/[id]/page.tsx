@@ -277,7 +277,7 @@ async function fetchMomentsForEvent(eventId: string) {
   const { data } = await supabaseServer()
     .from("moments")
     .select(
-      "id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,is_pinned,reactions_enabled,created_at," +
         "profiles(display_name,avatar_url,username)," +
         "moment_reactions(user_id,emoji)"
     )
