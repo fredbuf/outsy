@@ -82,6 +82,7 @@ type DisplayMoment = {
   // raw reactions kept for local mutation
   rawReactions: { user_id: string; emoji: string }[];
   commentCount: number;
+  commentsEnabled: boolean;
 };
 
 type CommentRow = {
@@ -132,6 +133,7 @@ function buildDisplay(row: MomentRow, currentUserId: string | null): DisplayMome
     reactionGroups,
     rawReactions,
     commentCount: row.comment_count ?? 0,
+    commentsEnabled: row.comments_enabled !== false,
   };
 }
 
@@ -178,6 +180,7 @@ type PostedMoment = {
   body: string;
   is_pinned: boolean;
   reactions_enabled: boolean;
+  comments_enabled: boolean;
   created_at: string;
 };
 
@@ -195,6 +198,7 @@ function ComposeArea({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
+  const [commentsEnabled, setCommentsEnabled] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -209,6 +213,7 @@ function ComposeArea({
     setOpen(false);
     setText("");
     setReactionsEnabled(true);
+    setCommentsEnabled(true);
     setIsPinned(false);
     setError(null);
   }
@@ -227,6 +232,7 @@ function ComposeArea({
         body: JSON.stringify({
           body: text.trim(),
           reactions_enabled: reactionsEnabled,
+          comments_enabled: commentsEnabled,
           is_pinned: isPinned,
         }),
       });
@@ -362,6 +368,39 @@ function ComposeArea({
           Reactions
         </label>
 
+        {/* Comments toggle */}
+        <label
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            fontSize: 13, cursor: "pointer", userSelect: "none",
+          }}
+        >
+          <span
+            role="checkbox"
+            aria-checked={commentsEnabled}
+            tabIndex={0}
+            onClick={() => setCommentsEnabled((v) => !v)}
+            onKeyDown={(e) => e.key === " " && setCommentsEnabled((v) => !v)}
+            style={{
+              width: 32, height: 18, borderRadius: 9,
+              background: commentsEnabled ? "var(--accent, #a78bfa)" : "rgba(255,255,255,0.15)",
+              position: "relative", flexShrink: 0, cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                top: 3, left: commentsEnabled ? 17 : 3,
+                width: 12, height: 12, borderRadius: "50%",
+                background: "#fff",
+                transition: "left 0.15s",
+              }}
+            />
+          </span>
+          Comments
+        </label>
+
         {/* Pin toggle — host/cohost only */}
         {isHostOrCohost && (
           <label
@@ -452,7 +491,6 @@ function CommentsSheet({
   momentId,
   eventId,
   token,
-  currentUser,
   onCommentPosted,
 }: {
   open: boolean;
@@ -460,7 +498,6 @@ function CommentsSheet({
   momentId: string;
   eventId: string;
   token: string | null;
-  currentUser: { id: string; display_name?: string | null; avatar_url?: string | null } | null;
   onCommentPosted: () => void;
 }) {
   const [comments, setComments] = useState<CommentRow[]>([]);
@@ -728,6 +765,7 @@ function MomentCard({
   onPinToggled,
   onReactionToggle,
   onCommentClick,
+  showComments,
 }: {
   moment: DisplayMoment;
   eventId: string;
@@ -740,6 +778,7 @@ function MomentCard({
   onPinToggled: (id: string, pinned: boolean) => void;
   onReactionToggle: (momentId: string, emoji: ValidEmoji, add: boolean) => void;
   onCommentClick: () => void;
+  showComments: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -960,7 +999,8 @@ function MomentCard({
           </div>
         )}
 
-        {/* Comment button */}
+        {/* Comment button — only when comments are enabled for this moment and surface */}
+        {showComments && moment.commentsEnabled && (
         <button
           type="button"
           onClick={onCommentClick}
@@ -983,6 +1023,7 @@ function MomentCard({
           </span>
           <span>{moment.commentCount === 1 ? "comment" : moment.commentCount > 1 ? "comments" : "Comment"}</span>
         </button>
+        )}
       </div>
     </div>
   );
@@ -1089,6 +1130,7 @@ export function MomentsClient({
       reactionGroups: VALID_EMOJI.map((emoji) => ({ emoji, count: 0, isMine: false })),
       rawReactions: [],
       commentCount: 0,
+      commentsEnabled: newMoment.comments_enabled !== false,
     };
     setMoments((prev) => {
       const unpinned = newMoment.is_pinned
@@ -1233,10 +1275,6 @@ export function MomentsClient({
     </div>
   );
 
-  const activeCommentMoment = commentSheetMomentId
-    ? moments.find((m) => m.id === commentSheetMomentId) ?? null
-    : null;
-
   const commentsSheet = (
     <CommentsSheet
       key={commentSheetMomentId ?? "none"}
@@ -1245,7 +1283,6 @@ export function MomentsClient({
       momentId={commentSheetMomentId ?? ""}
       eventId={eventId}
       token={session?.access_token ?? null}
-      currentUser={activeCommentMoment ? { id: activeCommentMoment.author_id } : null}
       onCommentPosted={() => {
         if (commentSheetMomentId) handleCommentPosted(commentSheetMomentId);
       }}

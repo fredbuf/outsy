@@ -30,7 +30,7 @@ export async function GET(
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,is_pinned,reactions_enabled,created_at," +
+      "id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -156,6 +156,7 @@ export async function POST(
   }
 
   const reactionsEnabled = body.reactions_enabled !== false;
+  const commentsEnabled = body.comments_enabled !== false;
   const isPinned = (isHost || isCohost) && body.is_pinned === true;
 
   // Unpin any existing pinned moment before pinning the new one
@@ -175,8 +176,9 @@ export async function POST(
       body: text,
       is_pinned: isPinned,
       reactions_enabled: reactionsEnabled,
+      comments_enabled: commentsEnabled,
     })
-    .select("id,event_id,author_id,body,is_pinned,reactions_enabled,created_at")
+    .select("id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at")
     .single();
 
   if (insertError || !newMoment) {

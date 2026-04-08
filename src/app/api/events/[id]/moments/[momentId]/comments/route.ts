@@ -28,6 +28,20 @@ export async function GET(
   const { momentId } = await params;
   const supabase = supabaseServer();
 
+  // Check that comments are enabled for this moment
+  const { data: moment } = await supabase
+    .from("moments")
+    .select("id,comments_enabled")
+    .eq("id", momentId)
+    .maybeSingle();
+
+  if (!moment) {
+    return NextResponse.json({ ok: false, error: "Moment not found." }, { status: 404 });
+  }
+  if (moment.comments_enabled === false) {
+    return NextResponse.json({ ok: true, comments: [] });
+  }
+
   const { data: rows, error } = await supabase
     .from("comments")
     .select("id,moment_id,user_id,body,created_at")
@@ -84,16 +98,19 @@ export async function POST(
 
   const supabase = supabaseServer();
 
-  // Verify moment exists
+  // Verify moment exists and comments are enabled
   const { data: moment } = await supabase
     .from("moments")
-    .select("id,event_id")
+    .select("id,event_id,comments_enabled")
     .eq("id", momentId)
     .eq("event_id", eventId)
     .maybeSingle();
 
   if (!moment) {
     return NextResponse.json({ ok: false, error: "Moment not found." }, { status: 404 });
+  }
+  if (moment.comments_enabled === false) {
+    return NextResponse.json({ ok: false, error: "Comments are disabled for this moment." }, { status: 403 });
   }
 
   // Verify event is available
