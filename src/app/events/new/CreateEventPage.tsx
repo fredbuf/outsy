@@ -506,7 +506,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       }
 
       if (isEditMode) {
-        router.push(`/events/${editEventId}`);
+        // replace so the edit page is removed from history — back goes to what preceded edit
+        router.replace(`/events/${editEventId}`);
       } else if (isPrivate) {
         router.push(`/events/${json.eventId}`);
       } else {
@@ -748,12 +749,23 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               padding: "14px 16px",
             }}
           >
-            {/* Back */}
-            <Link href="/" onClick={(e) => e.stopPropagation()} style={glassCircle} aria-label="Back">
+            {/* Back — prefer real history; fall back to /events if opened directly */}
+            <button
+              type="button"
+              aria-label="Back"
+              style={glassCircle}
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/events");
+                }
+              }}
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
-            </Link>
+            </button>
 
             {/* Toggle — centered, grows to fill */}
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
