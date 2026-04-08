@@ -67,9 +67,24 @@ export async function GET(
     }
   }
 
+  // Batch-fetch comment counts
+  const momentIds = moments.map((r) => r.id as string);
+  const commentCountMap = new Map<string, number>();
+  if (momentIds.length > 0) {
+    const { data: commentRows } = await supabase
+      .from("comments")
+      .select("moment_id")
+      .in("moment_id", momentIds);
+    for (const row of commentRows ?? []) {
+      const mid = row.moment_id as string;
+      commentCountMap.set(mid, (commentCountMap.get(mid) ?? 0) + 1);
+    }
+  }
+
   const result = moments.map((row) => ({
     ...row,
     profiles: profilesMap.get(row.author_id as string) ?? null,
+    comment_count: commentCountMap.get(row.id as string) ?? 0,
   }));
 
   return NextResponse.json({ ok: true, moments: result });
