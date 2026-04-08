@@ -566,14 +566,23 @@ export default function MapPage() {
   // and change in lockstep, so the ref is always up to date when the effect runs).
   const venueLeaderMapRef = useRef<Map<string, MapEvent>>(new Map());
 
-  // Deep-link: parse ?eventId= on mount (or fall back to ?q= venue search).
-  const deepLinkRef = useRef<{ eventId: string } | null>(null);
+  // Deep-link: parse ?eventId= (+ optional ?lat=&lng=) on mount.
+  // lat/lng come from the event page (server-rendered, always accurate) so we can
+  // center the map immediately — before the async Supabase fetch completes.
+  const deepLinkRef = useRef<{ eventId: string; lat: number | null; lng: number | null } | null>(null);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("eventId");
     if (eventId) {
-      deepLinkRef.current = { eventId };
-      // Fetch the event independently — no date or visibility filter so past/private events work too
+      const rawLat = parseFloat(params.get("lat") ?? "");
+      const rawLng = parseFloat(params.get("lng") ?? "");
+      deepLinkRef.current = {
+        eventId,
+        lat: isNaN(rawLat) ? null : rawLat,
+        lng: isNaN(rawLng) ? null : rawLng,
+      };
+      // Fetch the event independently — no date/approval/visibility filter so
+      // events outside the default 14/30-day window and private events both work.
       supabaseBrowser()
         .from("events")
         .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name)")
@@ -586,7 +595,20 @@ export default function MapPage() {
     }
   }, []);
 
-  // Auto-select deep-linked event once both the event and map are ready.
+  // As soon as the map is ready and we have URL-provided coordinates, center
+  // immediately — before the async Supabase fetch for the event completes.
+  // This makes the map focus feel instant even for events outside the discovery
+  // window (next month, private, unapproved) where the fetch might be slow or fail.
+  useEffect(() => {
+    if (!mapsLoaded || !deepLinkRef.current) return;
+    const { lat, lng } = deepLinkRef.current;
+    if (typeof lat === "number" && typeof lng === "number") {
+      mapRef.current?.panTo({ lat, lng });
+      mapRef.current?.setZoom(15);
+    }
+  }, [mapsLoaded]);
+
+  // Auto-select deep-linked event once both the event data and map are ready.
   useEffect(() => {
     if (!deepLinkRef.current || !deepLinkedEvent || !mapsLoaded) return;
     setSelected(deepLinkedEvent);

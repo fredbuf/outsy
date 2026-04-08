@@ -308,7 +308,13 @@ export default async function EventPage({
 
   /* ── Private event: swipe layout ───────────────────────────────────────── */
   if (event.visibility === "private") {
-    const privateMapHref = venue ? `/map?eventId=${id}` : null;
+    const venueLat = (venue as { lat?: number | null } | null)?.lat ?? null;
+    const venueLng = (venue as { lng?: number | null } | null)?.lng ?? null;
+    const venueCoords =
+      typeof venueLat === "number" && typeof venueLng === "number"
+        ? `&lat=${venueLat}&lng=${venueLng}`
+        : "";
+    const privateMapHref = venue ? `/map?eventId=${id}${venueCoords}` : null;
     const evtExt = event as {
       cohost_ids?: string[] | null;
       spots_mode?: string | null;
@@ -379,7 +385,13 @@ export default async function EventPage({
   const recentActivity = await fetchRecentActivity(id);
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";
-  const mapHref = venue ? `/map?eventId=${id}` : "/map";
+  const pubLat = (venue as { lat?: number | null } | null)?.lat ?? null;
+  const pubLng = (venue as { lng?: number | null } | null)?.lng ?? null;
+  const pubCoords =
+    typeof pubLat === "number" && typeof pubLng === "number"
+      ? `&lat=${pubLat}&lng=${pubLng}`
+      : "";
+  const mapHref = venue ? `/map?eventId=${id}${pubCoords}` : "/map";
   const startD = new Date(event.start_at);
   const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
   const dateLine = startD.toLocaleString("en-US", {
