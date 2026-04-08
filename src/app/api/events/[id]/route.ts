@@ -156,6 +156,8 @@ export async function PATCH(
   const venueName = String(body.venueName ?? "").trim();
   const venueAddress = String(body.venueAddress ?? "").trim() || null;
   const venueCity = String(body.venueCity ?? "Montréal").trim() || "Montréal";
+  const venueLat = typeof body.lat === "number" && isFinite(body.lat) ? body.lat : null;
+  const venueLng = typeof body.lng === "number" && isFinite(body.lng) ? body.lng : null;
   if (venueName.length > VENUE_NAME_MAX) {
     return NextResponse.json({ ok: false, error: `Venue name must be ${VENUE_NAME_MAX} characters or fewer.` }, { status: 400 });
   }
@@ -183,6 +185,8 @@ export async function PATCH(
           name: venueName,
           address_line1: venueAddress,
           city: venueCity,
+          ...(venueLat !== null ? { lat: venueLat } : {}),
+          ...(venueLng !== null ? { lng: venueLng } : {}),
         })
         .eq("id", existingVenueId);
       venueId = existingVenueId;
@@ -201,6 +205,8 @@ export async function PATCH(
         region: "QC",
         country: "CA",
         timezone: "America/Toronto",
+        lat: venueLat,
+        lng: venueLng,
       });
       venueId = result?.id ?? null;
     } catch (err) {

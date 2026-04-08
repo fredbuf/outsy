@@ -1027,12 +1027,17 @@ export default function MapPage() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [mapSuggestions.length]);
 
-  // Shared helper: store position, pan map, place/update the blue dot
+  // Shared helper: store position, place/update the blue dot.
+  // Skips panTo when a deep-link event is active so geolocation doesn't override
+  // the venue-centered view the user navigated to from an event page.
   const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
     const pos = { lat, lng };
     userPosRef.current = pos;
     setUserPos(pos); // expose to useMemo so distance-sort updates
-    map.panTo(pos);
+    // Only pan to user location when no focused event is open
+    if (!deepLinkAppliedRef.current && deepLinkCoordsRef.current.lat === null) {
+      map.panTo(pos);
+    }
 
     if (userMarkerRef.current) {
       userMarkerRef.current.setPosition(pos);
@@ -1195,13 +1200,16 @@ export default function MapPage() {
 
   // Place a marker for the deep-linked event when it's not already in filteredEvents.
   // This effect is defined AFTER the main marker effect so it runs after markers are rebuilt.
+  // Falls back to the URL-baked lat/lng so private events with no stored venue coords still get a marker.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapsLoaded || !deepLinkedEvent) return;
     if (markersRef.current.has(deepLinkedEvent.id)) return; // main effect already placed it
-    const lat = deepLinkedEvent.venues?.lat;
-    const lng = deepLinkedEvent.venues?.lng;
+    // Prefer venue coords from the fetched event; fall back to URL params
+    const lat = deepLinkedEvent.venues?.lat ?? deepLinkCoordsRef.current.lat;
+    const lng = deepLinkedEvent.venues?.lng ?? deepLinkCoordsRef.current.lng;
     if (typeof lat !== "number" || typeof lng !== "number") return;
+    console.log("[map deep-link] placing marker at", lat, lng, deepLinkedEvent.title);
 
     const AdvancedMarker = MAP_ID
       ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null

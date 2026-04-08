@@ -169,6 +169,8 @@ export async function POST(req: Request) {
   const venueName = String(payload.venueName ?? "").trim();
   const venueAddress = String(payload.venueAddress ?? "").trim() || null;
   const venueCity = String(payload.venueCity ?? "Montréal").trim() || "Montréal";
+  const venueLat = typeof payload.lat === "number" && isFinite(payload.lat) ? payload.lat : null;
+  const venueLng = typeof payload.lng === "number" && isFinite(payload.lng) ? payload.lng : null;
   if (venueName.length > VENUE_NAME_MAX) {
     return NextResponse.json(
       { ok: false, error: `Venue name must be ${VENUE_NAME_MAX} characters or fewer.` },
@@ -230,6 +232,8 @@ export async function POST(req: Request) {
         region: "QC",
         country: "CA",
         timezone: "America/Toronto",
+        lat: venueLat,
+        lng: venueLng,
       });
       venueId = result?.id ?? null;
     } catch (err) {
