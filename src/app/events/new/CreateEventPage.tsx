@@ -196,6 +196,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const placesServiceDivRef = useRef<HTMLDivElement>(null);
   const locationQueryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const privatePlaceNameInputRef = useRef<HTMLInputElement>(null);
 
   // Description expand
   const [descriptionOpen, setDescriptionOpen] = useState(() => Boolean(editData?.description));
@@ -419,13 +420,21 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       { placeId: prediction.place_id, fields: ["name", "formatted_address", "place_id", "geometry"] },
       (place, status) => {
         if (status !== google.maps.places.PlacesServiceStatus.OK || !place) return;
+        const resolvedAddress = place.formatted_address ?? prediction.description;
+        const resolvedName = place.name ?? prediction.structured_formatting.main_text;
         setPrivateLat(place.geometry?.location?.lat() ?? null);
         setPrivateLng(place.geometry?.location?.lng() ?? null);
-        setPrivateAddress(place.formatted_address ?? prediction.description);
+        setPrivateAddress(resolvedAddress);
         setPrivatePlaceId(place.place_id ?? null);
-        setPrivatePlaceName(place.name ?? prediction.structured_formatting.main_text);
+        // Prefill display name only if the user hasn't typed their own
+        if (!privatePlaceNameRef.current.trim()) {
+          setPrivatePlaceName(resolvedName);
+        }
+        // Mirror address in the search bar so it reads as confirmed
+        setLocationQuery(resolvedAddress);
         setPlacePredictions([]);
-        setLocationSheetOpen(false);
+        // Keep the sheet open — focus the display name field so user can review/edit
+        setTimeout(() => privatePlaceNameInputRef.current?.focus(), 60);
       },
     );
   }
@@ -1733,8 +1742,79 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               </button>
             </div>
 
-            {/* Search bar — sticky below the header */}
-            <div style={{ padding: "4px 16px 10px", flexShrink: 0 }}>
+            {/* ── Display name (private events only) — sticky, above search bar ── */}
+            {isPrivate && (
+              <div style={{ padding: "0 16px 8px", flexShrink: 0 }}>
+                <div style={{ height: 1, background: "var(--border)", marginBottom: 10 }} />
+                <input
+                  ref={privatePlaceNameInputRef}
+                  placeholder="Display name (optional)"
+                  value={privatePlaceName}
+                  onChange={(e) => {
+                    setPrivatePlaceName(e.target.value);
+                    privatePlaceNameRef.current = e.target.value;
+                  }}
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    padding: "11px 14px", borderRadius: 12,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface-subtle)",
+                    color: "inherit", fontSize: 16, fontFamily: "inherit",
+                    outline: "none",
+                  }}
+                />
+                {/* Confirmed address pill — shown only after a place has been picked */}
+                {privateAddress ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "0 2px" }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.38 }} aria-hidden>
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span style={{ fontSize: 13, opacity: 0.42, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+                      {privateAddress}
+                    </span>
+                    {/* Let user clear the confirmed address */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrivateAddress("");
+                        setPrivateLat(null);
+                        setPrivateLng(null);
+                        setPrivatePlaceId(null);
+                        setLocationQuery("");
+                        setPlacePredictions([]);
+                      }}
+                      aria-label="Clear address"
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: "rgba(255,255,255,0.10)",
+                        border: "none", cursor: "pointer",
+                        flexShrink: 0, color: "inherit", opacity: 0.6,
+                      }}
+                    >
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 12, opacity: 0.30, margin: "6px 2px 0", padding: 0 }}>
+                    How the venue name appears on your event
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Search bar — sticky, below display name field */}
+            <div style={{ padding: isPrivate ? "0 16px 10px" : "4px 16px 10px", flexShrink: 0 }}>
+              {isPrivate && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
+                  <span style={{ fontSize: 11, opacity: 0.32, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", flexShrink: 0 }}>Address search</span>
+                  <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
+                </div>
+              )}
               <div
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
@@ -1750,12 +1830,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 </svg>
                 <input
                   autoFocus
-                  placeholder={isPrivate ? "Search for a place or address…" : "Search venues…"}
+                  placeholder={isPrivate ? "Search for an address or place…" : "Search venues…"}
                   value={isPrivate ? locationQuery : venueName}
                   onChange={(e) => {
                     if (isPrivate) {
                       setLocationQuery(e.target.value);
-                      // Clear confirmed geo data while user is actively typing
+                      // Clear confirmed geo data while user is actively typing a new address
                       setPrivateLat(null);
                       setPrivateLng(null);
                       setPrivatePlaceId(null);
