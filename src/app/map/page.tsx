@@ -137,7 +137,7 @@ type MapEvent = {
   image_url: string | null;
   source: string;
   category_primary: string;
-  venues: { lat: number | null; lng: number | null; name: string | null } | null;
+  venues: { lat: number | null; lng: number | null; name: string | null; address_line1?: string | null } | null;
 };
 
 type TileAvatar = { url: string | null; name: string | null };
@@ -627,9 +627,6 @@ export default function MapPage() {
 
   // Auto-select the deep-linked event once both the event data and the map are ready.
   // Guarded by deepLinkAppliedRef so it only fires once per deep-link session.
-  // IMPORTANT: we do NOT null-out deepLinkRef here — that was the previous bug.
-  // deepLinkAppliedRef is set in a separate effect (below) that fires AFTER
-  // selected is committed to React state, preventing the exit effect from racing.
   useEffect(() => {
     if (!deepLinkedEvent || !mapsLoaded || deepLinkAppliedRef.current) return;
     const venueLat = deepLinkedEvent.venues?.lat;
@@ -643,11 +640,31 @@ export default function MapPage() {
     });
     setSelected(deepLinkedEvent);
     if (typeof lat === "number" && typeof lng === "number") {
-      console.log("[map deep-link] centering on venue:", lat, lng);
+      console.log("[map deep-link] centering on venue (stored coords):", lat, lng);
       mapRef.current?.panTo({ lat, lng });
       mapRef.current?.setZoom(15);
     } else {
-      console.warn("[map deep-link] no venue coords available — map stays at current center");
+      // No stored or URL coordinates — geocode from venue name + address.
+      // This handles private events created before lat/lng storage was added.
+      const venueName = deepLinkedEvent.venues?.name;
+      const venueAddress = deepLinkedEvent.venues?.address_line1;
+      const query = [venueName, venueAddress, "Montréal, QC"].filter(Boolean).join(", ");
+      if (query.trim() && mapRef.current && window.google?.maps) {
+        console.log("[map deep-link] no stored coords — geocoding:", query);
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: query }, (results, status) => {
+          if (status === "OK" && results?.[0]) {
+            const loc = results[0].geometry.location;
+            console.log("[map deep-link] geocoded to:", loc.lat(), loc.lng());
+            mapRef.current?.panTo(loc);
+            mapRef.current?.setZoom(15);
+          } else {
+            console.warn("[map deep-link] geocoding failed:", status);
+          }
+        });
+      } else {
+        console.warn("[map deep-link] no venue info to geocode from — map stays at current center");
+      }
     }
   }, [deepLinkedEvent, mapsLoaded]);
 

@@ -236,6 +236,15 @@ export async function POST(req: Request) {
         lng: venueLng,
       });
       venueId = result?.id ?? null;
+      // upsertVenue uses ignoreDuplicates: true, so existing venue rows are NOT
+      // updated on conflict. If we have real coordinates, backfill them when the
+      // stored value is still null (safe no-op if coords are already present).
+      if (venueId && venueLat !== null && venueLng !== null) {
+        await supabase.from("venues")
+          .update({ lat: venueLat, lng: venueLng })
+          .eq("id", venueId)
+          .is("lat", null);
+      }
     } catch (err) {
       return NextResponse.json(
         { ok: false, error: `Venue error: ${err instanceof Error ? err.message : "unknown"}` },

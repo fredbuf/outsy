@@ -78,7 +78,7 @@ export async function GET(
   }
   const { data, error } = await supabaseServer()
     .from("events")
-    .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name)")
+    .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name,address_line1)")
     .eq("id", id)
     .single();
   if (error || !data) {
@@ -209,6 +209,13 @@ export async function PATCH(
         lng: venueLng,
       });
       venueId = result?.id ?? null;
+      // Backfill coords on existing venue rows that were inserted without them.
+      if (venueId && venueLat !== null && venueLng !== null) {
+        await supabase.from("venues")
+          .update({ lat: venueLat, lng: venueLng })
+          .eq("id", venueId)
+          .is("lat", null);
+      }
     } catch (err) {
       return NextResponse.json(
         { ok: false, error: `Venue error: ${err instanceof Error ? err.message : "unknown"}` },
