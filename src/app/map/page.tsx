@@ -571,8 +571,12 @@ export default function MapPage() {
   // deepLinkAppliedRef — true only AFTER selected has been committed to the
   //                      deep-linked event; gates the exit-mode effect so it
   //                      can't fire in the same render cycle as auto-select.
+  // isDeepLinkActiveRef — true from the moment eventId is found in the URL to
+  //                       when the user exits focused mode. Set SYNCHRONOUSLY
+  //                       before any async op so geolocation can't race it.
   const deepLinkCoordsRef = useRef<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const deepLinkAppliedRef = useRef(false);
+  const isDeepLinkActiveRef = useRef(false);
 
   // Parse URL params on mount and kick off an authenticated event fetch.
   // We use the Next.js API route (service-role key) instead of supabaseBrowser()
@@ -581,6 +585,10 @@ export default function MapPage() {
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("eventId");
     if (eventId) {
+      // Set isDeepLinkActiveRef SYNCHRONOUSLY — before any async op — so that
+      // the geolocation callback (which fires ~1s later) sees it as true and
+      // does not override the venue centering.
+      isDeepLinkActiveRef.current = true;
       const rawLat = parseFloat(params.get("lat") ?? "");
       const rawLng = parseFloat(params.get("lng") ?? "");
       deepLinkCoordsRef.current = {
@@ -588,7 +596,7 @@ export default function MapPage() {
         lng: isNaN(rawLng) ? null : rawLng,
       };
       deepLinkAppliedRef.current = false;
-      console.log("[map deep-link] params:", { eventId, lat: deepLinkCoordsRef.current.lat, lng: deepLinkCoordsRef.current.lng });
+      console.log("[map deep-link] params:", { eventId, lat: deepLinkCoordsRef.current.lat, lng: deepLinkCoordsRef.current.lng, isDeepLinkActive: isDeepLinkActiveRef.current });
       fetch(`/api/events/${eventId}`)
         .then((r) => r.json())
         .then((json: { ok: boolean; event?: MapEvent; error?: string }) => {
@@ -624,14 +632,22 @@ export default function MapPage() {
   // selected is committed to React state, preventing the exit effect from racing.
   useEffect(() => {
     if (!deepLinkedEvent || !mapsLoaded || deepLinkAppliedRef.current) return;
-    console.log("[map deep-link] selecting event:", deepLinkedEvent.id);
+    const venueLat = deepLinkedEvent.venues?.lat;
+    const venueLng = deepLinkedEvent.venues?.lng;
+    const lat = venueLat ?? deepLinkCoordsRef.current.lat;
+    const lng = venueLng ?? deepLinkCoordsRef.current.lng;
+    console.log("[map deep-link] selecting event:", deepLinkedEvent.id, {
+      venueLat, venueLng,
+      urlLat: deepLinkCoordsRef.current.lat, urlLng: deepLinkCoordsRef.current.lng,
+      finalLat: lat, finalLng: lng,
+    });
     setSelected(deepLinkedEvent);
-    // Use venue coords from the fetched event if available, else fall back to URL coords.
-    const lat = deepLinkedEvent.venues?.lat ?? deepLinkCoordsRef.current.lat;
-    const lng = deepLinkedEvent.venues?.lng ?? deepLinkCoordsRef.current.lng;
     if (typeof lat === "number" && typeof lng === "number") {
+      console.log("[map deep-link] centering on venue:", lat, lng);
       mapRef.current?.panTo({ lat, lng });
       mapRef.current?.setZoom(15);
+    } else {
+      console.warn("[map deep-link] no venue coords available — map stays at current center");
     }
   }, [deepLinkedEvent, mapsLoaded]);
 
@@ -958,6 +974,7 @@ export default function MapPage() {
       console.log("[map deep-link] exiting focused mode");
       setDeepLinkedEvent(null);
       deepLinkAppliedRef.current = false;
+      isDeepLinkActiveRef.current = false;
     }
   }, [selected, deepLinkedEvent]);
 
@@ -1029,13 +1046,15 @@ export default function MapPage() {
 
   // Shared helper: store position, place/update the blue dot.
   // Skips panTo when a deep-link event is active so geolocation doesn't override
-  // the venue-centered view the user navigated to from an event page.
+  // the venue-centered view. isDeepLinkActiveRef is set SYNCHRONOUSLY on mount
+  // before any async op, so it is guaranteed to be true before this callback fires.
   const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
     const pos = { lat, lng };
     userPosRef.current = pos;
     setUserPos(pos); // expose to useMemo so distance-sort updates
-    // Only pan to user location when no focused event is open
-    if (!deepLinkAppliedRef.current && deepLinkCoordsRef.current.lat === null) {
+    if (isDeepLinkActiveRef.current) {
+      console.log("[map geolocation] deep-link active — placing dot but NOT panning");
+    } else {
       map.panTo(pos);
     }
 
