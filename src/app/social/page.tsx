@@ -1,11 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { ActivityItem, MomentMeta } from "@/app/api/social/activity/route";
 import type { ConversationPreview } from "@/app/api/social/conversations/route";
+import type { UserSearchResult } from "@/app/api/users/search/route";
 
 // ── Avatar helpers ─────────────────────────────────────────────────────────────
 
@@ -561,6 +562,318 @@ function UnreadDot() {
   );
 }
 
+// ── Add-friend sheet ───────────────────────────────────────────────────────────
+
+type ButtonState = "idle" | "sending" | "sent" | "cancelling" | "friends";
+
+function initialButtonState(result: UserSearchResult): ButtonState {
+  if (!result.friendship) return "idle";
+  if (result.friendship.status === "accepted") return "friends";
+  if (result.friendship.direction === "sent") return "sent";
+  return "idle";
+}
+
+function AddFriendButton({
+  state,
+  onAdd,
+  onCancel,
+}: {
+  state: ButtonState;
+  onAdd: () => void;
+  onCancel: () => void;
+}) {
+  if (state === "friends") {
+    return (
+      <span style={{ fontSize: 13, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Friends
+      </span>
+    );
+  }
+  if (state === "sent" || state === "cancelling") {
+    return (
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={state === "cancelling"}
+        style={{
+          padding: "7px 14px", borderRadius: 20,
+          border: "1px solid rgba(255,255,255,0.15)",
+          background: "rgba(255,255,255,0.07)",
+          fontWeight: 600, fontSize: 13,
+          cursor: state === "cancelling" ? "not-allowed" : "pointer",
+          flexShrink: 0, color: "inherit",
+          opacity: state === "cancelling" ? 0.5 : 1,
+        }}
+      >
+        {state === "cancelling" ? "…" : "Sent"}
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onAdd}
+      disabled={state === "sending"}
+      style={{
+        padding: "7px 14px", borderRadius: 20, border: "none",
+        background: state === "sending" ? "rgba(167,139,250,0.3)" : "#7c3aed",
+        color: "#fff", fontWeight: 600, fontSize: 13,
+        cursor: state === "sending" ? "not-allowed" : "pointer",
+        flexShrink: 0, opacity: state === "sending" ? 0.6 : 1,
+      }}
+    >
+      {state === "sending" ? "…" : "Add"}
+    </button>
+  );
+}
+
+function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () => void; token: string }) {
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<UserSearchResult[] | null>(null);
+  const [buttonStates, setButtonStates] = useState<Record<string, ButtonState>>({});
+  const [friendshipIds, setFriendshipIds] = useState<Record<string, string>>({});
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce + fetch combined: all setState calls happen inside async callbacks,
+  // never synchronously in the effect body (satisfies react-hooks/set-state-in-effect).
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) return;
+    const id = setTimeout(() => {
+      setSearching(true);
+      fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((data: { ok: boolean; results?: UserSearchResult[] }) => {
+          if (data.ok && data.results) {
+            setResults(data.results);
+            const initial: Record<string, ButtonState> = {};
+            const ids: Record<string, string> = {};
+            for (const r of data.results) {
+              initial[r.id] = initialButtonState(r);
+              if (r.friendship?.id) ids[r.id] = r.friendship.id;
+            }
+            setButtonStates(initial);
+            setFriendshipIds(ids);
+          }
+        })
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(id);
+  // State reset on close is handled by the `key` prop on the parent — React remounts
+  // this component fresh each time the sheet opens, no explicit reset effect needed.
+  }, [query, token]);
+
+  async function handleAdd(result: UserSearchResult) {
+    setButtonStates((prev) => ({ ...prev, [result.id]: "sending" }));
+    try {
+      const res = await fetch("/api/friends/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ recipientId: result.id }),
+      });
+      const data = (await res.json()) as { ok: boolean; friendshipStatus?: string; friendshipId?: string };
+      if (data.ok) {
+        const next: ButtonState = data.friendshipStatus === "friends" ? "friends" : "sent";
+        setButtonStates((prev) => ({ ...prev, [result.id]: next }));
+        if (data.friendshipId) setFriendshipIds((prev) => ({ ...prev, [result.id]: data.friendshipId! }));
+      } else {
+        setButtonStates((prev) => ({ ...prev, [result.id]: "idle" }));
+      }
+    } catch {
+      setButtonStates((prev) => ({ ...prev, [result.id]: "idle" }));
+    }
+  }
+
+  async function handleCancel(userId: string) {
+    const friendshipId = friendshipIds[userId];
+    if (!friendshipId) return;
+    setButtonStates((prev) => ({ ...prev, [userId]: "cancelling" }));
+    try {
+      const res = await fetch("/api/friends/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ friendshipId }),
+      });
+      const data = (await res.json()) as { ok: boolean };
+      if (data.ok) {
+        setButtonStates((prev) => ({ ...prev, [userId]: "idle" }));
+        setFriendshipIds((prev) => { const next = { ...prev }; delete next[userId]; return next; });
+      } else {
+        setButtonStates((prev) => ({ ...prev, [userId]: "sent" }));
+      }
+    } catch {
+      setButtonStates((prev) => ({ ...prev, [userId]: "sent" }));
+    }
+  }
+
+  if (!open) return null;
+
+  const trimmed = query.trim();
+  // Gate result display on query length so stale results don't flash when input is cleared.
+  const showResults = trimmed.length >= 2 && results !== null && results.length > 0;
+  const showEmpty   = trimmed.length >= 2 && results !== null && results.length === 0 && !searching;
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 500,
+        background: "rgba(0,0,0,0.60)",
+        display: "flex", alignItems: "flex-end",
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          width: "100%",
+          height: "85dvh",
+          background: "#111110",
+          borderRadius: "22px 22px 0 0",
+          display: "flex",
+          flexDirection: "column",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          color: "#eae8e4",
+          colorScheme: "dark" as React.CSSProperties["colorScheme"],
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)" }} />
+        </div>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", padding: "10px 20px 8px", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.08)", border: "none",
+              cursor: "pointer", color: "inherit", flexShrink: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Add friend</span>
+          {/* Balance spacer */}
+          <div style={{ width: 34, flexShrink: 0 }} />
+        </div>
+
+        {/* Search bar */}
+        <div style={{ padding: "4px 16px 10px", flexShrink: 0 }}>
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "0 14px", height: 48,
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.40 }} aria-hidden>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              ref={inputRef}
+              autoFocus
+              placeholder="Search by name or username…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{
+                flex: 1, background: "none", border: "none", outline: "none",
+                fontSize: 16, color: "inherit", fontFamily: "inherit",
+              }}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => { setQuery(""); setResults(null); inputRef.current?.focus(); }}
+                aria-label="Clear search"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.14)",
+                  border: "none", cursor: "pointer", flexShrink: 0, color: "inherit",
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Results */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 32px" }}>
+          {searching && (
+            <p style={{ fontSize: 13, opacity: 0.4, padding: "8px 0", margin: 0 }}>Searching…</p>
+          )}
+
+          {showResults && results!.map((result) => {
+            const label = result.display_name ?? result.username ?? "Unknown";
+            const btnState = buttonStates[result.id] ?? "idle";
+            return (
+              <div
+                key={result.id}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "11px 0", borderBottom: "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <Link href={`/profile/${result.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={onClose}>
+                  <AvatarCircle avatarUrl={result.avatar_url} name={label} />
+                </Link>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link href={`/profile/${result.id}`} style={{ textDecoration: "none", color: "inherit" }} onClick={onClose}>
+                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{label}</div>
+                    {result.username && result.display_name && (
+                      <div style={{ fontSize: 12, opacity: 0.42, marginTop: 1 }}>@{result.username}</div>
+                    )}
+                  </Link>
+                </div>
+                <AddFriendButton
+                  state={btnState}
+                  onAdd={() => handleAdd(result)}
+                  onCancel={() => handleCancel(result.id)}
+                />
+              </div>
+            );
+          })}
+
+          {showEmpty && (
+            <div style={{ padding: "40px 0", textAlign: "center", opacity: 0.45 }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ display: "block", margin: "0 auto 10px" }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>No users found</p>
+            </div>
+          )}
+
+          {!searching && trimmed.length > 0 && trimmed.length < 2 && (
+            <p style={{ fontSize: 13, opacity: 0.4, padding: "8px 0", margin: 0 }}>Keep typing…</p>
+          )}
+
+          {!trimmed && (
+            <p style={{ fontSize: 13, opacity: 0.32, textAlign: "center", padding: "32px 0 0", margin: 0 }}>
+              Search by name or @username
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 type Tab = "activity" | "messages";
@@ -570,11 +883,18 @@ export default function SocialPage() {
   const [tab, setTab] = useState<Tab>("activity");
   const [activityUnread, setActivityUnread] = useState(false);
   const [messagesUnread, setMessagesUnread] = useState(false);
+  const [addFriendOpen, setAddFriendOpen] = useState(false);
 
   useEffect(() => {
     document.body.classList.add("is-aurora-page");
     return () => { document.body.classList.remove("is-aurora-page"); };
   }, []);
+
+  // Lock body scroll when the add-friend sheet is open
+  useEffect(() => {
+    document.body.style.overflow = addFriendOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [addFriendOpen]);
 
   function handleTabSwitch(t: Tab) {
     setTab(t);
@@ -610,8 +930,32 @@ export default function SocialPage() {
       style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px", minHeight: "100dvh" }}
     >
       <div className="page-top-glow" aria-hidden="true" />
-      {/* Header */}
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, textAlign: "center" }}>Inbox</h1>
+
+      {/* Header — left-aligned title + add-friend button */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Inbox</h1>
+        <button
+          type="button"
+          onClick={() => setAddFriendOpen(true)}
+          aria-label="Add friend"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "7px 13px", borderRadius: 20,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.07)",
+            color: "inherit", cursor: "pointer",
+            fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" />
+            <line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+          Add friend
+        </button>
+      </div>
 
       {/* Segmented tabs */}
       <div
@@ -662,6 +1006,14 @@ export default function SocialPage() {
           }}
         />
       )}
+
+      {/* Add-friend sheet — key remounts fresh state on each open/close cycle */}
+      <AddFriendSheet
+        key={String(addFriendOpen)}
+        open={addFriendOpen}
+        onClose={() => setAddFriendOpen(false)}
+        token={session.access_token}
+      />
     </main>
   );
 }
