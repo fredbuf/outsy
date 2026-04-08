@@ -65,6 +65,28 @@ async function resolveAuth(req: Request) {
   return user;
 }
 
+// GET /api/events/[id] — return minimal event info for map deep-linking.
+// Uses the service-role client so it works for private events and events outside
+// the discovery window without requiring the caller to be authenticated.
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  if (!UUID_RE.test(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid event id." }, { status: 400 });
+  }
+  const { data, error } = await supabaseServer()
+    .from("events")
+    .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name)")
+    .eq("id", id)
+    .single();
+  if (error || !data) {
+    return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, event: data });
+}
+
 // PATCH /api/events/[id] — update a manually-created event owned by the caller
 export async function PATCH(
   req: Request,

@@ -566,60 +566,85 @@ export default function MapPage() {
   // and change in lockstep, so the ref is always up to date when the effect runs).
   const venueLeaderMapRef = useRef<Map<string, MapEvent>>(new Map());
 
-  // Deep-link: parse ?eventId= (+ optional ?lat=&lng=) on mount.
-  // lat/lng come from the event page (server-rendered, always accurate) so we can
-  // center the map immediately — before the async Supabase fetch completes.
-  const deepLinkRef = useRef<{ eventId: string; lat: number | null; lng: number | null } | null>(null);
+  // ── Deep-link state ────────────────────────────────────────────────────────
+  // deepLinkCoordsRef  — lat/lng from the URL (server-baked, always available)
+  // deepLinkAppliedRef — true only AFTER selected has been committed to the
+  //                      deep-linked event; gates the exit-mode effect so it
+  //                      can't fire in the same render cycle as auto-select.
+  const deepLinkCoordsRef = useRef<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+  const deepLinkAppliedRef = useRef(false);
+
+  // Parse URL params on mount and kick off an authenticated event fetch.
+  // We use the Next.js API route (service-role key) instead of supabaseBrowser()
+  // so that private events work regardless of client-side session-restoration timing.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("eventId");
     if (eventId) {
       const rawLat = parseFloat(params.get("lat") ?? "");
       const rawLng = parseFloat(params.get("lng") ?? "");
-      deepLinkRef.current = {
-        eventId,
+      deepLinkCoordsRef.current = {
         lat: isNaN(rawLat) ? null : rawLat,
         lng: isNaN(rawLng) ? null : rawLng,
       };
-      // Fetch the event independently — no date/approval/visibility filter so
-      // events outside the default 14/30-day window and private events both work.
-      supabaseBrowser()
-        .from("events")
-        .select("id,title,start_at,image_url,source,category_primary,venues(lat,lng,name)")
-        .eq("id", eventId)
-        .single()
-        .then(({ data }) => { if (data) setDeepLinkedEvent(data as unknown as MapEvent); });
+      deepLinkAppliedRef.current = false;
+      console.log("[map deep-link] params:", { eventId, lat: deepLinkCoordsRef.current.lat, lng: deepLinkCoordsRef.current.lng });
+      fetch(`/api/events/${eventId}`)
+        .then((r) => r.json())
+        .then((json: { ok: boolean; event?: MapEvent; error?: string }) => {
+          if (json.ok && json.event) {
+            console.log("[map deep-link] event fetched:", json.event.id, json.event.title);
+            setDeepLinkedEvent(json.event);
+          } else {
+            console.warn("[map deep-link] fetch failed:", json.error);
+          }
+        })
+        .catch((err) => console.error("[map deep-link] fetch error:", err));
     } else {
       const q = params.get("q");
       if (q) { setSearchQuery(q); setDebouncedSearchQuery(q); }
     }
   }, []);
 
-  // As soon as the map is ready and we have URL-provided coordinates, center
-  // immediately — before the async Supabase fetch for the event completes.
-  // This makes the map focus feel instant even for events outside the discovery
-  // window (next month, private, unapproved) where the fetch might be slow or fail.
+  // Center the map as soon as it is ready using the URL-baked coordinates.
+  // This is instant — does not wait for the event fetch.
   useEffect(() => {
-    if (!mapsLoaded || !deepLinkRef.current) return;
-    const { lat, lng } = deepLinkRef.current;
+    if (!mapsLoaded) return;
+    const { lat, lng } = deepLinkCoordsRef.current;
     if (typeof lat === "number" && typeof lng === "number") {
       mapRef.current?.panTo({ lat, lng });
       mapRef.current?.setZoom(15);
     }
   }, [mapsLoaded]);
 
-  // Auto-select deep-linked event once both the event data and map are ready.
+  // Auto-select the deep-linked event once both the event data and the map are ready.
+  // Guarded by deepLinkAppliedRef so it only fires once per deep-link session.
+  // IMPORTANT: we do NOT null-out deepLinkRef here — that was the previous bug.
+  // deepLinkAppliedRef is set in a separate effect (below) that fires AFTER
+  // selected is committed to React state, preventing the exit effect from racing.
   useEffect(() => {
-    if (!deepLinkRef.current || !deepLinkedEvent || !mapsLoaded) return;
+    if (!deepLinkedEvent || !mapsLoaded || deepLinkAppliedRef.current) return;
+    console.log("[map deep-link] selecting event:", deepLinkedEvent.id);
     setSelected(deepLinkedEvent);
-    const lat = deepLinkedEvent.venues?.lat;
-    const lng = deepLinkedEvent.venues?.lng;
+    // Use venue coords from the fetched event if available, else fall back to URL coords.
+    const lat = deepLinkedEvent.venues?.lat ?? deepLinkCoordsRef.current.lat;
+    const lng = deepLinkedEvent.venues?.lng ?? deepLinkCoordsRef.current.lng;
     if (typeof lat === "number" && typeof lng === "number") {
       mapRef.current?.panTo({ lat, lng });
       mapRef.current?.setZoom(15);
     }
-    deepLinkRef.current = null; // apply only once
   }, [deepLinkedEvent, mapsLoaded]);
+
+  // Track when the deep-link selection has actually been committed to React state.
+  // This MUST be a separate effect (not inlined into auto-select) so it fires in
+  // the render AFTER selected is committed — preventing the exit effect from seeing
+  // deepLinkAppliedRef=true and firing prematurely in the same render cycle.
+  useEffect(() => {
+    if (selected && deepLinkedEvent && selected.id === deepLinkedEvent.id) {
+      deepLinkAppliedRef.current = true;
+      console.log("[map deep-link] selection committed:", selected.id);
+    }
+  }, [selected, deepLinkedEvent]);
 
   // Debounce search so filteredEvents / venueLeaderMap don't recompute on every keystroke.
   // mapSuggestions and the input value still use the raw searchQuery for instant feedback.
@@ -914,20 +939,25 @@ export default function MapPage() {
       .map((x) => x.event);
   }, [events, searchQuery, suggestionsDismissed]);
 
-  // Close preview card when the selected event is filtered out,
-  // but never auto-dismiss the deep-linked event (it may not be in filteredEvents).
+  // Close preview card when the selected event is filtered out.
+  // Never auto-dismiss the deep-linked event — it may not be in filteredEvents
+  // (e.g. private, outside the 14/30-day window, unapproved).
   useEffect(() => {
     if (selected && !filteredEvents.some((e) => e.id === selected.id) && selected.id !== deepLinkedEvent?.id) {
+      console.log("[map] clearing selection — event not in filtered set");
       setSelected(null);
     }
   }, [filteredEvents, selected, deepLinkedEvent]);
 
-  // Exit deep-link mode when the tile is dismissed — map reverts to default view.
-  // Only after auto-select has run (deepLinkRef.current becomes null) to avoid
-  // immediately clearing deepLinkedEvent before selection is applied.
+  // Exit deep-link mode when the user dismisses the tile.
+  // Guarded by deepLinkAppliedRef so this CANNOT fire in the same render cycle
+  // as auto-select — it only runs after selected has been committed AND then
+  // cleared by the user (or by the filter-out effect above).
   useEffect(() => {
-    if (!selected && deepLinkedEvent && deepLinkRef.current === null) {
+    if (!selected && deepLinkedEvent && deepLinkAppliedRef.current) {
+      console.log("[map deep-link] exiting focused mode");
       setDeepLinkedEvent(null);
+      deepLinkAppliedRef.current = false;
     }
   }, [selected, deepLinkedEvent]);
 
