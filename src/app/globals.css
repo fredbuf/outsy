@@ -73,6 +73,20 @@ body:has(.bottom-nav) {
   padding-bottom: max(84px, calc(env(safe-area-inset-bottom, 0px) + 84px));
 }
 
+/* ── Hide bottom nav when settings drawer is open ────────────────────────  */
+body.settings-open .bottom-nav {
+  display: none;
+}
+
+/* ── Settings drawer: slide in from right ────────────────────────────────  */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.settings-drawer {
+  animation: slideInRight 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
 /* ── Bottom nav tab hover (desktop) ──────────────────────────────────────  */
 .bottom-nav a:hover {
   color: #C7D0DB !important;

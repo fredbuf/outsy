@@ -236,7 +236,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     document.body.style.overflow = (editOpen || activeSheet !== null || settingsOpen) ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    document.body.classList.toggle("settings-open", settingsOpen);
+    return () => {
+      document.body.style.overflow = "";
+      document.body.classList.remove("settings-open");
+    };
   }, [editOpen, activeSheet, settingsOpen]);
 
   async function handleSignOut() {
@@ -965,7 +969,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ── Settings sheet ───────────────────────────────────────────────────── */}
+      {/* ── Settings drawer (slides in from right) ───────────────────────────── */}
       {settingsOpen && (
         <div
           onClick={(e) => e.target === e.currentTarget && setSettingsOpen(false)}
@@ -975,24 +979,23 @@ export default function ProfilePage() {
             background: "rgba(0,0,0,0.50)",
             zIndex: 300,
             display: "flex",
-            alignItems: "flex-end",
+            justifyContent: "flex-end",
           }}
         >
           <div
+            className="settings-drawer"
             style={{
               background: "var(--background)",
-              borderRadius: "20px 20px 0 0",
-              width: "100%",
-              paddingBottom: "max(24px, env(safe-area-inset-bottom))",
+              borderRadius: "20px 0 0 20px",
+              width: "min(320px, 100vw)",
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              paddingBottom: "env(safe-area-inset-bottom)",
             }}
           >
-            {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
-            </div>
-
             {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 20px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "max(20px, env(safe-area-inset-top)) 20px 16px" }}>
               <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Settings</h2>
               <button
                 type="button"
@@ -1005,7 +1008,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Menu items */}
-            <div style={{ borderTop: "1px solid var(--border)" }}>
+            <div style={{ borderTop: "1px solid var(--border)", flex: 1 }}>
               <button
                 type="button"
                 onClick={handleSignOut}
@@ -1023,6 +1026,7 @@ export default function ProfilePage() {
                   color: "#ef4444",
                   textAlign: "left",
                   gap: 12,
+                  boxSizing: "border-box",
                 }}
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
