@@ -1096,7 +1096,20 @@ export function MomentsClient({
       });
       const data = (await res.json()) as { ok: boolean; moments?: MomentRow[]; error?: string };
       if (data.ok && data.moments) {
-        setMoments(data.moments.map((m) => buildDisplay(m, user?.id ?? null)));
+        const userId = user?.id ?? null;
+        setMoments((prev) => {
+          const serverMoments = data.moments!.map((m) => buildDisplay(m, userId));
+          const serverIds = new Set(serverMoments.map((m) => m.id));
+          // Preserve any optimistic moments not yet confirmed by the server
+          // (guards against race condition where the GET runs before INSERT is visible)
+          const optimisticOnly = prev.filter((m) => !serverIds.has(m.id));
+          const merged = [...serverMoments, ...optimisticOnly];
+          return merged.sort((a, b) => {
+            if (a.is_pinned && !b.is_pinned) return -1;
+            if (!a.is_pinned && b.is_pinned) return 1;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+        });
       } else if (!data.ok) {
         console.error("[fetchMoments] API error:", data.error);
       }
