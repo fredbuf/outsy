@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
+import { createNotification } from "@/lib/notifications";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 const TITLE_MAX = 140;
@@ -102,7 +103,7 @@ export async function PATCH(
   // Verify ownership and source before touching anything else
   const { data: existing } = await supabase
     .from("events")
-    .select("id,source,creator_id,is_approved,is_rejected,visibility,venue_id")
+    .select("id,source,creator_id,is_approved,is_rejected,visibility,venue_id,cohost_ids")
     .eq("id", id)
     .maybeSingle();
 
@@ -237,9 +238,19 @@ export async function PATCH(
 
   // Optional private-event fields
   const cohostIdsRaw = body.cohostIds;
-  const cohostIds = Array.isArray(cohostIdsRaw)
-    ? cohostIdsRaw.filter((v) => typeof v === "string" && UUID_RE.test(v))
+  const incomingCohostIds = Array.isArray(cohostIdsRaw)
+    ? cohostIdsRaw.filter((v) => typeof v === "string" && UUID_RE.test(v)) as string[]
     : [];
+
+  // Accepted cohosts = people currently in cohost_ids (they already accepted an invitation)
+  const currentCohostIds = Array.isArray((existing as { cohost_ids?: unknown }).cohost_ids)
+    ? ((existing as { cohost_ids: unknown[] }).cohost_ids as string[])
+    : [];
+
+  // Keep only the accepted cohosts that the host still wants; remove deselected ones
+  const keptCohostIds = currentCohostIds.filter((id) => incomingCohostIds.includes(id));
+  // Send invitations to IDs that aren't already accepted cohosts
+  const newlyInvitedIds = incomingCohostIds.filter((id) => !currentCohostIds.includes(id));
 
   const spotsMode = body.spotsMode === "limited" ? "limited" : "unlimited";
   const spotsLimitRaw = typeof body.spotsLimit === "number" && body.spotsLimit > 0 ? body.spotsLimit : null;
@@ -271,7 +282,7 @@ export async function PATCH(
       is_rejected: isRejected,
       image_url: imageUrl,
       ...(newVisibility === "private" ? {
-        cohost_ids: cohostIds.length > 0 ? cohostIds : null,
+        cohost_ids: keptCohostIds.length > 0 ? keptCohostIds : null,
         spots_mode: spotsMode,
         spots_limit: spotsLimitRaw,
         price: priceRaw,
@@ -287,6 +298,21 @@ export async function PATCH(
 
   if (updateError) {
     return NextResponse.json({ ok: false, error: `Update failed: ${updateError.message}` }, { status: 500 });
+  }
+
+  // Send cohost invitations for newly added people — fire-and-forget
+  if (newlyInvitedIds.length > 0) {
+    for (const inviteeId of newlyInvitedIds) {
+      createNotification({
+        userId: inviteeId,
+        type: "cohost_invite",
+        actorId: user.id,
+        entityId: id,
+        metadata: { status: "pending" },
+      }).catch((err: unknown) => {
+        console.error("[PATCH event] cohost_invite notification failed:", err);
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });

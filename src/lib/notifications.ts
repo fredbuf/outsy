@@ -5,7 +5,8 @@ export type NotificationType =
   | "friend_request_received"
   | "friend_request_accepted"
   | "event_invite"
-  | "moment_posted";
+  | "moment_posted"
+  | "cohost_invite";
 
 export async function createNotification({
   userId,

@@ -637,6 +637,7 @@ function InlineComments({
   const [sendError, setSendError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/events/${eventId}/moments/${momentId}/comments`)
@@ -756,22 +757,60 @@ function InlineComments({
                     <span style={{ fontSize: 12, fontWeight: 600 }}>{name}</span>
                     <span style={{ fontSize: 11, opacity: 0.35 }}>{relativeTime(c.created_at)}</span>
                     {canDelete && !confirming && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDeleteId(c.id)}
-                        aria-label="Delete comment"
-                        style={{
-                          marginLeft: "auto", background: "none", border: "none",
-                          cursor: "pointer", padding: "0 2px",
-                          color: "rgba(255,255,255,0.25)",
-                          display: "flex", alignItems: "center",
-                          lineHeight: 1,
-                        }}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-                        </svg>
-                      </button>
+                      <div style={{ marginLeft: "auto", position: "relative" }}>
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuId(openMenuId === c.id ? null : c.id)}
+                          aria-label="Comment actions"
+                          style={{
+                            background: "none", border: "none",
+                            cursor: "pointer", padding: "0 4px",
+                            color: "rgba(255,255,255,0.28)",
+                            display: "flex", alignItems: "center",
+                            lineHeight: 1, fontSize: 14, letterSpacing: "0.06em",
+                          }}
+                        >
+                          •••
+                        </button>
+                        {openMenuId === c.id && (
+                          <>
+                            <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setOpenMenuId(null)} />
+                            <div style={{
+                              position: "absolute", right: 0, top: "calc(100% + 4px)",
+                              zIndex: 20,
+                              background: "rgba(24,24,24,0.97)",
+                              backdropFilter: "blur(16px)",
+                              WebkitBackdropFilter: "blur(16px)",
+                              border: "1px solid rgba(255,255,255,0.10)",
+                              borderRadius: 10,
+                              overflow: "hidden",
+                              boxShadow: "0 4px 18px rgba(0,0,0,0.50)",
+                              minWidth: 148,
+                            }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setConfirmDeleteId(c.id);
+                                }}
+                                style={{
+                                  display: "flex", alignItems: "center", gap: 8,
+                                  width: "100%", padding: "10px 14px",
+                                  background: "none", border: "none",
+                                  cursor: "pointer", color: "#ef4444",
+                                  fontSize: 13, fontWeight: 500,
+                                  textAlign: "left",
+                                }}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                                </svg>
+                                Delete comment
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     )}
                     {confirming && (
                       <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>

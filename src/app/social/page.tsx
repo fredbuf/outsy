@@ -308,6 +308,131 @@ function MomentPostedRow({
   );
 }
 
+function CohostInviteRow({
+  item,
+  token,
+  onRead,
+}: {
+  item: ActivityItem;
+  token: string;
+  onRead: () => void;
+}) {
+  const [status, setStatus] = useState<"pending" | "accepting" | "declining" | "accepted" | "declined">(
+    item.cohostInviteStatus === "accepted"
+      ? "accepted"
+      : item.cohostInviteStatus === "declined"
+      ? "declined"
+      : "pending"
+  );
+
+  const hostName = item.actor.display_name ?? item.actor.username ?? "Someone";
+  const eventTitle = item.event?.title ?? "an event";
+  const eventId = item.entity_id;
+
+  async function respond(action: "accept" | "decline") {
+    if (!eventId) return;
+    setStatus(action === "accept" ? "accepting" : "declining");
+    onRead();
+    try {
+      const res = await fetch(`/api/events/${eventId}/cohost-invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notificationId: item.id, action }),
+      });
+      const data = (await res.json()) as { ok: boolean };
+      if (data.ok) {
+        setStatus(action === "accept" ? "accepted" : "declined");
+      } else {
+        setStatus("pending");
+      }
+    } catch {
+      setStatus("pending");
+    }
+  }
+
+  if (status === "declined") return null;
+
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 0", borderBottom: "1px solid var(--border)",
+      }}
+    >
+      {/* Avatar + optional event thumbnail */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        {item.event?.image_url ? (
+          <img
+            src={item.event.image_url}
+            alt=""
+            style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <AvatarCircle avatarUrl={item.actor.avatar_url} name={hostName} size={44} />
+        )}
+        {item.event?.image_url && (
+          <div style={{
+            position: "absolute", bottom: -3, right: -3,
+            borderRadius: "50%", border: "2px solid var(--background)", lineHeight: 0,
+          }}>
+            <AvatarCircle avatarUrl={item.actor.avatar_url} name={hostName} size={18} />
+          </div>
+        )}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, lineHeight: 1.3 }}>
+          <span style={{ fontWeight: 600 }}>{hostName}</span>
+          {" invited you to co-host "}
+          {eventId ? (
+            <Link href={`/events/${eventId}`} style={{ fontWeight: 600, color: "inherit", textDecoration: "underline" }}>
+              {eventTitle}
+            </Link>
+          ) : (
+            <span style={{ fontWeight: 600 }}>{eventTitle}</span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>{relativeTime(item.created_at)}</div>
+      </div>
+
+      {status === "accepted" ? (
+        <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600, flexShrink: 0 }}>Co-host ✓</span>
+      ) : (
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => void respond("accept")}
+            disabled={status === "accepting" || status === "declining"}
+            style={{
+              padding: "6px 14px", borderRadius: 20, border: "none",
+              background: status === "accepting" ? "rgba(124,58,237,0.45)" : "var(--accent, #7c3aed)",
+              color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            {status === "accepting" ? "…" : "Accept"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void respond("decline")}
+            disabled={status === "accepting" || status === "declining"}
+            style={{
+              padding: "6px 14px", borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "transparent", color: "rgba(255,255,255,0.60)",
+              fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            {status === "declining" ? "…" : "Decline"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActivityTab({
   token,
   onUnreadChange,
@@ -410,6 +535,16 @@ function ActivityTab({
             <MomentPostedRow
               key={item.id}
               item={item as ActivityItem & { momentMeta: MomentMeta }}
+              onRead={() => markRead(item.id)}
+            />
+          );
+        }
+        if (item.type === "cohost_invite") {
+          return (
+            <CohostInviteRow
+              key={item.id}
+              item={item}
+              token={token}
               onRead={() => markRead(item.id)}
             />
           );

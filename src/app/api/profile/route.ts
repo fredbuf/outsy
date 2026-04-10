@@ -28,12 +28,31 @@ export async function GET(req: Request) {
     .eq("id", user.id)
     .maybeSingle();
 
-  const { data: events } = await supabase
-    .from("events")
-    .select("id,title,start_at,category_primary,image_url,visibility,is_approved,status")
-    .eq("creator_id", user.id)
-    .order("start_at", { ascending: false })
-    .limit(50);
+  const [{ data: createdEvents }, { data: cohostEvents }] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id,title,start_at,category_primary,image_url,visibility,is_approved,status")
+      .eq("creator_id", user.id)
+      .order("start_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("events")
+      .select("id,title,start_at,category_primary,image_url,visibility,is_approved,status")
+      .contains("cohost_ids", [user.id])
+      .order("start_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  // Merge, deduped by id (creator takes priority). Tag each row with a role field.
+  const seenIds = new Set<string>((createdEvents ?? []).map((e) => e.id as string));
+  const events = [
+    ...(createdEvents ?? []).map((e) => ({ ...e, role: "hosting" as const })),
+    ...(cohostEvents ?? [])
+      .filter((e) => !seenIds.has(e.id as string))
+      .map((e) => ({ ...e, role: "cohosting" as const })),
+  ].sort((a, b) =>
+    String(b.start_at ?? "").localeCompare(String(a.start_at ?? ""))
+  );
 
   // Fetch events the user has RSVP'd to (going + maybe), upcoming only
   const now = new Date().toISOString();

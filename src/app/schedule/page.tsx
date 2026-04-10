@@ -12,8 +12,9 @@ type Tab = "upcoming" | "hosting" | "calendar";
 
 /**
  * Single unified event shape used across all three tabs.
- * role = "attending" → user RSVPd going/maybe
- * role = "hosting"   → user created the event
+ * role = "attending"  → user RSVPd going/maybe
+ * role = "hosting"    → user created the event
+ * role = "cohosting"  → user is an accepted co-host
  * When an event is both hosted AND attended, it appears once per role in the
  * source arrays but is deduped in the calendar (allUserEvents).
  */
@@ -25,7 +26,7 @@ type UserEvent = {
   visibility: "public" | "private";
   venue_name: string | null;
   venue_city: string | null;
-  role: "attending" | "hosting";
+  role: "attending" | "hosting" | "cohosting";
   response: "going" | "maybe" | null; // attending only
   is_approved: boolean;               // hosting only (true for attending rows)
 };
@@ -197,7 +198,7 @@ function EventRow({ event }: { event: UserEvent }) {
                 {event.response === "going" ? "Going" : "Interested"}
               </span>
             )}
-            {event.role === "hosting" && (
+            {(event.role === "hosting" || event.role === "cohosting") && (
               <span style={{
                 display: "inline-flex", alignItems: "center", gap: 3,
                 fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
@@ -205,7 +206,7 @@ function EventRow({ event }: { event: UserEvent }) {
                 background: "rgba(99,102,241,0.10)", color: "#6366f1",
                 border: "1px solid rgba(99,102,241,0.18)",
               }}>
-                Hosting
+                {event.role === "cohosting" ? "Co-host" : "Hosting"}
               </span>
             )}
             {event.role === "hosting" && !event.is_approved && (
@@ -576,6 +577,7 @@ export default function SchedulePage() {
           visibility: string;
           is_approved: boolean;
           status: string;
+          role?: string;
         }[] = json.events ?? [];
 
         console.debug("[schedule/hosting] raw events from API:", rawEvents.length, rawEvents.map((e) => e.id));
@@ -593,7 +595,7 @@ export default function SchedulePage() {
             // /api/profile doesn't join venues — resolved separately below
             venue_name:  null,
             venue_city:  null,
-            role:        "hosting" as const,
+            role:        ev.role === "cohosting" ? ("cohosting" as const) : ("hosting" as const),
             response:    null,
             is_approved: ev.is_approved,
           }));
@@ -610,10 +612,10 @@ export default function SchedulePage() {
   }, [session?.access_token]);
 
   // ── Derived: all user events, deduped by id, for the calendar ────────────────
-  // When a user hosts an event they also RSVPd to, hosting badge takes priority.
+  // Hosting/co-hosting takes priority over attending when the same event appears in both.
   const allUserEvents = useMemo<UserEvent[]>(() => {
     const seen = new Map<string, UserEvent>();
-    // Hosting takes priority — add first so attending doesn't overwrite
+    // Hosting/cohosting takes priority — add first so attending doesn't overwrite
     for (const e of hostingEvents)   seen.set(e.id, e);
     for (const e of attendingEvents) { if (!seen.has(e.id)) seen.set(e.id, e); }
     return Array.from(seen.values()).sort((a, b) => a.start_at.localeCompare(b.start_at));

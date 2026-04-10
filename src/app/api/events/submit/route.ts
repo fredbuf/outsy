@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
+import { createNotification } from "@/lib/notifications";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 const TITLE_MAX = 140;
@@ -281,7 +282,7 @@ export async function POST(req: Request) {
       visibility,
       is_approved: visibility === "private",
       creator_id: authUser.id,
-      ...(cohostIds.length > 0 ? { cohost_ids: cohostIds } : {}),
+      // cohost_ids starts empty — cohosts join after accepting an invitation
       ...(visibility === "private" ? {
         spots_mode: spotsMode,
         ...(spotsLimit !== null ? { spots_limit: spotsLimit } : {}),
@@ -297,6 +298,21 @@ export async function POST(req: Request) {
       { ok: false, error: `Event insert failed: ${error.message}` },
       { status: 500 }
     );
+  }
+
+  // Send cohost invitations — fire-and-forget (don't block the response)
+  if (cohostIds.length > 0) {
+    for (const inviteeId of cohostIds) {
+      createNotification({
+        userId: inviteeId,
+        type: "cohost_invite",
+        actorId: authUser.id,
+        entityId: data.id,
+        metadata: { status: "pending" },
+      }).catch((err: unknown) => {
+        console.error("[submit] cohost_invite notification failed:", err);
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, eventId: data.id });

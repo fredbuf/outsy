@@ -30,15 +30,17 @@ export type MomentMeta = {
 
 export type ActivityItem = {
   id: string;
-  type: "friend_request_received" | "friend_request_accepted" | "event_invite" | "moment_posted";
+  type: "friend_request_received" | "friend_request_accepted" | "event_invite" | "moment_posted" | "cohost_invite";
   actor: ActivityActor;
   entity_id: string | null;
   // friend_request_received: true while friendship is still pending
   friendshipPending: boolean;
-  // event_invite: event details
+  // event_invite / cohost_invite: event details
   event: ActivityEventSummary | null;
   // moment_posted: event context from notification metadata
   momentMeta: MomentMeta | null;
+  // cohost_invite: pending / accepted / declined
+  cohostInviteStatus: "pending" | "accepted" | "declined" | null;
   read: boolean;
   created_at: string;
 };
@@ -105,11 +107,11 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Batch fetch event details for event_invite ─────────────────────────────
+  // ── Batch fetch event details for event_invite and cohost_invite ──────────
   const eventIds = [
     ...new Set(
       notifs
-        .filter((n) => n.type === "event_invite" && n.entity_id)
+        .filter((n) => (n.type === "event_invite" || n.type === "cohost_invite") && n.entity_id)
         .map((n) => n.entity_id as string)
     ),
   ];
@@ -148,6 +150,15 @@ export async function GET(req: Request) {
         ? { event_id: metadata.event_id, event_title: metadata.event_title }
         : null;
 
+    const cohostInviteStatus: ActivityItem["cohostInviteStatus"] =
+      n.type === "cohost_invite"
+        ? ((metadata.status as string) === "accepted"
+            ? "accepted"
+            : (metadata.status as string) === "declined"
+            ? "declined"
+            : "pending")
+        : null;
+
     return {
       id: n.id as string,
       type: n.type as ActivityItem["type"],
@@ -158,10 +169,11 @@ export async function GET(req: Request) {
           ? pendingSet.has(entityId)
           : false,
       event:
-        n.type === "event_invite" && entityId != null
+        (n.type === "event_invite" || n.type === "cohost_invite") && entityId != null
           ? (eventsMap.get(entityId) ?? null)
           : null,
       momentMeta,
+      cohostInviteStatus,
       read: n.read as boolean,
       created_at: n.created_at as string,
     };
