@@ -502,6 +502,7 @@ function CommentsSheet({
 }) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -512,10 +513,20 @@ function CommentsSheet({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
+    setLoadError(null);
     fetch(`/api/events/${eventId}/moments/${momentId}/comments`)
       .then((r) => r.json())
-      .then((data: { ok: boolean; comments?: CommentRow[] }) => {
-        if (data.ok && data.comments) setComments(data.comments);
+      .then((data: { ok: boolean; comments?: CommentRow[]; error?: string }) => {
+        if (data.ok && data.comments) {
+          setComments(data.comments);
+        } else if (!data.ok) {
+          console.error("[CommentsSheet] load failed:", data.error);
+          setLoadError(data.error ?? "Failed to load comments.");
+        }
+      })
+      .catch((err) => {
+        console.error("[CommentsSheet] network error:", err);
+        setLoadError("Network error loading comments.");
       })
       .finally(() => setLoading(false));
   }, [open, eventId, momentId]);
@@ -639,7 +650,12 @@ function CommentsSheet({
               Loading…
             </p>
           )}
-          {!loading && comments.length === 0 && (
+          {!loading && loadError && (
+            <p style={{ fontSize: 13, color: "#ef4444", textAlign: "center", paddingTop: 24 }}>
+              {loadError}
+            </p>
+          )}
+          {!loading && !loadError && comments.length === 0 && (
             <div style={{ textAlign: "center", padding: "40px 0", opacity: 0.4 }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ display: "block", margin: "0 auto 10px", color: "#F5F7FA" }}>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -647,7 +663,7 @@ function CommentsSheet({
               <p style={{ fontSize: 14, fontWeight: 500, margin: 0, color: "#F5F7FA" }}>No comments yet</p>
             </div>
           )}
-          {!loading && comments.map((c) => {
+          {!loading && !loadError && comments.map((c) => {
             const name = c.author?.display_name ?? c.author?.username ?? "Someone";
             return (
               <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 16 }}>
@@ -1074,7 +1090,6 @@ export function MomentsClient({
   // Do NOT reset to initialMoments — that would overwrite any moments loaded by
   // fetchMoments() after a post, causing recently created moments to disappear.
   useEffect(() => {
-    const userId = user?.id ?? null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMoments((prev) =>
       prev.map((m) => ({
@@ -1082,11 +1097,13 @@ export function MomentsClient({
         reactionGroups: VALID_EMOJI.map((emoji) => ({
           emoji,
           count: m.rawReactions.filter((r) => r.emoji === emoji).length,
-          isMine: m.rawReactions.some((r) => r.emoji === emoji && r.user_id === userId),
+          isMine: m.rawReactions.some((r) => r.emoji === emoji && r.user_id === (user?.id ?? null)),
         })),
       }))
     );
   }, [user?.id]);
+
+  const userId = user?.id ?? null;
 
   const fetchMoments = useCallback(async () => {
     try {
@@ -1096,7 +1113,6 @@ export function MomentsClient({
       });
       const data = (await res.json()) as { ok: boolean; moments?: MomentRow[]; error?: string };
       if (data.ok && data.moments) {
-        const userId = user?.id ?? null;
         setMoments((prev) => {
           const serverMoments = data.moments!.map((m) => buildDisplay(m, userId));
           const serverIds = new Set(serverMoments.map((m) => m.id));
@@ -1116,7 +1132,8 @@ export function MomentsClient({
     } catch (err) {
       console.error("[fetchMoments] network error:", err);
     }
-  }, [eventId, user?.id]);
+  // userId is a stable primitive derived from user?.id — safe dep
+  }, [eventId, userId]);
 
   // On mount, immediately fetch fresh moments from the API to override any stale
   // initialMoments that the server may have delivered (router cache, data cache,
