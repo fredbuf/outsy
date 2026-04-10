@@ -63,11 +63,11 @@ function EventPreviewCard({ preview, title }: { preview: EventPreview; title: st
   const hasCover = Boolean(imageUrl);
 
   return (
-    <div style={{ padding: "10px 16px 4px" }}>
-      {/* Sender line */}
+    <div style={{ padding: "8px 16px 4px" }}>
+      {/* Sender line — very muted, secondary to the card */}
       {hostName && (
         <div style={{
-          fontSize: 12, opacity: 0.45, marginBottom: 7,
+          fontSize: 11, opacity: 0.32, marginBottom: 5,
           paddingLeft: 2, letterSpacing: "0.01em",
         }}>
           {hostName} is hosting
@@ -124,25 +124,11 @@ function EventPreviewCard({ preview, title }: { preview: EventPreview; title: st
           </div>
 
           {(dateStr || venueName) && (
-            <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 2 }}>
-              {dateStr && (
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.60)", display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ opacity: 0.7 }}>🕒</span>
-                  <span>{dateStr}</span>
-                </div>
-              )}
-              {venueName && (
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.48)", display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ opacity: 0.7 }}>📍</span>
-                  <span
-                    style={{
-                      overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
-                    }}
-                  >
-                    {venueName}
-                  </span>
-                </div>
-              )}
+            <div style={{
+              marginTop: 5, fontSize: 12, color: "rgba(255,255,255,0.55)",
+              overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+            }}>
+              {[dateStr, venueName].filter(Boolean).join(" · ")}
             </div>
           )}
         </div>

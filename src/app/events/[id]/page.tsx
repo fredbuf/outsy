@@ -166,10 +166,8 @@ export async function generateMetadata({
   const hostName =
     (creatorProfileRaw as { display_name?: string | null } | null)?.display_name ?? null;
 
-  // OG title — feels like a personal invitation
-  const ogTitle = hostName
-    ? `${hostName} invited you to ${event.title}`
-    : `${event.title} on Outsy`;
+  // OG title — just the event name; keep it short for messaging apps
+  const ogTitle = event.title as string;
 
   // Venue line
   const venueRaw = Array.isArray(event.venues) ? event.venues[0] : event.venues;
@@ -179,7 +177,7 @@ export async function generateMetadata({
         .join(", ")
     : null;
 
-  // Date line — short and scannable
+  // Date/time — compact "May 8 · 8:30 PM" format
   const startD = new Date(event.start_at);
   const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
   const datePart = startD.toLocaleString("en-US", {
@@ -195,16 +193,12 @@ export async function generateMetadata({
         minute: "2-digit",
         hour12: true,
       });
-  const dateLine = [timePart ? `${datePart} at ${timePart}` : datePart, venueLine]
-    .filter(Boolean)
-    .join(" • ");
+  const dateTimePart = timePart ? `${datePart} · ${timePart}` : datePart;
 
-  // Short description snippet (optional second line)
-  const descSnippet = event.description
-    ? event.description.slice(0, 110).replace(/\s+\S*$/, "…")
-    : null;
-
-  const ogDescription = [dateLine, descSnippet].filter(Boolean).join("\n") || "See you there.";
+  // OG description — inviter · date · venue; concise and iMessage-friendly
+  const inviterPart = hostName ? `${hostName} invited you` : null;
+  const ogDescription =
+    [inviterPart, dateTimePart, venueLine].filter(Boolean).join(" · ") || "Discover events on Outsy.";
 
   // OG image — use event cover if available, otherwise generated gradient card
   const ogImageUrl = event.image_url
@@ -293,6 +287,25 @@ function smartDate(iso: string): string {
   }
   const monthDay = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" });
   return `${monthDay}${timeStr}`;
+}
+
+// Share card date — always "May 8 · 8:30 PM" style (not context-relative)
+function shareCardDate(iso: string): string {
+  const d = new Date(iso);
+  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  const monthDay = d.toLocaleDateString("en-US", {
+    timeZone: "America/Toronto",
+    month: "short",
+    day: "numeric",
+  });
+  if (isUnknownTime) return monthDay;
+  const timeStr = d.toLocaleString("en-US", {
+    timeZone: "America/Toronto",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${monthDay} · ${timeStr}`;
 }
 
 // Matches feed card categoryBg gradient palette
@@ -415,7 +428,7 @@ export default async function EventPage({
       imageUrl: (event.image_url as string | null) ?? null,
       category: event.category_primary,
       hostName: creator?.display_name ?? null,
-      dateStr: smartDate(event.start_at),
+      dateStr: shareCardDate(event.start_at),
       venueName: venue?.name ?? null,
     };
 
