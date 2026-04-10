@@ -619,10 +619,14 @@ function InlineComments({
   momentId,
   eventId,
   token,
+  currentUserId,
+  isHostOrCohost,
 }: {
   momentId: string;
   eventId: string;
   token: string | null;
+  currentUserId: string | null;
+  isHostOrCohost: boolean;
 }) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -631,6 +635,8 @@ function InlineComments({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetch(`/api/events/${eventId}/moments/${momentId}/comments`)
@@ -678,6 +684,28 @@ function InlineComments({
     }
   }
 
+  async function handleDelete(commentId: string) {
+    if (!token || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/events/${eventId}/moments/${momentId}/comments/${commentId}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (data.ok) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+      } else {
+        console.error("[InlineComments] delete failed:", data.error);
+      }
+    } catch (err) {
+      console.error("[InlineComments] delete network error:", err);
+    } finally {
+      setDeleting(false);
+      setConfirmDeleteId(null);
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -718,6 +746,8 @@ function InlineComments({
         >
           {visible.map((c) => {
             const name = c.author?.display_name ?? c.author?.username ?? "Someone";
+            const canDelete = token && (currentUserId === c.user_id || isHostOrCohost);
+            const confirming = confirmDeleteId === c.id;
             return (
               <div key={c.id} style={{ display: "flex", gap: 8 }}>
                 <Avatar url={c.author?.avatar_url ?? null} name={name} size={22} />
@@ -725,6 +755,50 @@ function InlineComments({
                   <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2 }}>
                     <span style={{ fontSize: 12, fontWeight: 600 }}>{name}</span>
                     <span style={{ fontSize: 11, opacity: 0.35 }}>{relativeTime(c.created_at)}</span>
+                    {canDelete && !confirming && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(c.id)}
+                        aria-label="Delete comment"
+                        style={{
+                          marginLeft: "auto", background: "none", border: "none",
+                          cursor: "pointer", padding: "0 2px",
+                          color: "rgba(255,255,255,0.25)",
+                          display: "flex", alignItems: "center",
+                          lineHeight: 1,
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                        </svg>
+                      </button>
+                    )}
+                    {confirming && (
+                      <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 11, opacity: 0.55 }}>Delete?</span>
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(c.id)}
+                          disabled={deleting}
+                          style={{
+                            fontSize: 11, fontWeight: 700, color: "#ef4444",
+                            background: "none", border: "none", cursor: "pointer", padding: 0,
+                          }}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          style={{
+                            fontSize: 11, color: "rgba(255,255,255,0.40)",
+                            background: "none", border: "none", cursor: "pointer", padding: 0,
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    )}
                   </div>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, opacity: 0.82, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                     {c.body}
@@ -1047,6 +1121,8 @@ function MomentCard({
           momentId={moment.id}
           eventId={eventId}
           token={token}
+          currentUserId={currentUserId}
+          isHostOrCohost={isHostOrCohost}
         />
       )}
     </div>
