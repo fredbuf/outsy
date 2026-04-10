@@ -23,9 +23,152 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
+// ── Category gradient fallback ───────────────────────────────────────────────
+
+function categoryGradient(cat: string): string {
+  switch (cat) {
+    case "concerts": case "music":
+      return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
+    case "nightlife":
+      return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
+    case "arts_culture": case "art":
+      return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
+    case "comedy":
+      return "linear-gradient(150deg, #1a1a00 0%, #3d3000 100%)";
+    case "sports":
+      return "linear-gradient(150deg, #001a0d 0%, #00381a 100%)";
+    case "family":
+      return "linear-gradient(150deg, #001233 0%, #00296b 100%)";
+    default:
+      return "linear-gradient(150deg, #0d0d1a 0%, #1a1a2e 100%)";
+  }
+}
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Sheet = null | "options" | "picker";
+
+export type EventPreview = {
+  imageUrl: string | null;
+  category: string;
+  hostName: string | null;
+  dateStr: string | null;
+  venueName: string | null;
+};
+
+// ── Preview card ─────────────────────────────────────────────────────────────
+
+function EventPreviewCard({ preview, title }: { preview: EventPreview; title: string }) {
+  const { imageUrl, category, hostName, dateStr, venueName } = preview;
+  const hasCover = Boolean(imageUrl);
+
+  return (
+    <div style={{ padding: "10px 16px 4px" }}>
+      {/* Sender line */}
+      {hostName && (
+        <div style={{
+          fontSize: 12, opacity: 0.45, marginBottom: 7,
+          paddingLeft: 2, letterSpacing: "0.01em",
+        }}>
+          {hostName} is hosting
+        </div>
+      )}
+
+      {/* Card */}
+      <div
+        style={{
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid rgba(255,255,255,0.12)",
+          position: "relative",
+          boxShadow: "0 6px 28px rgba(0,0,0,0.50)",
+        }}
+      >
+        {/* Cover image or gradient */}
+        {hasCover ? (
+          <img
+            src={imageUrl!}
+            alt=""
+            style={{
+              width: "100%", height: 156,
+              objectFit: "cover", display: "block",
+            }}
+          />
+        ) : (
+          <div style={{
+            width: "100%", height: 120,
+            background: categoryGradient(category),
+          }} />
+        )}
+
+        {/* Gradient overlay + text */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0, left: 0, right: 0,
+            padding: hasCover ? "48px 14px 12px" : "20px 14px 12px",
+            background: hasCover
+              ? "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.0) 100%)"
+              : "none",
+          }}
+        >
+          <div style={{
+            fontSize: 15, fontWeight: 700, color: "#fff",
+            lineHeight: 1.25,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}>
+            {title}
+          </div>
+
+          {(dateStr || venueName) && (
+            <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 2 }}>
+              {dateStr && (
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.60)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ opacity: 0.7 }}>🕒</span>
+                  <span>{dateStr}</span>
+                </div>
+              )}
+              {venueName && (
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.48)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ opacity: 0.7 }}>📍</span>
+                  <span
+                    style={{
+                      overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+                    }}
+                  >
+                    {venueName}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* "View event" pill — top right */}
+        <div style={{
+          position: "absolute", top: 9, right: 9,
+          background: "rgba(0,0,0,0.50)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          borderRadius: 20,
+          padding: "4px 9px 4px 8px",
+          display: "flex", alignItems: "center", gap: 3,
+          border: "1px solid rgba(255,255,255,0.10)",
+        }}>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.72)", fontWeight: 600, letterSpacing: "0.01em" }}>
+            View event
+          </span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -33,10 +176,12 @@ export function ShareButton({
   title,
   eventId,
   large,
+  preview,
 }: {
   title: string;
   eventId?: string;
   large?: boolean;
+  preview?: EventPreview;
 }) {
   const { user, session } = useAuth();
 
@@ -261,6 +406,10 @@ export function ShareButton({
               <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Share</span>
               <button type="button" onClick={() => setSheet(null)} style={closeBtn}>×</button>
             </div>
+
+            {/* Event preview card */}
+            {preview && <EventPreviewCard preview={preview} title={title} />}
+
             <div style={{ paddingBlock: 6, paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
 
               {/* Send to friend */}

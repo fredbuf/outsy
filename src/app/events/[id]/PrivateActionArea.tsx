@@ -4,7 +4,7 @@ import { useAuth } from "../../components/AuthProvider";
 import { ActionBar } from "./ActionBar";
 import { AttendeeList } from "./AttendeeList";
 import { InviteFriendsButton } from "./InviteFriendsButton";
-import { ShareButton } from "./ShareButton";
+import { ShareButton, type EventPreview } from "./ShareButton";
 
 type Counts = { going: number; maybe: number; cant_go: number };
 type Attendee = { display_name: string | null; avatar_url: string | null };
@@ -16,6 +16,7 @@ export function PrivateActionArea({
   cohostIds,
   initialCounts,
   initialAttendees,
+  preview,
 }: {
   eventId: string;
   eventTitle: string;
@@ -23,6 +24,7 @@ export function PrivateActionArea({
   cohostIds: string[];
   initialCounts: Counts;
   initialAttendees: Attendee[];
+  preview?: EventPreview;
 }) {
   const { user } = useAuth();
   const isHost =
@@ -36,6 +38,7 @@ export function PrivateActionArea({
       creatorId={creatorId}
       initialCounts={initialCounts}
       initialAttendees={initialAttendees}
+      preview={preview}
     />
   ) : (
     <GuestView
@@ -43,6 +46,7 @@ export function PrivateActionArea({
       eventTitle={eventTitle}
       initialCounts={initialCounts}
       initialAttendees={initialAttendees}
+      preview={preview}
     />
   );
 }
@@ -54,19 +58,21 @@ function HostView({
   eventTitle,
   initialCounts,
   initialAttendees,
+  preview,
 }: {
   eventId: string;
   eventTitle: string;
   creatorId: string | null;
   initialCounts: Counts;
   initialAttendees: Attendee[];
+  preview?: EventPreview;
 }) {
   return (
     <>
       {/* Two big glass action buttons */}
       <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
         <InviteFriendsButton eventId={eventId} large />
-        <ShareButton title={eventTitle} eventId={eventId} large />
+        <ShareButton title={eventTitle} eventId={eventId} large preview={preview} />
       </div>
 
       {/* Guest count row */}
@@ -99,11 +105,13 @@ function GuestView({
   eventTitle,
   initialCounts,
   initialAttendees,
+  preview,
 }: {
   eventId: string;
   eventTitle: string;
   initialCounts: Counts;
   initialAttendees: Attendee[];
+  preview?: EventPreview;
 }) {
   return (
     <>
@@ -137,7 +145,7 @@ function GuestView({
         )}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
           <InviteFriendsButton eventId={eventId} />
-          <ShareButton title={eventTitle} eventId={eventId} />
+          <ShareButton title={eventTitle} eventId={eventId} preview={preview} />
         </div>
       </div>
     </>

@@ -9,7 +9,7 @@ import { AttendeeList } from "./AttendeeList";
 import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
 import { ExpandableDescription } from "./ExpandableDescription";
-import { ShareButton } from "./ShareButton";
+import { ShareButton, type EventPreview } from "./ShareButton";
 import { BackButton } from "./BackButton";
 import { PrivateEventSwipePage } from "./PrivateEventSwipePage";
 
@@ -160,15 +160,78 @@ export async function generateMetadata({
   const { id } = await params;
   const event = await fetchEvent(id);
   if (!event) return { title: "Event not found | Outsy" };
-  const description =
-    event.description ?? `${event.category_primary} event in Montréal`;
+
+  // Host name for invitation framing
+  const creatorProfileRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
+  const hostName =
+    (creatorProfileRaw as { display_name?: string | null } | null)?.display_name ?? null;
+
+  // OG title — feels like a personal invitation
+  const ogTitle = hostName
+    ? `${hostName} invited you to ${event.title}`
+    : `${event.title} on Outsy`;
+
+  // Venue line
+  const venueRaw = Array.isArray(event.venues) ? event.venues[0] : event.venues;
+  const venueLine = venueRaw
+    ? [(venueRaw as { name?: string | null }).name, (venueRaw as { city?: string | null }).city]
+        .filter(Boolean)
+        .join(", ")
+    : null;
+
+  // Date line — short and scannable
+  const startD = new Date(event.start_at);
+  const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
+  const datePart = startD.toLocaleString("en-US", {
+    timeZone: "America/Toronto",
+    month: "short",
+    day: "numeric",
+  });
+  const timePart = isUnknownTime
+    ? null
+    : startD.toLocaleString("en-US", {
+        timeZone: "America/Toronto",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+  const dateLine = [timePart ? `${datePart} at ${timePart}` : datePart, venueLine]
+    .filter(Boolean)
+    .join(" • ");
+
+  // Short description snippet (optional second line)
+  const descSnippet = event.description
+    ? event.description.slice(0, 110).replace(/\s+\S*$/, "…")
+    : null;
+
+  const ogDescription = [dateLine, descSnippet].filter(Boolean).join("\n") || "See you there.";
+
+  // OG image — use event cover if available, otherwise generated gradient card
+  const ogImageUrl = event.image_url
+    ? (event.image_url as string)
+    : `/api/events/${id}/og-image`;
+
+  const ogImage = {
+    url: ogImageUrl,
+    width: 1200,
+    height: 630,
+    alt: event.title,
+  };
+
   return {
     title: `${event.title} | Outsy`,
-    description,
+    description: ogDescription,
     openGraph: {
-      title: event.title,
-      description,
-      images: event.image_url ? [{ url: event.image_url }] : [],
+      title: ogTitle,
+      description: ogDescription,
+      images: [ogImage],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description: ogDescription,
+      images: [ogImageUrl],
     },
   };
 }
@@ -348,6 +411,14 @@ export default async function EventPage({
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
 
+    const privatePreview: EventPreview = {
+      imageUrl: (event.image_url as string | null) ?? null,
+      category: event.category_primary,
+      hostName: creator?.display_name ?? null,
+      dateStr: smartDate(event.start_at),
+      venueName: venue?.name ?? null,
+    };
+
     return (
       <PrivateEventSwipePage
         id={id}
@@ -377,6 +448,7 @@ export default async function EventPage({
         guestsCanPost={guestsCanPost}
         guestsCanReact={guestsCanReact}
         initialMoments={initialMoments as never}
+        preview={privatePreview}
       />
     );
   }
@@ -400,6 +472,15 @@ export default async function EventPage({
   const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
     timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
   });
+
+  // Share preview props — shown in the in-app share card
+  const sharePreview: EventPreview = {
+    imageUrl: (event.image_url as string | null) ?? null,
+    category: event.category_primary,
+    hostName: creator?.display_name ?? null,
+    dateStr: smartDate(event.start_at),
+    venueName: venue?.name ?? null,
+  };
 
   return (
     <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
@@ -592,7 +673,7 @@ export default async function EventPage({
               ) : (
                 <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
               )}
-              <ShareButton title={event.title} eventId={id} />
+              <ShareButton title={event.title} eventId={id} preview={sharePreview} />
             </div>
 
             {/* Recent activity */}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
 import { PrivateActionArea } from "./PrivateActionArea";
+import type { EventPreview } from "./ShareButton";
 import { PaymentReveal } from "./PaymentReveal";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { MomentsClient } from "./moments/MomentsClient";
@@ -74,6 +75,8 @@ type Props = {
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
+  // Share preview
+  preview?: EventPreview;
 };
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -87,6 +90,7 @@ export function PrivateEventSwipePage(props: Props) {
     paymentMethod, paymentContact, rsvpDeadline,
     rsvpCounts, attendees,
     guestsCanPost, guestsCanReact, initialMoments,
+    preview,
   } = props;
 
   const [page, setPage] = useState(0); // 0 = info, 1 = moments
@@ -320,6 +324,7 @@ export function PrivateEventSwipePage(props: Props) {
                     cohostIds={cohostIds}
                     initialCounts={rsvpCounts}
                     initialAttendees={attendees}
+                    preview={preview}
                   />
 
                   {/* Hosting card */}
