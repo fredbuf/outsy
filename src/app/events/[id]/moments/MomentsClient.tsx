@@ -483,76 +483,177 @@ function ComposeArea({
   );
 }
 
-// ── Comments sheet ────────────────────────────────────────────────────────────
+// ── Reaction picker ────────────────────────────────────────────────────────────
 
-function CommentsSheet({
-  open,
-  onClose,
+function ReactionPicker({
+  reactionGroups,
+  canReact,
+  onReact,
+}: {
+  reactionGroups: ReactionGroup[];
+  canReact: boolean;
+  onReact: (emoji: ValidEmoji) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const myReaction = reactionGroups.find((g) => g.isMine);
+  const hasReactions = reactionGroups.some((g) => g.count > 0);
+
+  function handlePick(emoji: ValidEmoji) {
+    onReact(emoji);
+    setOpen(false);
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {/* React button + picker popup */}
+      {canReact && (
+        <div style={{ position: "relative" }}>
+          {open && (
+            <>
+              <div
+                style={{ position: "fixed", inset: 0, zIndex: 10 }}
+                onClick={() => setOpen(false)}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 8px)",
+                  left: 0,
+                  zIndex: 20,
+                  background: "rgba(28,28,28,0.97)",
+                  backdropFilter: "blur(16px)",
+                  WebkitBackdropFilter: "blur(16px)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 28,
+                  padding: "6px 8px",
+                  display: "flex",
+                  gap: 2,
+                  boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
+                }}
+              >
+                {VALID_EMOJI.map((emoji) => {
+                  const isMine = reactionGroups.find((g) => g.emoji === emoji)?.isMine ?? false;
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handlePick(emoji)}
+                      style={{
+                        width: 38, height: 38, borderRadius: "50%",
+                        border: "none",
+                        background: isMine ? "rgba(167,139,250,0.22)" : "transparent",
+                        cursor: "pointer", fontSize: 20,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "background 0.1s, transform 0.1s",
+                      }}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "4px 10px", borderRadius: 20,
+              border: myReaction
+                ? "1px solid rgba(167,139,250,0.50)"
+                : "1px solid rgba(255,255,255,0.12)",
+              background: myReaction
+                ? "rgba(167,139,250,0.12)"
+                : "rgba(255,255,255,0.05)",
+              color: myReaction ? "inherit" : "rgba(255,255,255,0.55)",
+              fontSize: 13, cursor: "pointer",
+              transition: "background 0.12s, border-color 0.12s",
+            }}
+          >
+            {myReaction ? (
+              <span style={{ fontSize: 16, lineHeight: 1 }}>{myReaction.emoji}</span>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 13s1.5 2 4 2 4-2 4-2"/>
+                  <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3"/>
+                  <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3"/>
+                </svg>
+                <span>React</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Reaction summary — only non-zero counts */}
+      {hasReactions && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {reactionGroups.filter((g) => g.count > 0).map(({ emoji, count, isMine }) => (
+            <span
+              key={emoji}
+              style={{
+                display: "flex", alignItems: "center", gap: 3,
+                padding: "3px 8px", borderRadius: 20, fontSize: 12,
+                background: isMine ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.06)",
+                border: isMine ? "1px solid rgba(167,139,250,0.28)" : "1px solid rgba(255,255,255,0.08)",
+              }}
+            >
+              <span>{emoji}</span>
+              <span style={{ fontWeight: 600, opacity: 0.75 }}>{count}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Inline comments ────────────────────────────────────────────────────────────
+
+const COMMENTS_PREVIEW = 2;
+
+function InlineComments({
   momentId,
   eventId,
   token,
-  onCommentPosted,
-  embedded = false,
 }: {
-  open: boolean;
-  onClose: () => void;
   momentId: string;
   eventId: string;
   token: string | null;
-  onCommentPosted: () => void;
-  embedded?: boolean;
 }) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
-  // Fetch comments when sheet opens
   useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    setLoadError(null);
     fetch(`/api/events/${eventId}/moments/${momentId}/comments`)
       .then((r) => r.json())
       .then((data: { ok: boolean; comments?: CommentRow[]; error?: string }) => {
-        if (data.ok && data.comments) {
-          setComments(data.comments);
-        } else if (!data.ok) {
-          console.error("[CommentsSheet] load failed:", data.error);
+        if (data.ok && data.comments) setComments(data.comments);
+        else if (!data.ok) {
+          console.error("[InlineComments] load failed:", data.error);
           setLoadError(data.error ?? "Failed to load comments.");
         }
       })
       .catch((err) => {
-        console.error("[CommentsSheet] network error:", err);
-        setLoadError("Network error loading comments.");
+        console.error("[InlineComments] network error:", err);
+        setLoadError("Network error.");
       })
       .finally(() => setLoading(false));
-  }, [open, eventId, momentId]);
-
-  // Scroll to bottom when comments load
-  useEffect(() => {
-    if (!loading && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight;
-    }
-  }, [loading, comments.length]);
-
-  // Lock body scroll while open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-      return () => { document.body.style.overflow = ""; };
-    }
-  }, [open]);
+  }, [momentId, eventId]);
 
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || sending || !token) return;
     setSending(true);
-    setError(null);
+    setSendError(null);
     try {
       const res = await fetch(`/api/events/${eventId}/moments/${momentId}/comments`, {
         method: "POST",
@@ -566,16 +667,12 @@ function CommentsSheet({
       if (data.ok && data.comment) {
         setComments((prev) => [...prev, data.comment!]);
         setText("");
-        onCommentPosted();
-        // Scroll to bottom after adding
-        setTimeout(() => {
-          if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-        }, 30);
+        setExpanded(true);
       } else {
-        setError(data.error ?? "Failed to send.");
+        setSendError(data.error ?? "Failed to send.");
       }
     } catch {
-      setError("Network error.");
+      setSendError("Network error.");
     } finally {
       setSending(false);
     }
@@ -588,103 +685,48 @@ function CommentsSheet({
     }
   }
 
-  if (!open) return null;
+  const visible = expanded ? comments : comments.slice(0, COMMENTS_PREVIEW);
+  const hiddenCount = comments.length - COMMENTS_PREVIEW;
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0, bottom: 0,
-          left: embedded ? "50%" : 0,
-          right: 0,
-          zIndex: 300,
-          background: "rgba(0,0,0,0.55)",
-        }}
-        onClick={onClose}
-      />
+    <div
+      style={{
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
+      {loading && (
+        <p style={{ fontSize: 12, opacity: 0.35, margin: "0 0 8px" }}>Loading…</p>
+      )}
+      {!loading && loadError && (
+        <p style={{ fontSize: 12, color: "#ef4444", margin: "0 0 8px" }}>{loadError}</p>
+      )}
 
-      {/* Sheet */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: embedded ? "50%" : "max(0px, calc(50% - 270px))",
-          right: embedded ? 0 : "max(0px, calc(50% - 270px))",
-          height: "85dvh",
-          zIndex: 301,
-          borderRadius: "22px 22px 0 0",
-          background: "#111110",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 4, flexShrink: 0 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)" }} />
-        </div>
-
-        {/* Header */}
+      {/* Thread */}
+      {!loading && visible.length > 0 && (
         <div
           style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "6px 16px 12px",
-            borderBottom: "1px solid rgba(255,255,255,0.08)",
-            flexShrink: 0,
+            borderLeft: "2px solid rgba(255,255,255,0.10)",
+            marginLeft: 4,
+            paddingLeft: 10,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            marginBottom: 10,
           }}
         >
-          <span style={{ fontSize: 16, fontWeight: 700, color: "#F5F7FA" }}>Comments</span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              color: "rgba(255,255,255,0.55)", padding: 4,
-              display: "flex", alignItems: "center",
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Comments list */}
-        <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
-          {loading && (
-            <p style={{ fontSize: 13, opacity: 0.4, textAlign: "center", paddingTop: 24, color: "#F5F7FA" }}>
-              Loading…
-            </p>
-          )}
-          {!loading && loadError && (
-            <p style={{ fontSize: 13, color: "#ef4444", textAlign: "center", paddingTop: 24 }}>
-              {loadError}
-            </p>
-          )}
-          {!loading && !loadError && comments.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0", opacity: 0.4 }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ display: "block", margin: "0 auto 10px", color: "#F5F7FA" }}>
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              <p style={{ fontSize: 14, fontWeight: 500, margin: 0, color: "#F5F7FA" }}>No comments yet</p>
-            </div>
-          )}
-          {!loading && !loadError && comments.map((c) => {
+          {visible.map((c) => {
             const name = c.author?.display_name ?? c.author?.username ?? "Someone";
             return (
-              <div key={c.id} style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                <div style={{ flexShrink: 0 }}>
-                  <Avatar url={c.author?.avatar_url ?? null} name={name} size={30} />
-                </div>
+              <div key={c.id} style={{ display: "flex", gap: 8 }}>
+                <Avatar url={c.author?.avatar_url ?? null} name={name} size={22} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#F5F7FA" }}>{name}</span>
-                    <span style={{ fontSize: 11, opacity: 0.4, color: "#F5F7FA" }}>{relativeTime(c.created_at)}</span>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginBottom: 2 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{name}</span>
+                    <span style={{ fontSize: 11, opacity: 0.35 }}>{relativeTime(c.created_at)}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "rgba(245,247,250,0.85)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, opacity: 0.82, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                     {c.body}
                   </p>
                 </div>
@@ -692,87 +734,92 @@ function CommentsSheet({
             );
           })}
         </div>
+      )}
 
-        {/* Compose area */}
-        <div
+      {/* See more */}
+      {!loading && !expanded && hiddenCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
           style={{
-            flexShrink: 0,
-            borderTop: "1px solid rgba(255,255,255,0.08)",
-            padding: "10px 12px",
-            paddingBottom: "max(10px, env(safe-area-inset-bottom))",
-            background: "#111110",
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 12, fontWeight: 600,
+            color: "rgba(255,255,255,0.40)",
+            padding: "0 0 8px",
           }}
         >
-          {!token ? (
+          See {hiddenCount} more {hiddenCount === 1 ? "comment" : "comments"}
+        </button>
+      )}
+
+      {/* Input */}
+      {token ? (
+        <div>
+          {sendError && (
+            <p style={{ fontSize: 11, color: "#ef4444", margin: "0 0 4px" }}>{sendError}</p>
+          )}
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Add a comment…"
+              rows={1}
+              maxLength={1000}
+              style={{
+                flex: 1,
+                padding: "7px 12px",
+                borderRadius: 16,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.06)",
+                color: "inherit",
+                fontSize: 16,
+                lineHeight: 1.4,
+                resize: "none",
+                outline: "none",
+                fontFamily: "inherit",
+                minHeight: 36,
+                maxHeight: 100,
+                overflowY: "auto",
+                boxSizing: "border-box",
+              }}
+            />
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new Event("outsy:open-signin"))}
+              onClick={() => void handleSend()}
+              disabled={!text.trim() || sending}
               style={{
-                width: "100%", padding: "10px 0", borderRadius: 20,
-                border: "1px solid rgba(255,255,255,0.14)", background: "transparent",
-                color: "rgba(255,255,255,0.55)", fontSize: 14, cursor: "pointer",
+                width: 34, height: 34, borderRadius: "50%",
+                border: "none",
+                background: !text.trim() || sending ? "rgba(94,168,255,0.20)" : "#5EA8FF",
+                color: "#fff",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: !text.trim() || sending ? "not-allowed" : "pointer",
+                flexShrink: 0,
+                transition: "background 0.15s",
               }}
+              aria-label="Send comment"
             >
-              Sign in to comment
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
             </button>
-          ) : (
-            <>
-              {error && (
-                <p style={{ fontSize: 12, color: "#ef4444", margin: "0 0 6px 4px" }}>{error}</p>
-              )}
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <textarea
-                  ref={inputRef}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Add a comment…"
-                  rows={1}
-                  maxLength={1000}
-                  style={{
-                    flex: 1,
-                    padding: "10px 14px",
-                    borderRadius: 20,
-                    border: "1px solid rgba(255,255,255,0.14)",
-                    background: "rgba(255,255,255,0.07)",
-                    color: "#F5F7FA",
-                    fontSize: 15,
-                    lineHeight: 1.4,
-                    resize: "none",
-                    outline: "none",
-                    fontFamily: "inherit",
-                    minHeight: 42,
-                    maxHeight: 120,
-                    overflowY: "auto",
-                    boxSizing: "border-box",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleSend()}
-                  disabled={!text.trim() || sending}
-                  style={{
-                    width: 42, height: 42, borderRadius: "50%",
-                    border: "none",
-                    background: !text.trim() || sending ? "rgba(94,168,255,0.25)" : "#5EA8FF",
-                    color: "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: !text.trim() || sending ? "not-allowed" : "pointer",
-                    flexShrink: 0,
-                    transition: "background 0.15s",
-                  }}
-                  aria-label="Send comment"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                  </svg>
-                </button>
-              </div>
-            </>
-          )}
+          </div>
         </div>
-      </div>
-    </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("outsy:open-signin"))}
+          style={{
+            fontSize: 12, color: "rgba(255,255,255,0.40)",
+            background: "none", border: "none", cursor: "pointer",
+            padding: 0, textDecoration: "underline",
+          }}
+        >
+          Sign in to comment
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -789,8 +836,6 @@ function MomentCard({
   onDeleted,
   onPinToggled,
   onReactionToggle,
-  onCommentClick,
-  showComments,
 }: {
   moment: DisplayMoment;
   eventId: string;
@@ -802,8 +847,6 @@ function MomentCard({
   onDeleted: (id: string) => void;
   onPinToggled: (id: string, pinned: boolean) => void;
   onReactionToggle: (momentId: string, emoji: ValidEmoji, add: boolean) => void;
-  onCommentClick: () => void;
-  showComments: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -989,67 +1032,23 @@ function MomentCard({
         {moment.body}
       </p>
 
-      {/* Footer: reactions + comment button */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: moment.reactions_enabled ? 0 : 4 }}>
-        {/* Reactions */}
-        {moment.reactions_enabled && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1 }}>
-            {moment.reactionGroups.map(({ emoji, count, isMine }) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleReaction(emoji)}
-                disabled={!canReact}
-                title={canReact ? (isMine ? `Remove ${emoji}` : `React with ${emoji}`) : undefined}
-                style={{
-                  display: "flex", alignItems: "center", gap: 4,
-                  padding: "4px 10px", borderRadius: 20,
-                  border: isMine
-                    ? "1px solid rgba(167,139,250,0.55)"
-                    : "1px solid rgba(255,255,255,0.12)",
-                  background: isMine
-                    ? "rgba(167,139,250,0.15)"
-                    : "rgba(255,255,255,0.05)",
-                  cursor: canReact ? "pointer" : "default",
-                  fontSize: 14,
-                  transition: "background 0.12s, border-color 0.12s",
-                }}
-              >
-                <span>{emoji}</span>
-                {count > 0 && (
-                  <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{count}</span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Reactions */}
+      {moment.reactions_enabled && (
+        <ReactionPicker
+          reactionGroups={moment.reactionGroups}
+          canReact={canReact}
+          onReact={handleReaction}
+        />
+      )}
 
-        {/* Comment button — only when comments are enabled for this moment and surface */}
-        {showComments && moment.commentsEnabled && (
-        <button
-          type="button"
-          onClick={onCommentClick}
-          style={{
-            display: "flex", alignItems: "center", gap: 5,
-            padding: "4px 10px", borderRadius: 20,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.05)",
-            color: "rgba(255,255,255,0.55)",
-            fontSize: 13, cursor: "pointer",
-            transition: "background 0.12s",
-            marginLeft: moment.reactions_enabled ? "auto" : 0,
-          }}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-          <span style={{ fontWeight: 600 }}>
-            {moment.commentCount > 0 ? moment.commentCount : ""}
-          </span>
-          <span>{moment.commentCount === 1 ? "comment" : moment.commentCount > 1 ? "comments" : "Comment"}</span>
-        </button>
-        )}
-      </div>
+      {/* Inline comments */}
+      {moment.commentsEnabled && (
+        <InlineComments
+          momentId={moment.id}
+          eventId={eventId}
+          token={token}
+        />
+      )}
     </div>
   );
 }
@@ -1093,8 +1092,6 @@ export function MomentsClient({
   const [moments, setMoments] = useState<DisplayMoment[]>(() =>
     initialMoments.map((m) => buildDisplay(m, user?.id ?? null))
   );
-  const [commentSheetMomentId, setCommentSheetMomentId] = useState<string | null>(null);
-
   // When user identity resolves, update only the isMine flags on existing moments.
   // Do NOT reset to initialMoments — that would overwrite any moments loaded by
   // fetchMoments() after a post, causing recently created moments to disappear.
@@ -1217,14 +1214,6 @@ export function MomentsClient({
     );
   }
 
-  function handleCommentPosted(momentId: string) {
-    setMoments((prev) =>
-      prev.map((m) =>
-        m.id === momentId ? { ...m, commentCount: m.commentCount + 1 } : m
-      )
-    );
-  }
-
   const isEmpty = moments.length === 0;
 
   const content = (
@@ -1305,8 +1294,6 @@ export function MomentsClient({
               onDeleted={handleDeleted}
               onPinToggled={handlePinToggled}
               onReactionToggle={handleReactionToggle}
-              onCommentClick={() => setCommentSheetMomentId(moment.id)}
-              showComments={moment.commentsEnabled}
             />
           ))}
         </div>
@@ -1315,22 +1302,7 @@ export function MomentsClient({
     </div>
   );
 
-  const commentsSheet = (
-    <CommentsSheet
-      key={commentSheetMomentId ?? "none"}
-      open={commentSheetMomentId !== null}
-      onClose={() => setCommentSheetMomentId(null)}
-      momentId={commentSheetMomentId ?? ""}
-      eventId={eventId}
-      token={session?.access_token ?? null}
-      embedded={embedded}
-      onCommentPosted={() => {
-        if (commentSheetMomentId) handleCommentPosted(commentSheetMomentId);
-      }}
-    />
-  );
-
-  if (embedded) return <>{content}{commentsSheet}</>;
+  if (embedded) return <>{content}</>;
 
   return (
     <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
@@ -1436,7 +1408,6 @@ export function MomentsClient({
         </div>
 
         {content}
-        {commentsSheet}
       </div>
     </main>
   );
