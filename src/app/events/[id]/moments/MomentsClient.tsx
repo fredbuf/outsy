@@ -492,6 +492,7 @@ function CommentsSheet({
   eventId,
   token,
   onCommentPosted,
+  embedded = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -499,6 +500,7 @@ function CommentsSheet({
   eventId: string;
   token: string | null;
   onCommentPosted: () => void;
+  embedded?: boolean;
 }) {
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -592,7 +594,14 @@ function CommentsSheet({
     <>
       {/* Backdrop */}
       <div
-        style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.55)" }}
+        style={{
+          position: "fixed",
+          top: 0, bottom: 0,
+          left: embedded ? "50%" : 0,
+          right: 0,
+          zIndex: 300,
+          background: "rgba(0,0,0,0.55)",
+        }}
         onClick={onClose}
       />
 
@@ -601,8 +610,8 @@ function CommentsSheet({
         style={{
           position: "fixed",
           bottom: 0,
-          left: "max(0px, calc(50% - 270px))",
-          right: "max(0px, calc(50% - 270px))",
+          left: embedded ? "50%" : "max(0px, calc(50% - 270px))",
+          right: embedded ? 0 : "max(0px, calc(50% - 270px))",
           height: "85dvh",
           zIndex: 301,
           borderRadius: "22px 22px 0 0",
@@ -1314,6 +1323,7 @@ export function MomentsClient({
       momentId={commentSheetMomentId ?? ""}
       eventId={eventId}
       token={session?.access_token ?? null}
+      embedded={embedded}
       onCommentPosted={() => {
         if (commentSheetMomentId) handleCommentPosted(commentSheetMomentId);
       }}
