@@ -17,6 +17,8 @@ export type MomentRow = {
   event_id: string;
   author_id: string;
   body: string;
+  link_url: string | null;
+  image_url: string | null;
   is_pinned: boolean;
   reactions_enabled: boolean;
   comments_enabled: boolean;
@@ -45,7 +47,7 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,link_url,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)

@@ -30,7 +30,7 @@ export async function GET(
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,link_url,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -155,6 +155,16 @@ export async function POST(
     );
   }
 
+  // Optional link — basic URL validation
+  const rawLink = body.link_url != null ? String(body.link_url).trim() : null;
+  const linkUrl = rawLink
+    ? /^https?:\/\/.{3,}/.test(rawLink) ? rawLink : null
+    : null;
+
+  // Optional image URL — must be a Supabase storage URL or similar https URL
+  const rawImage = body.image_url != null ? String(body.image_url).trim() : null;
+  const imageUrl = rawImage && /^https?:\/\/.{3,}/.test(rawImage) ? rawImage : null;
+
   const reactionsEnabled = body.reactions_enabled !== false;
   const commentsEnabled = body.comments_enabled !== false;
   const isPinned = (isHost || isCohost) && body.is_pinned === true;
@@ -174,11 +184,13 @@ export async function POST(
       event_id: eventId,
       author_id: user.id,
       body: text,
+      link_url: linkUrl,
+      image_url: imageUrl,
       is_pinned: isPinned,
       reactions_enabled: reactionsEnabled,
       comments_enabled: commentsEnabled,
     })
-    .select("id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at")
+    .select("id,event_id,author_id,body,link_url,image_url,is_pinned,reactions_enabled,comments_enabled,created_at")
     .single();
 
   if (insertError || !newMoment) {

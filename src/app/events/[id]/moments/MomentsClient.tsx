@@ -71,6 +71,8 @@ type DisplayMoment = {
   id: string;
   author_id: string;
   body: string;
+  linkUrl: string | null;
+  imageUrl: string | null;
   is_pinned: boolean;
   reactions_enabled: boolean;
   created_at: string;
@@ -127,6 +129,8 @@ function buildDisplay(row: MomentRow, currentUserId: string | null): DisplayMome
     id: row.id,
     author_id: row.author_id,
     body: row.body,
+    linkUrl: (row.link_url as string | null) ?? null,
+    imageUrl: (row.image_url as string | null) ?? null,
     is_pinned: row.is_pinned,
     reactions_enabled: row.reactions_enabled,
     created_at: row.created_at,
@@ -179,6 +183,8 @@ type PostedMoment = {
   event_id: string;
   author_id: string;
   body: string;
+  link_url: string | null;
+  image_url: string | null;
   is_pinned: boolean;
   reactions_enabled: boolean;
   comments_enabled: boolean;
@@ -249,6 +255,16 @@ function ComposeArea({
   const [step, setStep] = useState<null | "compose" | "confirm">(null);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
+  // Link
+  const [linkUrl, setLinkUrl] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  // Image
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  // Confirm step
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
   const [commentsEnabled, setCommentsEnabled] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
@@ -265,6 +281,11 @@ function ComposeArea({
     setStep(null);
     setTitle("");
     setDetails("");
+    setLinkUrl("");
+    setShowLinkInput(false);
+    setLinkError(null);
+    setImageUrl(null);
+    setImageError(null);
     setReactionsEnabled(true);
     setCommentsEnabled(true);
     setIsPinned(false);
@@ -273,6 +294,12 @@ function ComposeArea({
 
   function handleAdvance() {
     if (!title.trim()) return;
+    // Validate link if entered
+    if (linkUrl.trim() && !/^https?:\/\/.{3,}/.test(linkUrl.trim())) {
+      setLinkError("Enter a valid URL starting with http:// or https://");
+      return;
+    }
+    setLinkError(null);
     setError(null);
     setStep("confirm");
   }
@@ -282,9 +309,39 @@ function ComposeArea({
     setError(null);
   }
 
+  async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImageError(null);
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/events/upload-image", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
+      if (data.ok && data.url) {
+        setImageUrl(data.url);
+      } else {
+        setImageError(data.error ?? "Upload failed.");
+      }
+    } catch {
+      setImageError("Network error during upload.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   async function handlePost() {
     const body = [title.trim(), details.trim()].filter(Boolean).join("\n\n");
     if (!body || submitting) return;
+    const finalLink = linkUrl.trim() && /^https?:\/\/.{3,}/.test(linkUrl.trim())
+      ? linkUrl.trim()
+      : null;
     setSubmitting(true);
     setError(null);
     try {
@@ -296,6 +353,8 @@ function ComposeArea({
         },
         body: JSON.stringify({
           body,
+          link_url: finalLink,
+          image_url: imageUrl,
           reactions_enabled: reactionsEnabled,
           comments_enabled: commentsEnabled,
           is_pinned: isPinned,
@@ -329,7 +388,9 @@ function ComposeArea({
     maxWidth: 540,
     display: "flex",
     flexDirection: "column",
-    maxHeight: "92dvh",
+    // Take most of the screen — composer feels like a real creation surface
+    minHeight: "90dvh",
+    maxHeight: "96dvh",
     overflow: "hidden",
   };
   const sheetHeaderStyle: React.CSSProperties = {
@@ -348,6 +409,15 @@ function ComposeArea({
 
   return (
     <>
+      {/* Hidden file input for image upload */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: "none" }}
+        onChange={handleImagePick}
+      />
+
       {/* Trigger button */}
       <button
         type="button"
@@ -407,8 +477,8 @@ function ComposeArea({
               </button>
             </div>
 
-            {/* Fields */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 8px" }}>
+            {/* Fields — flex-grow to fill space */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 0 }}>
               <input
                 ref={titleRef}
                 type="text"
@@ -431,7 +501,7 @@ function ComposeArea({
                 onChange={(e) => setDetails(e.target.value)}
                 placeholder="Add details… (optional)"
                 maxLength={BODY_MAX}
-                rows={5}
+                rows={6}
                 style={{
                   width: "100%", boxSizing: "border-box",
                   background: "rgba(255,255,255,0.05)",
@@ -442,6 +512,7 @@ function ComposeArea({
                   resize: "none", fontFamily: "inherit",
                   padding: "12px 14px",
                   caretColor: "#a78bfa",
+                  flex: 1,
                 }}
               />
               {details.length > BODY_MAX * 0.85 && (
@@ -449,10 +520,123 @@ function ComposeArea({
                   {details.length}/{BODY_MAX}
                 </div>
               )}
+
+              {/* Link input — shown when toggled */}
+              {showLinkInput && (
+                <div style={{ marginTop: 14 }}>
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null); }}
+                    placeholder="https://…"
+                    style={{
+                      width: "100%", boxSizing: "border-box",
+                      background: "rgba(255,255,255,0.05)",
+                      border: linkError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 12, outline: "none",
+                      color: "inherit", fontSize: 16,
+                      fontFamily: "inherit", padding: "11px 14px",
+                      caretColor: "#a78bfa",
+                    }}
+                  />
+                  {linkError && (
+                    <div style={{ marginTop: 5, fontSize: 12, color: "#ef4444" }}>{linkError}</div>
+                  )}
+                </div>
+              )}
+
+              {/* Image preview */}
+              {imageUrl && (
+                <div style={{ marginTop: 14, position: "relative" }}>
+                  <img
+                    src={imageUrl}
+                    alt="Attached image"
+                    style={{
+                      width: "100%", borderRadius: 12,
+                      maxHeight: 220, objectFit: "cover",
+                      display: "block",
+                      border: "1px solid rgba(255,255,255,0.10)",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl(null)}
+                    aria-label="Remove image"
+                    style={{
+                      position: "absolute", top: 8, right: 8,
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: "rgba(0,0,0,0.65)",
+                      border: "none", cursor: "pointer", color: "#fff",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              )}
+              {imageError && (
+                <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444" }}>{imageError}</div>
+              )}
+            </div>
+
+            {/* Tools row */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "12px 16px",
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              flexShrink: 0,
+            }}>
+              {/* Link tool */}
+              <button
+                type="button"
+                onClick={() => setShowLinkInput((v) => !v)}
+                aria-label="Add link"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 20,
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: showLinkInput ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
+                  color: showLinkInput ? "#a78bfa" : "rgba(255,255,255,0.55)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                {linkUrl.trim() ? "Link added" : "Link"}
+              </button>
+
+              {/* Image tool */}
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={uploadingImage}
+                aria-label="Add image"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 20,
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: imageUrl ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
+                  color: imageUrl ? "#a78bfa" : "rgba(255,255,255,0.55)",
+                  fontSize: 13, fontWeight: 500,
+                  cursor: uploadingImage ? "wait" : "pointer",
+                  opacity: uploadingImage ? 0.6 : 1,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                {uploadingImage ? "Uploading…" : imageUrl ? "Image added" : "Image"}
+              </button>
             </div>
 
             {/* Bottom safe area */}
-            <div style={{ height: "max(16px, env(safe-area-inset-bottom))", flexShrink: 0 }} />
+            <div style={{ height: "max(8px, env(safe-area-inset-bottom))", flexShrink: 0 }} />
           </div>
         </div>,
         document.body
@@ -461,7 +645,7 @@ function ComposeArea({
       {/* ── Step 2: Confirm options ── */}
       {step === "confirm" && createPortal(
         <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
-          <div style={sheetStyle}>
+          <div style={{ ...sheetStyle, minHeight: "auto", maxHeight: "80dvh" }}>
             {/* Header */}
             <div style={sheetHeaderStyle}>
               <button type="button" onClick={handleBack} style={iconBtnStyle} aria-label="Back">
@@ -473,7 +657,7 @@ function ComposeArea({
               <div style={{ width: 36 }} />
             </div>
 
-            {/* Preview of the title */}
+            {/* Preview */}
             <div style={{
               padding: "14px 20px 12px",
               borderBottom: "1px solid rgba(255,255,255,0.08)",
@@ -489,6 +673,30 @@ function ComposeArea({
                   WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
                 }}>
                   {details}
+                </div>
+              )}
+              {(linkUrl.trim() || imageUrl) && (
+                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {linkUrl.trim() && (
+                    <span style={{
+                      fontSize: 12, padding: "3px 8px", borderRadius: 20,
+                      background: "rgba(167,139,250,0.12)",
+                      border: "1px solid rgba(167,139,250,0.25)",
+                      color: "#a78bfa",
+                    }}>
+                      Link attached
+                    </span>
+                  )}
+                  {imageUrl && (
+                    <span style={{
+                      fontSize: 12, padding: "3px 8px", borderRadius: 20,
+                      background: "rgba(167,139,250,0.12)",
+                      border: "1px solid rgba(167,139,250,0.25)",
+                      color: "#a78bfa",
+                    }}>
+                      Image attached
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -1192,10 +1400,70 @@ function MomentCard({
         )}
       </div>
 
-      {/* Body */}
-      <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-        {moment.body}
-      </p>
+      {/* Body — first paragraph is the title (bold), rest is details */}
+      {(() => {
+        const [momentTitle, ...rest] = moment.body.split("\n\n");
+        const momentDetails = rest.join("\n\n");
+        return (
+          <div style={{ marginBottom: 12 }}>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+              {momentTitle}
+            </p>
+            {momentDetails && (
+              <p style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, opacity: 0.72, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {momentDetails}
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Image attachment */}
+      {moment.imageUrl && (
+        <div style={{ marginBottom: 12 }}>
+          <img
+            src={moment.imageUrl}
+            alt=""
+            style={{
+              width: "100%", borderRadius: 10,
+              maxHeight: 320, objectFit: "cover",
+              display: "block",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Link attachment */}
+      {moment.linkUrl && (
+        <a
+          href={moment.linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            padding: "10px 12px", borderRadius: 10, marginBottom: 12,
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            textDecoration: "none", color: "inherit",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.8)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span style={{
+            fontSize: 13, color: "#a78bfa", flex: 1, minWidth: 0,
+            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+          }}>
+            {(() => { try { return new URL(moment.linkUrl).hostname.replace(/^www\./, ""); } catch { return moment.linkUrl; } })()}
+          </span>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      )}
 
       {/* Reactions */}
       {moment.reactions_enabled && (
@@ -1326,6 +1594,8 @@ export function MomentsClient({
       id: newMoment.id,
       author_id: newMoment.author_id,
       body: newMoment.body,
+      linkUrl: newMoment.link_url ?? null,
+      imageUrl: newMoment.image_url ?? null,
       is_pinned: newMoment.is_pinned,
       reactions_enabled: newMoment.reactions_enabled,
       created_at: newMoment.created_at,
