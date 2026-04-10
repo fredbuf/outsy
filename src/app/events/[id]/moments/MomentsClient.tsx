@@ -1297,7 +1297,7 @@ export function MomentsClient({
               onPinToggled={handlePinToggled}
               onReactionToggle={handleReactionToggle}
               onCommentClick={() => setCommentSheetMomentId(moment.id)}
-              showComments={!embedded && moment.commentsEnabled}
+              showComments={moment.commentsEnabled}
             />
           ))}
         </div>
@@ -1320,7 +1320,7 @@ export function MomentsClient({
     />
   );
 
-  if (embedded) return content;
+  if (embedded) return <>{content}{commentsSheet}</>;
 
   return (
     <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
