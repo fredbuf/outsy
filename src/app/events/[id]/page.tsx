@@ -548,37 +548,6 @@ export default async function EventPage({
           </div>
         </div>
 
-        {/* Info / Moments tab strip */}
-        <div
-          style={{
-            display: "flex", gap: 4, margin: "14px 16px 0",
-            background: "rgba(255,255,255,0.06)",
-            borderRadius: 12, padding: 3,
-          }}
-        >
-          <div
-            style={{
-              flex: 1, textAlign: "center", padding: "7px 0",
-              borderRadius: 9, fontSize: 14, fontWeight: 600,
-              background: "rgba(255,255,255,0.12)",
-              color: "#fff",
-            }}
-          >
-            Info
-          </div>
-          <Link
-            href={`/events/${id}/moments`}
-            style={{
-              flex: 1, textDecoration: "none",
-              textAlign: "center", padding: "7px 0",
-              borderRadius: 9, fontSize: 14, fontWeight: 600,
-              color: "rgba(255,255,255,0.50)",
-            }}
-          >
-            Moments
-          </Link>
-        </div>
-
         {/* Content area — dark surface (same CSS variable overrides as private) */}
         <div style={{
           background: "transparent",
