@@ -72,6 +72,10 @@ type DisplayMoment = {
   author_id: string;
   body: string;
   linkUrl: string | null;
+  linkTitle: string | null;
+  linkDescription: string | null;
+  linkImageUrl: string | null;
+  linkSiteName: string | null;
   imageUrl: string | null;
   is_pinned: boolean;
   reactions_enabled: boolean;
@@ -130,6 +134,10 @@ function buildDisplay(row: MomentRow, currentUserId: string | null): DisplayMome
     author_id: row.author_id,
     body: row.body,
     linkUrl: (row.link_url as string | null) ?? null,
+    linkTitle: (row.link_title as string | null) ?? null,
+    linkDescription: (row.link_description as string | null) ?? null,
+    linkImageUrl: (row.link_image_url as string | null) ?? null,
+    linkSiteName: (row.link_site_name as string | null) ?? null,
     imageUrl: (row.image_url as string | null) ?? null,
     is_pinned: row.is_pinned,
     reactions_enabled: row.reactions_enabled,
@@ -184,6 +192,10 @@ type PostedMoment = {
   author_id: string;
   body: string;
   link_url: string | null;
+  link_title: string | null;
+  link_description: string | null;
+  link_image_url: string | null;
+  link_site_name: string | null;
   image_url: string | null;
   is_pinned: boolean;
   reactions_enabled: boolean;
@@ -1434,34 +1446,66 @@ function MomentCard({
         </div>
       )}
 
-      {/* Link attachment */}
+      {/* Link preview card */}
       {moment.linkUrl && (
         <a
           href={moment.linkUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "10px 12px", borderRadius: 10, marginBottom: 12,
-            background: "rgba(255,255,255,0.05)",
+            display: "block", marginBottom: 12,
+            borderRadius: 12,
             border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(255,255,255,0.04)",
+            overflow: "hidden",
             textDecoration: "none", color: "inherit",
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.8)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-          </svg>
-          <span style={{
-            fontSize: 13, color: "#a78bfa", flex: 1, minWidth: 0,
-            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
-          }}>
-            {(() => { try { return new URL(moment.linkUrl).hostname.replace(/^www\./, ""); } catch { return moment.linkUrl; } })()}
-          </span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
+          {/* OG image thumbnail */}
+          {moment.linkImageUrl && (
+            <img
+              src={moment.linkImageUrl}
+              alt=""
+              style={{
+                width: "100%", display: "block",
+                height: 160, objectFit: "cover",
+                borderBottom: "1px solid rgba(255,255,255,0.07)",
+              }}
+            />
+          )}
+          <div style={{ padding: "10px 12px 11px" }}>
+            {/* Site name */}
+            <div style={{
+              fontSize: 11, fontWeight: 600, opacity: 0.45,
+              textTransform: "uppercase", letterSpacing: "0.06em",
+              marginBottom: 4,
+              overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+            }}>
+              {moment.linkSiteName ??
+                (() => { try { return new URL(moment.linkUrl!).hostname.replace(/^www\./, ""); } catch { return moment.linkUrl; } })()}
+            </div>
+            {/* Title */}
+            {(moment.linkTitle ?? moment.linkUrl) && (
+              <div style={{
+                fontSize: 13, fontWeight: 600, lineHeight: 1.35,
+                overflow: "hidden", display: "-webkit-box",
+                WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                marginBottom: moment.linkDescription ? 4 : 0,
+              }}>
+                {moment.linkTitle ?? moment.linkUrl}
+              </div>
+            )}
+            {/* Description */}
+            {moment.linkDescription && (
+              <div style={{
+                fontSize: 12, opacity: 0.55, lineHeight: 1.4,
+                overflow: "hidden", display: "-webkit-box",
+                WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+              }}>
+                {moment.linkDescription}
+              </div>
+            )}
+          </div>
         </a>
       )}
 
@@ -1595,6 +1639,10 @@ export function MomentsClient({
       author_id: newMoment.author_id,
       body: newMoment.body,
       linkUrl: newMoment.link_url ?? null,
+      linkTitle: newMoment.link_title ?? null,
+      linkDescription: newMoment.link_description ?? null,
+      linkImageUrl: newMoment.link_image_url ?? null,
+      linkSiteName: newMoment.link_site_name ?? null,
       imageUrl: newMoment.image_url ?? null,
       is_pinned: newMoment.is_pinned,
       reactions_enabled: newMoment.reactions_enabled,

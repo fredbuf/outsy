@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { fetchLinkPreview } from "@/lib/fetch-link-preview";
 
 // Never cache this route — always fetch fresh moments from Supabase.
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function GET(
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,link_url,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -157,9 +158,22 @@ export async function POST(
 
   // Optional link — basic URL validation
   const rawLink = body.link_url != null ? String(body.link_url).trim() : null;
-  const linkUrl = rawLink
-    ? /^https?:\/\/.{3,}/.test(rawLink) ? rawLink : null
-    : null;
+  const linkUrl = rawLink && /^https?:\/\/.{3,}/.test(rawLink) ? rawLink : null;
+
+  // Fetch OG preview metadata server-side (non-blocking fallback to nulls)
+  let linkTitle: string | null = null;
+  let linkDescription: string | null = null;
+  let linkImageUrl: string | null = null;
+  let linkSiteName: string | null = null;
+  if (linkUrl) {
+    const preview = await fetchLinkPreview(linkUrl).catch(() => null);
+    if (preview) {
+      linkTitle = preview.title;
+      linkDescription = preview.description;
+      linkImageUrl = preview.imageUrl;
+      linkSiteName = preview.siteName;
+    }
+  }
 
   // Optional image URL — must be a Supabase storage URL or similar https URL
   const rawImage = body.image_url != null ? String(body.image_url).trim() : null;
@@ -185,12 +199,16 @@ export async function POST(
       author_id: user.id,
       body: text,
       link_url: linkUrl,
+      link_title: linkTitle,
+      link_description: linkDescription,
+      link_image_url: linkImageUrl,
+      link_site_name: linkSiteName,
       image_url: imageUrl,
       is_pinned: isPinned,
       reactions_enabled: reactionsEnabled,
       comments_enabled: commentsEnabled,
     })
-    .select("id,event_id,author_id,body,link_url,image_url,is_pinned,reactions_enabled,comments_enabled,created_at")
+    .select("id,event_id,author_id,body,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at")
     .single();
 
   if (insertError || !newMoment) {
