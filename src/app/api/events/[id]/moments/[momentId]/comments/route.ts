@@ -114,19 +114,29 @@ export async function POST(
   }
 
   // Verify event is available
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from("events")
-    .select("id,creator_id,cohost_ids,is_approved,is_rejected,is_private")
+    .select("id,creator_id,cohost_ids,is_approved,is_rejected,visibility")
     .eq("id", eventId)
     .maybeSingle();
 
-  if (!event || !event.is_approved || event.is_rejected) {
+  if (eventError) {
+    console.error("[POST comments] event lookup error:", eventError.message);
+    return NextResponse.json({ ok: false, error: "Failed to look up event." }, { status: 500 });
+  }
+  if (!event) {
+    return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
+  }
+
+  const isPrivate = (event as Record<string, unknown>).visibility === "private";
+
+  // Private events are self-approved by the host; public events need to pass moderation.
+  if (!isPrivate && (!event.is_approved || event.is_rejected)) {
     return NextResponse.json({ ok: false, error: "Event not available." }, { status: 403 });
   }
 
   const creatorId = event.creator_id as string | null;
   const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
-  const isPrivate = Boolean((event as Record<string, unknown>).is_private);
   const isHostOrCohost = creatorId === user.id || cohostIds.includes(user.id);
 
   // For private events, require host/cohost or RSVP
@@ -138,7 +148,7 @@ export async function POST(
       .eq("user_id", user.id)
       .maybeSingle();
     if (!rsvp) {
-      return NextResponse.json({ ok: false, error: "Not authorized." }, { status: 403 });
+      return NextResponse.json({ ok: false, error: "Not authorized to comment on this event." }, { status: 403 });
     }
   }
 
