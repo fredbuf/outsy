@@ -2,6 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -184,6 +185,55 @@ type PostedMoment = {
   created_at: string;
 };
 
+// Shared toggle pill used in the confirm step
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        width: "100%", padding: "14px 20px",
+        background: "none", border: "none",
+        cursor: "pointer", color: "inherit",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+      }}
+    >
+      <span style={{ fontSize: 15, fontWeight: 500 }}>{label}</span>
+      <span
+        style={{
+          width: 44, height: 26, borderRadius: 13,
+          background: checked ? "#a78bfa" : "rgba(255,255,255,0.15)",
+          position: "relative", flexShrink: 0,
+          transition: "background 0.18s",
+          display: "block",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            top: 3, left: checked ? 21 : 3,
+            width: 20, height: 20, borderRadius: "50%",
+            background: "#fff",
+            transition: "left 0.18s",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+          }}
+        />
+      </span>
+    </button>
+  );
+}
+
 function ComposeArea({
   eventId,
   isHostOrCohost,
@@ -195,31 +245,46 @@ function ComposeArea({
   token: string;
   onPosted: (moment: PostedMoment) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
+  // step: null = closed, "compose" = step 1, "confirm" = step 2
+  const [step, setStep] = useState<null | "compose" | "confirm">(null);
+  const [title, setTitle] = useState("");
+  const [details, setDetails] = useState("");
   const [reactionsEnabled, setReactionsEnabled] = useState(true);
   const [commentsEnabled, setCommentsEnabled] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   function handleOpen() {
-    setOpen(true);
-    setTimeout(() => textareaRef.current?.focus(), 60);
+    setStep("compose");
+    setTimeout(() => titleRef.current?.focus(), 80);
   }
 
-  function handleCancel() {
-    setOpen(false);
-    setText("");
+  function handleClose() {
+    setStep(null);
+    setTitle("");
+    setDetails("");
     setReactionsEnabled(true);
     setCommentsEnabled(true);
     setIsPinned(false);
     setError(null);
   }
 
+  function handleAdvance() {
+    if (!title.trim()) return;
+    setError(null);
+    setStep("confirm");
+  }
+
+  function handleBack() {
+    setStep("compose");
+    setError(null);
+  }
+
   async function handlePost() {
-    if (!text.trim() || submitting) return;
+    const body = [title.trim(), details.trim()].filter(Boolean).join("\n\n");
+    if (!body || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -230,7 +295,7 @@ function ComposeArea({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          body: text.trim(),
+          body,
           reactions_enabled: reactionsEnabled,
           comments_enabled: commentsEnabled,
           is_pinned: isPinned,
@@ -238,7 +303,7 @@ function ComposeArea({
       });
       const data = (await res.json()) as { ok: boolean; moment?: PostedMoment; error?: string };
       if (data.ok && data.moment) {
-        handleCancel();
+        handleClose();
         onPosted(data.moment);
       } else {
         setError(data.error ?? "Failed to post.");
@@ -250,8 +315,40 @@ function ComposeArea({
     }
   }
 
-  if (!open) {
-    return (
+  // Shared sheet styles
+  const overlayStyle: React.CSSProperties = {
+    position: "fixed", inset: 0, zIndex: 400,
+    background: "rgba(0,0,0,0.72)",
+    display: "flex", alignItems: "flex-end", justifyContent: "center",
+  };
+  const sheetStyle: React.CSSProperties = {
+    background: "#111110",
+    color: "#eae8e4",
+    borderRadius: "20px 20px 0 0",
+    width: "100%",
+    maxWidth: 540,
+    display: "flex",
+    flexDirection: "column",
+    maxHeight: "92dvh",
+    overflow: "hidden",
+  };
+  const sheetHeaderStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "16px 16px 14px",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+    flexShrink: 0,
+  };
+  const iconBtnStyle: React.CSSProperties = {
+    width: 36, height: 36, borderRadius: "50%",
+    background: "rgba(255,255,255,0.08)",
+    border: "none", cursor: "pointer", color: "inherit",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
+  };
+
+  return (
+    <>
+      {/* Trigger button */}
       <button
         type="button"
         onClick={handleOpen}
@@ -280,206 +377,161 @@ function ComposeArea({
         </svg>
         <span style={{ fontSize: 14, fontWeight: 500 }}>Share a moment</span>
       </button>
-    );
-  }
 
-  return (
-    <div
-      style={{
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.14)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        overflow: "hidden",
-      }}
-    >
-      <textarea
-        ref={textareaRef}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        maxLength={BODY_MAX}
-        placeholder="Share a moment with attendees…"
-        rows={4}
-        style={{
-          width: "100%",
-          padding: "14px 16px 0",
-          background: "transparent",
-          border: "none",
-          outline: "none",
-          color: "inherit",
-          fontSize: 16,
-          lineHeight: 1.55,
-          resize: "none",
-          boxSizing: "border-box",
-          fontFamily: "inherit",
-        }}
-      />
-
-      {/* Character count */}
-      <div style={{ padding: "4px 16px 0", textAlign: "right" }}>
-        <span style={{ fontSize: 11, opacity: text.length > BODY_MAX * 0.85 ? 0.7 : 0.3 }}>
-          {text.length}/{BODY_MAX}
-        </span>
-      </div>
-
-      {/* Toggles */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "10px 16px",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          marginTop: 8,
-          flexWrap: "wrap",
-        }}
-      >
-        {/* Reactions toggle */}
-        <label
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            fontSize: 13, cursor: "pointer", userSelect: "none",
-          }}
-        >
-          <span
-            role="checkbox"
-            aria-checked={reactionsEnabled}
-            tabIndex={0}
-            onClick={() => setReactionsEnabled((v) => !v)}
-            onKeyDown={(e) => e.key === " " && setReactionsEnabled((v) => !v)}
-            style={{
-              width: 32, height: 18, borderRadius: 9,
-              background: reactionsEnabled ? "var(--accent, #a78bfa)" : "rgba(255,255,255,0.15)",
-              position: "relative", flexShrink: 0, cursor: "pointer",
-              transition: "background 0.15s",
-            }}
-          >
-            <span
-              style={{
-                position: "absolute",
-                top: 3, left: reactionsEnabled ? 17 : 3,
-                width: 12, height: 12, borderRadius: "50%",
-                background: "#fff",
-                transition: "left 0.15s",
-              }}
-            />
-          </span>
-          Reactions
-        </label>
-
-        {/* Comments toggle */}
-        <label
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            fontSize: 13, cursor: "pointer", userSelect: "none",
-          }}
-        >
-          <span
-            role="checkbox"
-            aria-checked={commentsEnabled}
-            tabIndex={0}
-            onClick={() => setCommentsEnabled((v) => !v)}
-            onKeyDown={(e) => e.key === " " && setCommentsEnabled((v) => !v)}
-            style={{
-              width: 32, height: 18, borderRadius: 9,
-              background: commentsEnabled ? "var(--accent, #a78bfa)" : "rgba(255,255,255,0.15)",
-              position: "relative", flexShrink: 0, cursor: "pointer",
-              transition: "background 0.15s",
-            }}
-          >
-            <span
-              style={{
-                position: "absolute",
-                top: 3, left: commentsEnabled ? 17 : 3,
-                width: 12, height: 12, borderRadius: "50%",
-                background: "#fff",
-                transition: "left 0.15s",
-              }}
-            />
-          </span>
-          Comments
-        </label>
-
-        {/* Pin toggle — host/cohost only */}
-        {isHostOrCohost && (
-          <label
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              fontSize: 13, cursor: "pointer", userSelect: "none",
-            }}
-          >
-            <span
-              role="checkbox"
-              aria-checked={isPinned}
-              tabIndex={0}
-              onClick={() => setIsPinned((v) => !v)}
-              onKeyDown={(e) => e.key === " " && setIsPinned((v) => !v)}
-              style={{
-                width: 32, height: 18, borderRadius: 9,
-                background: isPinned ? "var(--accent, #a78bfa)" : "rgba(255,255,255,0.15)",
-                position: "relative", flexShrink: 0, cursor: "pointer",
-                transition: "background 0.15s",
-              }}
-            >
-              <span
+      {/* ── Step 1: Composer ── */}
+      {step === "compose" && createPortal(
+        <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
+          <div style={sheetStyle}>
+            {/* Header */}
+            <div style={sheetHeaderStyle}>
+              <button type="button" onClick={handleClose} style={iconBtnStyle} aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Share a moment</span>
+              <button
+                type="button"
+                onClick={handleAdvance}
+                disabled={!title.trim()}
+                aria-label="Next"
                 style={{
-                  position: "absolute",
-                  top: 3, left: isPinned ? 17 : 3,
-                  width: 12, height: 12, borderRadius: "50%",
-                  background: "#fff",
-                  transition: "left 0.15s",
+                  ...iconBtnStyle,
+                  background: title.trim() ? "#a78bfa" : "rgba(255,255,255,0.08)",
+                  opacity: title.trim() ? 1 : 0.45,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Fields */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 8px" }}>
+              <input
+                ref={titleRef}
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What's happening?"
+                maxLength={200}
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: "transparent", border: "none",
+                  outline: "none", color: "inherit",
+                  fontSize: 20, fontWeight: 600,
+                  fontFamily: "inherit", lineHeight: 1.3,
+                  marginBottom: 16,
+                  caretColor: "#a78bfa",
                 }}
               />
-            </span>
-            Pin to top
-          </label>
-        )}
-      </div>
+              <textarea
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                placeholder="Add details… (optional)"
+                maxLength={BODY_MAX}
+                rows={5}
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  borderRadius: 12,
+                  outline: "none", color: "inherit",
+                  fontSize: 16, lineHeight: 1.55,
+                  resize: "none", fontFamily: "inherit",
+                  padding: "12px 14px",
+                  caretColor: "#a78bfa",
+                }}
+              />
+              {details.length > BODY_MAX * 0.85 && (
+                <div style={{ marginTop: 4, fontSize: 11, opacity: 0.45, textAlign: "right" }}>
+                  {details.length}/{BODY_MAX}
+                </div>
+              )}
+            </div>
 
-      {/* Error */}
-      {error && (
-        <div style={{ padding: "0 16px 8px", fontSize: 13, color: "#ef4444" }}>{error}</div>
+            {/* Bottom safe area */}
+            <div style={{ height: "max(16px, env(safe-area-inset-bottom))", flexShrink: 0 }} />
+          </div>
+        </div>,
+        document.body
       )}
 
-      {/* Action row */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-          padding: "10px 14px 14px",
-        }}
-      >
-        <button
-          type="button"
-          onClick={handleCancel}
-          style={{
-            padding: "7px 16px", borderRadius: 20,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "transparent", color: "inherit",
-            fontSize: 13, fontWeight: 600, cursor: "pointer",
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={handlePost}
-          disabled={!text.trim() || submitting}
-          style={{
-            padding: "7px 20px", borderRadius: 20,
-            border: "none",
-            background: !text.trim() || submitting ? "rgba(167,139,250,0.35)" : "var(--accent, #a78bfa)",
-            color: "#fff", fontSize: 13, fontWeight: 700,
-            cursor: !text.trim() || submitting ? "not-allowed" : "pointer",
-            transition: "background 0.15s",
-          }}
-        >
-          {submitting ? "Posting…" : "Post"}
-        </button>
-      </div>
-    </div>
+      {/* ── Step 2: Confirm options ── */}
+      {step === "confirm" && createPortal(
+        <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
+          <div style={sheetStyle}>
+            {/* Header */}
+            <div style={sheetHeaderStyle}>
+              <button type="button" onClick={handleBack} style={iconBtnStyle} aria-label="Back">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Post options</span>
+              <div style={{ width: 36 }} />
+            </div>
+
+            {/* Preview of the title */}
+            <div style={{
+              padding: "14px 20px 12px",
+              borderBottom: "1px solid rgba(255,255,255,0.08)",
+              flexShrink: 0,
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 600, opacity: 0.9, lineHeight: 1.3 }}>
+                {title}
+              </div>
+              {details.trim() && (
+                <div style={{
+                  fontSize: 13, opacity: 0.45, marginTop: 4, lineHeight: 1.4,
+                  overflow: "hidden", display: "-webkit-box",
+                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                }}>
+                  {details}
+                </div>
+              )}
+            </div>
+
+            {/* Toggles */}
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              <Toggle checked={reactionsEnabled} onChange={setReactionsEnabled} label="Allow reactions" />
+              <Toggle checked={commentsEnabled} onChange={setCommentsEnabled} label="Allow comments" />
+              {isHostOrCohost && (
+                <Toggle checked={isPinned} onChange={setIsPinned} label="Pin to top" />
+              )}
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div style={{ padding: "8px 20px 0", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>
+                {error}
+              </div>
+            )}
+
+            {/* Post button */}
+            <div style={{ padding: "16px 20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => void handlePost()}
+                disabled={submitting}
+                style={{
+                  width: "100%", padding: "15px",
+                  borderRadius: 14, border: "none",
+                  background: submitting ? "rgba(167,139,250,0.45)" : "#a78bfa",
+                  color: "#fff", fontSize: 16, fontWeight: 700,
+                  cursor: submitting ? "not-allowed" : "pointer",
+                  transition: "background 0.15s",
+                }}
+              >
+                {submitting ? "Posting…" : "Post moment"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 
