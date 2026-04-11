@@ -290,14 +290,16 @@ function MomentPostedRow({
         <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: 14,
-            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+            fontSize: 14, lineHeight: 1.35,
+            overflow: "hidden", display: "-webkit-box",
+            WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
           }}>
             <span style={{ fontWeight: 600 }}>{actorName}</span>
-            {" posted a Moment"}
+            {" posted a new moment in "}
+            <span style={{ fontWeight: 600 }}>{event_title}</span>
           </div>
-          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 2 }}>
-            {event_title} · {relativeTime(item.created_at)}
+          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 3 }}>
+            {relativeTime(item.created_at)}
           </div>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.3, flexShrink: 0 }}>

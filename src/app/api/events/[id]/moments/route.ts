@@ -306,25 +306,34 @@ export async function POST(
     }));
   }
 
-  // Notify all "going" RSVPs (fire-and-forget; non-critical)
+  // Notify all RSVPed guests (going + maybe) — fire-and-forget; non-critical.
+  // Excludes the poster, the event creator, and any cohosts (they are hosts, not guests).
   try {
     const { data: rsvps } = await supabase
       .from("rsvps")
       .select("user_id")
       .eq("event_id", eventId)
-      .eq("response", "going");
+      .in("response", ["going", "maybe"]);
+
+    // Build exclusion set: poster + creator + all cohosts
+    const hostIds = new Set<string>([
+      user.id,
+      ...(creatorId ? [creatorId] : []),
+      ...cohostIds,
+    ]);
 
     const recipientIds = (rsvps ?? [])
       .map((r) => r.user_id as string)
-      .filter((uid) => uid !== user.id);
+      .filter((uid) => !hostIds.has(uid));
 
     if (recipientIds.length > 0) {
       const eventTitle = event.title as string;
+      const momentId = (newMoment as { id: string }).id;
       const notifications = recipientIds.map((uid) => ({
         user_id: uid,
         type: "moment_posted",
         actor_id: user.id,
-        entity_id: (newMoment as { id: string }).id,
+        entity_id: momentId,
         metadata: { event_id: eventId, event_title: eventTitle },
       }));
       await supabase.from("notifications").insert(notifications);

@@ -9,60 +9,81 @@ export default function LandingPage() {
   return (
     <main
       style={{
-        minHeight: "calc(100dvh - 57px)",
+        minHeight: "100dvh",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "24px 16px 48px",
-        background:
-          "radial-gradient(ellipse 120% 60% at 50% -5%, rgba(124, 58, 237, 0.09) 0%, transparent 65%)",
+        background: "linear-gradient(172.5deg, rgb(67,92,122) 0%, rgb(11,15,20) 70%)",
+        padding: "0 24px",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
+      {/* Content */}
       <div
         style={{
-          textAlign: "center",
-          display: "grid",
-          gap: 32,
-          maxWidth: 420,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 12,
           width: "100%",
+          maxWidth: 375,
+          textAlign: "center",
         }}
       >
-        <div style={{ display: "grid", gap: 14 }}>
-          <h1
-            style={{
-              fontSize: 56,
-              fontWeight: 800,
-              letterSpacing: "-0.04em",
-              lineHeight: 1,
-            }}
-          >
-            Outsy
-          </h1>
-          <p style={{ fontSize: 18, opacity: 0.6, lineHeight: 1.55 }}>
-            All your events under one app
-          </p>
-        </div>
+        <h1
+          style={{
+            fontSize: 48,
+            fontWeight: 800,
+            color: "#F5F7FA",
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+            margin: 0,
+          }}
+        >
+          Outsy
+        </h1>
+
+        <p
+          style={{
+            fontSize: 28,
+            fontWeight: 700,
+            color: "#F5F7FA",
+            lineHeight: 1.2,
+            margin: 0,
+          }}
+        >
+          All your events. One app.
+        </p>
 
         {!loading && (
           <div
             style={{
               display: "flex",
-              gap: 10,
+              gap: 16,
+              marginTop: 28,
               justifyContent: "center",
-              flexWrap: "wrap",
             }}
           >
             <Link
               href="/events"
               style={{
-                padding: "13px 32px",
-                borderRadius: 12,
-                background: "var(--foreground)",
-                color: "var(--background)",
-                fontWeight: 700,
-                fontSize: 15,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 120,
+                height: 41,
+                borderRadius: 20,
+                background: "rgba(18,25,36,0.20)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                color: "#F5F7FA",
+                fontSize: 16,
+                fontWeight: 600,
                 textDecoration: "none",
-                display: "inline-block",
+                letterSpacing: "-0.01em",
               }}
             >
               Explore
@@ -72,14 +93,21 @@ export default function LandingPage() {
               <Link
                 href="/profile"
                 style={{
-                  padding: "13px 32px",
-                  borderRadius: 12,
-                  border: "1px solid var(--border-strong)",
-                  background: "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 120,
+                  height: 41,
+                  borderRadius: 20,
+                  background: "rgba(59,130,246,0.19)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  color: "#F5F7FA",
+                  fontSize: 16,
                   fontWeight: 600,
-                  fontSize: 15,
                   textDecoration: "none",
-                  display: "inline-block",
+                  letterSpacing: "-0.01em",
                 }}
               >
                 Profile
@@ -91,17 +119,24 @@ export default function LandingPage() {
                   window.dispatchEvent(new CustomEvent("outsy:open-signin"))
                 }
                 style={{
-                  padding: "13px 32px",
-                  borderRadius: 12,
-                  border: "1px solid var(--border-strong)",
-                  background: "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 120,
+                  height: 41,
+                  borderRadius: 20,
+                  background: "rgba(59,130,246,0.19)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  color: "#F5F7FA",
+                  fontSize: 16,
                   fontWeight: 600,
-                  fontSize: 15,
                   cursor: "pointer",
-                  color: "inherit",
+                  letterSpacing: "-0.01em",
                 }}
               >
-                Sign in
+                Sign up
               </button>
             )}
           </div>
