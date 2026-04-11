@@ -4,6 +4,9 @@
 // The visible header bar has been removed. This component now renders only
 // the sign-in overlay panel, triggered by window event "outsy:open-signin".
 // All navigation lives in <BottomNav>. Profile + sign-out live in <AppTopBar>.
+//
+// Magic link (signInWithOtp) is temporarily hidden while reliability is improved.
+// The Supabase email auth provider remains enabled; re-add the form to restore it.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
@@ -12,17 +15,10 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 export function Header() {
   const { user } = useAuth();
   const [showPanel, setShowPanel] = useState(false);
-  const [email, setEmail] = useState("");
-  const [emailSent, setEmailSent] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  const [panelError, setPanelError] = useState<string | null>(null);
 
   useEffect(() => {
     function openPanel() {
       setShowPanel(true);
-      setEmailSent(false);
-      setEmail("");
-      setPanelError(null);
     }
     window.addEventListener("outsy:open-signin", openPanel);
     return () => window.removeEventListener("outsy:open-signin", openPanel);
@@ -35,19 +31,14 @@ export function Header() {
     });
   }
 
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setSigningIn(true);
-    setPanelError(null);
-    const { error } = await supabaseBrowser().auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
-    setSigningIn(false);
-    if (error) setPanelError(error.message);
-    else setEmailSent(true);
-  }
+  // Apple sign-in is implemented but hidden until the provider is configured.
+  // To re-enable: uncomment the button in the JSX below.
+  // async function handleApple() {
+  //   await supabaseBrowser().auth.signInWithOAuth({
+  //     provider: "apple",
+  //     options: { redirectTo: `${window.location.origin}/auth/callback` },
+  //   });
+  // }
 
   if (!showPanel || user) return null;
 
@@ -69,11 +60,11 @@ export function Header() {
           borderRadius: 20,
           padding: 28,
           width: "100%", maxWidth: 380,
-          display: "grid", gap: 16,
+          display: "grid", gap: 12,
           boxShadow: "0 24px 64px rgba(0,0,0,0.35)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Sign in to Outsy</h2>
           <button
             onClick={() => setShowPanel(false)}
@@ -83,6 +74,11 @@ export function Header() {
           </button>
         </div>
 
+        {/* Apple — hidden until provider is configured
+        <button onClick={handleApple} ...>Continue with Apple</button>
+        */}
+
+        {/* Google */}
         <button
           onClick={handleGoogle}
           style={{
@@ -100,40 +96,6 @@ export function Header() {
           </svg>
           Continue with Google
         </button>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: 0.35, fontSize: 12 }}>
-          <hr style={{ flex: 1, border: "none", borderTop: "1px solid currentColor" }} />
-          or
-          <hr style={{ flex: 1, border: "none", borderTop: "1px solid currentColor" }} />
-        </div>
-
-        {emailSent ? (
-          <p style={{ fontSize: 14, opacity: 0.75, textAlign: "center", lineHeight: 1.6 }}>
-            Check your inbox — we sent a magic link to <strong>{email}</strong>.
-          </p>
-        ) : (
-          <form onSubmit={handleMagicLink} style={{ display: "grid", gap: 8 }}>
-            <input
-              type="email" required placeholder="you@example.com"
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 16 }}
-            />
-            <button
-              type="submit" disabled={signingIn || !email.trim()}
-              style={{
-                padding: "10px 16px", borderRadius: 10,
-                border: "1px solid var(--border-strong)",
-                background: signingIn || !email.trim() ? "var(--surface-subtle)" : "var(--btn-bg)",
-                fontWeight: 700,
-                cursor: signingIn || !email.trim() ? "not-allowed" : "pointer",
-                fontSize: 14,
-              }}
-            >
-              {signingIn ? "Sending…" : "Send magic link"}
-            </button>
-            {panelError && <p style={{ color: "#dc2626", fontSize: 13 }}>{panelError}</p>}
-          </form>
-        )}
       </div>
     </div>
   );

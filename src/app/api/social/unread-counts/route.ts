@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       .eq("read", false),
     supabase
       .from("messages")
-      .select("sender_id,recipient_id,created_at")
+      .select("sender_id,recipient_id,created_at,read_at")
       .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(200),
@@ -37,18 +37,19 @@ export async function GET(req: Request) {
 
   const activityCount = notifResult.count ?? 0;
 
-  // Group by conversation partner; count threads where latest msg is from them
+  // Group by conversation partner; count threads where the latest message is an
+  // incoming (from them) message that hasn't been read yet (read_at IS NULL).
   let messagesCount = 0;
   if (msgResult.data && msgResult.data.length > 0) {
-    const latestSenderByPartner = new Map<string, string>();
+    const seenPartners = new Set<string>();
     for (const msg of msgResult.data) {
       const otherId = msg.sender_id === user.id ? msg.recipient_id : msg.sender_id;
-      if (!latestSenderByPartner.has(otherId)) {
-        latestSenderByPartner.set(otherId, msg.sender_id);
-      }
-    }
-    for (const [, senderId] of latestSenderByPartner) {
-      if (senderId !== user.id) messagesCount++;
+      if (seenPartners.has(otherId)) continue;
+      seenPartners.add(otherId);
+      // This is the latest message for this partner; count if incoming + unread.
+      const isIncoming = msg.sender_id !== user.id;
+      const isUnread = msg.read_at == null;
+      if (isIncoming && isUnread) messagesCount++;
     }
   }
 

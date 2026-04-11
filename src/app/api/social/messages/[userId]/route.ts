@@ -110,6 +110,15 @@ export async function GET(
     };
   });
 
+  // Mark all unread incoming messages from this sender as read now that they've been viewed.
+  // Fire-and-forget — non-blocking.
+  void supabase
+    .from("messages")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", user.id)
+    .eq("sender_id", otherId)
+    .is("read_at", null);
+
   return NextResponse.json({
     ok: true,
     messages,

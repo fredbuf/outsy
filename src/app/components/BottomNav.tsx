@@ -115,13 +115,14 @@ function NavTab({
           aria-label="unread notifications"
           style={{
             position: "absolute",
-            top: 6,
-            right: 12,
-            width: 7,
-            height: 7,
+            top: 4,
+            right: 10,
+            width: 9,
+            height: 9,
             borderRadius: "50%",
-            background: "#5EA8FF",
-            border: "2px solid #0B0F14",
+            background: "#ef4444",
+            border: "2px solid #101722",
+            boxShadow: "0 0 6px rgba(239,68,68,0.55)",
           }}
         />
       )}

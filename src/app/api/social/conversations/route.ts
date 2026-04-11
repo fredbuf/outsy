@@ -19,6 +19,7 @@ export type ConversationPreview = {
     body: string;
     created_at: string;
     isFromMe: boolean;
+    isUnread: boolean; // true when last message is incoming AND read_at IS NULL
   };
 };
 
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
   // Fetch recent messages involving current user
   const { data: msgs, error: msgsError } = await supabase
     .from("messages")
-    .select("id,sender_id,recipient_id,body,created_at")
+    .select("id,sender_id,recipient_id,body,created_at,read_at")
     .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -86,6 +87,7 @@ export async function GET(req: Request) {
           body: msg.body,
           created_at: msg.created_at,
           isFromMe: msg.sender_id === user.id,
+          isUnread: msg.sender_id !== user.id && msg.read_at == null,
         },
       };
     })

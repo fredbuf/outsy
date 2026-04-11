@@ -502,54 +502,64 @@ function ActivityTab({
   return (
     <div>
       {items.map((item) => {
+        const isUnread = !item.read && !localRead.has(item.id);
+
+        let row: React.ReactNode = null;
         if (item.type === "friend_request_received") {
-          return (
+          row = (
             <FriendRequestReceivedRow
-              key={item.id}
               item={item}
               token={token}
               onRead={() => markRead(item.id)}
             />
           );
-        }
-        if (item.type === "friend_request_accepted") {
-          return (
+        } else if (item.type === "friend_request_accepted") {
+          row = (
             <FriendRequestAcceptedRow
-              key={item.id}
               item={item}
               onRead={() => markRead(item.id)}
             />
           );
-        }
-        if (item.type === "event_invite") {
-          return (
+        } else if (item.type === "event_invite") {
+          row = (
             <EventInviteRow
-              key={item.id}
               item={item}
               onRead={() => markRead(item.id)}
             />
           );
-        }
-        if (item.type === "moment_posted" && item.momentMeta) {
-          return (
+        } else if (item.type === "moment_posted" && item.momentMeta) {
+          row = (
             <MomentPostedRow
-              key={item.id}
               item={item as ActivityItem & { momentMeta: MomentMeta }}
               onRead={() => markRead(item.id)}
             />
           );
-        }
-        if (item.type === "cohost_invite") {
-          return (
+        } else if (item.type === "cohost_invite") {
+          row = (
             <CohostInviteRow
-              key={item.id}
               item={item}
               token={token}
               onRead={() => markRead(item.id)}
             />
           );
         }
-        return null;
+
+        if (!row) return null;
+
+        return (
+          <div
+            key={item.id}
+            style={{
+              borderLeft: isUnread
+                ? "2px solid rgba(124,58,237,0.65)"
+                : "2px solid transparent",
+              paddingLeft: 10,
+              transition: "border-color 0.25s",
+            }}
+          >
+            {row}
+          </div>
+        );
       })}
     </div>
   );
@@ -561,8 +571,7 @@ function ConversationRow({ conv }: { conv: ConversationPreview }) {
   const name = conv.display_name ?? conv.username ?? "Unknown";
   const preview = (conv.lastMessage.isFromMe ? "You: " : "") + conv.lastMessage.body;
   const clipped = preview.length > 48 ? preview.slice(0, 48) + "…" : preview;
-  // Unread proxy: last message is from the other person
-  const isUnread = !conv.lastMessage.isFromMe;
+  const isUnread = conv.lastMessage.isUnread;
 
   return (
     <Link
@@ -642,7 +651,7 @@ function MessagesTab({
         if (d.ok) {
           const list = d.conversations ?? [];
           setConvs(list);
-          onUnreadChange(list.some((c) => !c.lastMessage.isFromMe));
+          onUnreadChange(list.some((c) => c.lastMessage.isUnread));
         }
       })
       .finally(() => setLoading(false));
@@ -1033,8 +1042,6 @@ export default function SocialPage() {
 
   function handleTabSwitch(t: Tab) {
     setTab(t);
-    // Clear the messages dot when the user opens that tab (no server-side read tracking for messages)
-    if (t === "messages") setMessagesUnread(false);
   }
 
   if (loading) return null;
@@ -1135,10 +1142,7 @@ export default function SocialPage() {
       {tab === "messages" && (
         <MessagesTab
           token={session.access_token}
-          onUnreadChange={(v) => {
-            // Only set unread when not already on messages tab
-            if (tab !== "messages") setMessagesUnread(v);
-          }}
+          onUnreadChange={setMessagesUnread}
         />
       )}
 
