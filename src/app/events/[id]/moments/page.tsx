@@ -12,11 +12,20 @@ type AuthorProfile = {
   avatar_url: string | null;
   username: string | null;
 };
+export type SurveyOptionRow = {
+  id: string;
+  text: string;
+  position: number;
+  votes: { user_id: string }[];
+};
+
 export type MomentRow = {
   id: string;
   event_id: string;
   author_id: string;
   body: string;
+  survey_question: string | null;
+  survey_options?: SurveyOptionRow[];
   link_url: string | null;
   link_title: string | null;
   link_description: string | null;
@@ -51,7 +60,7 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -102,10 +111,43 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
     }
   }
 
+  // Batch-fetch survey options + votes for survey moments
+  const surveyMomentIds = moments
+    .filter((r) => (r as Record<string, unknown>).survey_question != null)
+    .map((r) => r.id as string);
+  const surveyOptionsMap = new Map<string, SurveyOptionRow[]>();
+  if (surveyMomentIds.length > 0) {
+    const { data: optRows } = await supabase
+      .from("survey_options")
+      .select("id,moment_id,position,text")
+      .in("moment_id", surveyMomentIds)
+      .order("position", { ascending: true });
+    const allOptIds = (optRows ?? []).map((o) => (o as { id: string }).id);
+    const votesMap = new Map<string, { user_id: string }[]>();
+    if (allOptIds.length > 0) {
+      const { data: voteRows } = await supabase
+        .from("survey_votes")
+        .select("option_id,user_id")
+        .in("option_id", allOptIds);
+      for (const v of voteRows ?? []) {
+        const arr = votesMap.get((v as { option_id: string }).option_id) ?? [];
+        arr.push({ user_id: (v as { user_id: string }).user_id });
+        votesMap.set((v as { option_id: string }).option_id, arr);
+      }
+    }
+    for (const o of optRows ?? []) {
+      const opt = o as { id: string; moment_id: string; position: number; text: string };
+      const arr = surveyOptionsMap.get(opt.moment_id) ?? [];
+      arr.push({ id: opt.id, text: opt.text, position: opt.position, votes: votesMap.get(opt.id) ?? [] });
+      surveyOptionsMap.set(opt.moment_id, arr);
+    }
+  }
+
   return moments.map((row) => ({
     ...row,
     profiles: profilesMap.get(row.author_id as string) ?? null,
     comment_count: commentCountMap.get(row.id as string) ?? 0,
+    survey_options: surveyOptionsMap.get(row.id as string) ?? [],
   })) as unknown as MomentRow[];
 }
 

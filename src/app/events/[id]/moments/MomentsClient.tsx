@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
-import type { MomentRow } from "./page";
+import type { MomentRow, SurveyOptionRow } from "./page";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,8 @@ type DisplayMoment = {
   id: string;
   author_id: string;
   body: string;
+  surveyQuestion: string | null;
+  surveyOptions: SurveyOptionRow[];
   linkUrl: string | null;
   linkTitle: string | null;
   linkDescription: string | null;
@@ -133,6 +135,8 @@ function buildDisplay(row: MomentRow, currentUserId: string | null): DisplayMome
     id: row.id,
     author_id: row.author_id,
     body: row.body,
+    surveyQuestion: (row.survey_question as string | null) ?? null,
+    surveyOptions: (row.survey_options as SurveyOptionRow[] | undefined) ?? [],
     linkUrl: (row.link_url as string | null) ?? null,
     linkTitle: (row.link_title as string | null) ?? null,
     linkDescription: (row.link_description as string | null) ?? null,
@@ -191,6 +195,8 @@ type PostedMoment = {
   event_id: string;
   author_id: string;
   body: string;
+  survey_question: string | null;
+  survey_options: SurveyOptionRow[];
   link_url: string | null;
   link_title: string | null;
   link_description: string | null;
@@ -267,6 +273,9 @@ function ComposeArea({
   const [step, setStep] = useState<null | "compose" | "confirm">(null);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
+  // Survey
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [surveyOptions, setSurveyOptions] = useState(["", ""]);
   // Link
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
@@ -293,6 +302,8 @@ function ComposeArea({
     setStep(null);
     setTitle("");
     setDetails("");
+    setShowSurvey(false);
+    setSurveyOptions(["", ""]);
     setLinkUrl("");
     setShowLinkInput(false);
     setLinkError(null);
@@ -310,6 +321,14 @@ function ComposeArea({
     if (linkUrl.trim() && !/^https?:\/\/.{3,}/.test(linkUrl.trim())) {
       setLinkError("Enter a valid URL starting with http:// or https://");
       return;
+    }
+    // Validate survey if enabled
+    if (showSurvey) {
+      const filled = surveyOptions.filter((o) => o.trim().length > 0);
+      if (filled.length < 2) {
+        setError("Add at least 2 survey options.");
+        return;
+      }
     }
     setLinkError(null);
     setError(null);
@@ -354,6 +373,8 @@ function ComposeArea({
     const finalLink = linkUrl.trim() && /^https?:\/\/.{3,}/.test(linkUrl.trim())
       ? linkUrl.trim()
       : null;
+    const filledOptions = surveyOptions.map((o) => o.trim()).filter(Boolean);
+    const finalSurveyQuestion = showSurvey && filledOptions.length >= 2 ? title.trim() : null;
     setSubmitting(true);
     setError(null);
     try {
@@ -365,6 +386,8 @@ function ComposeArea({
         },
         body: JSON.stringify({
           body,
+          survey_question: finalSurveyQuestion,
+          survey_options: finalSurveyQuestion ? filledOptions : undefined,
           link_url: finalLink,
           image_url: imageUrl,
           reactions_enabled: reactionsEnabled,
@@ -591,6 +614,79 @@ function ComposeArea({
               {imageError && (
                 <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444" }}>{imageError}</div>
               )}
+
+              {/* Survey builder */}
+              {showSurvey && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, opacity: 0.45,
+                    textTransform: "uppercase", letterSpacing: "0.07em",
+                    marginBottom: 8,
+                  }}>
+                    Survey options
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {surveyOptions.map((opt, i) => (
+                      <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const next = [...surveyOptions];
+                            next[i] = e.target.value;
+                            setSurveyOptions(next);
+                          }}
+                          placeholder={`Option ${i + 1}`}
+                          maxLength={200}
+                          style={{
+                            flex: 1, boxSizing: "border-box",
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.09)",
+                            borderRadius: 10, outline: "none",
+                            color: "inherit", fontSize: 16,
+                            fontFamily: "inherit", padding: "10px 12px",
+                            caretColor: "#a78bfa",
+                          }}
+                        />
+                        {surveyOptions.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setSurveyOptions(surveyOptions.filter((_, j) => j !== i))}
+                            aria-label="Remove option"
+                            style={{
+                              width: 28, height: 28, borderRadius: "50%",
+                              background: "rgba(255,255,255,0.07)",
+                              border: "none", cursor: "pointer", color: "rgba(255,255,255,0.45)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              flexShrink: 0,
+                            }}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {surveyOptions.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setSurveyOptions([...surveyOptions, ""])}
+                      style={{
+                        marginTop: 8, display: "flex", alignItems: "center", gap: 6,
+                        background: "none", border: "none", cursor: "pointer",
+                        color: "#a78bfa", fontSize: 13, fontWeight: 500, padding: 0,
+                      }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Add option
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tools row */}
@@ -645,6 +741,29 @@ function ComposeArea({
                 </svg>
                 {uploadingImage ? "Uploading…" : imageUrl ? "Image added" : "Image"}
               </button>
+
+              {/* Survey tool */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSurvey((v) => !v);
+                  if (!showSurvey) setSurveyOptions(["", ""]);
+                }}
+                aria-label="Add survey"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "7px 12px", borderRadius: 20,
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: showSurvey ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
+                  color: showSurvey ? "#a78bfa" : "rgba(255,255,255,0.55)",
+                  fontSize: 13, fontWeight: 500, cursor: "pointer",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+                </svg>
+                Survey
+              </button>
             </div>
 
             {/* Bottom safe area */}
@@ -687,8 +806,18 @@ function ComposeArea({
                   {details}
                 </div>
               )}
-              {(linkUrl.trim() || imageUrl) && (
+              {(linkUrl.trim() || imageUrl || (showSurvey && surveyOptions.filter((o) => o.trim()).length >= 2)) && (
                 <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                  {showSurvey && surveyOptions.filter((o) => o.trim()).length >= 2 && (
+                    <span style={{
+                      fontSize: 12, padding: "3px 8px", borderRadius: 20,
+                      background: "rgba(167,139,250,0.12)",
+                      border: "1px solid rgba(167,139,250,0.25)",
+                      color: "#a78bfa",
+                    }}>
+                      {surveyOptions.filter((o) => o.trim()).length} survey options
+                    </span>
+                  )}
                   {linkUrl.trim() && (
                     <span style={{
                       fontSize: 12, padding: "3px 8px", borderRadius: 20,
@@ -1208,6 +1337,148 @@ function InlineComments({
   );
 }
 
+// ── Survey block ─────────────────────────────────────────────────────────────
+
+function SurveyBlock({
+  momentId,
+  eventId,
+  question,
+  options,
+  currentUserId,
+  token,
+}: {
+  momentId: string;
+  eventId: string;
+  question: string;
+  options: SurveyOptionRow[];
+  currentUserId: string | null;
+  token: string | null;
+}) {
+  const myVotedOptionId = currentUserId
+    ? options.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
+    : null;
+  const hasVoted = myVotedOptionId !== null;
+
+  // Local optimistic state: map option_id → vote count + whether I voted
+  const [localOptions, setLocalOptions] = useState<SurveyOptionRow[]>(options);
+  const [voting, setVoting] = useState(false);
+
+  // Sync when props change (e.g. background fetchMoments)
+  useEffect(() => {
+    setLocalOptions(options);
+  }, [options]);
+
+  const localTotal = localOptions.reduce((s, o) => s + o.votes.length, 0);
+
+  async function handleVote(optionId: string) {
+    if (!token || voting) return;
+    const myPrevVote = currentUserId
+      ? localOptions.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
+      : null;
+
+    // Optimistic update
+    setLocalOptions((prev) =>
+      prev.map((o) => {
+        if (o.id === myPrevVote && myPrevVote !== optionId) {
+          // Remove old vote
+          return { ...o, votes: o.votes.filter((v) => v.user_id !== currentUserId) };
+        }
+        if (o.id === optionId) {
+          if (myPrevVote === optionId) {
+            // Toggle off
+            return { ...o, votes: o.votes.filter((v) => v.user_id !== currentUserId) };
+          }
+          // Add vote
+          return { ...o, votes: [...o.votes, { user_id: currentUserId! }] };
+        }
+        return o;
+      })
+    );
+
+    setVoting(true);
+    try {
+      await fetch(`/api/events/${eventId}/moments/${momentId}/survey-vote`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ option_id: optionId }),
+      });
+    } finally {
+      setVoting(false);
+    }
+  }
+
+  const localMyVote = currentUserId
+    ? localOptions.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
+    : null;
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, lineHeight: 1.3 }}>
+        {question}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {localOptions.map((opt) => {
+          const count = opt.votes.length;
+          const pct = localTotal > 0 ? Math.round((count / localTotal) * 100) : 0;
+          const isSelected = localMyVote === opt.id;
+          const showResults = hasVoted || localMyVote !== null;
+
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => void handleVote(opt.id)}
+              disabled={voting || !token}
+              style={{
+                position: "relative", overflow: "hidden",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 12px", borderRadius: 10,
+                border: isSelected
+                  ? "1px solid rgba(167,139,250,0.55)"
+                  : "1px solid rgba(255,255,255,0.10)",
+                background: "rgba(255,255,255,0.04)",
+                cursor: token && !voting ? "pointer" : "default",
+                color: "inherit", textAlign: "left",
+                transition: "border-color 0.15s",
+              }}
+            >
+              {/* Fill bar */}
+              {showResults && (
+                <span style={{
+                  position: "absolute", inset: 0, right: `${100 - pct}%`,
+                  background: isSelected ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.05)",
+                  transition: "right 0.3s ease",
+                  pointerEvents: "none",
+                }} />
+              )}
+              <span style={{ position: "relative", fontSize: 14, fontWeight: isSelected ? 600 : 400 }}>
+                {opt.text}
+              </span>
+              {showResults && (
+                <span style={{
+                  position: "relative", fontSize: 12, fontWeight: 600,
+                  color: isSelected ? "#a78bfa" : "rgba(255,255,255,0.40)",
+                  flexShrink: 0, marginLeft: 8,
+                }}>
+                  {pct}%
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {localTotal > 0 && (
+        <div style={{ marginTop: 6, fontSize: 11, opacity: 0.35 }}>
+          {localTotal} {localTotal === 1 ? "vote" : "votes"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Moment card ────────────────────────────────────────────────────────────────
 
 function MomentCard({
@@ -1430,6 +1701,18 @@ function MomentCard({
         );
       })()}
 
+      {/* Survey */}
+      {moment.surveyQuestion && moment.surveyOptions.length >= 2 && (
+        <SurveyBlock
+          momentId={moment.id}
+          eventId={eventId}
+          question={moment.surveyQuestion}
+          options={moment.surveyOptions}
+          currentUserId={currentUserId}
+          token={token}
+        />
+      )}
+
       {/* Image attachment */}
       {moment.imageUrl && (
         <div style={{ marginBottom: 12 }}>
@@ -1638,6 +1921,8 @@ export function MomentsClient({
       id: newMoment.id,
       author_id: newMoment.author_id,
       body: newMoment.body,
+      surveyQuestion: newMoment.survey_question ?? null,
+      surveyOptions: newMoment.survey_options ?? [],
       linkUrl: newMoment.link_url ?? null,
       linkTitle: newMoment.link_title ?? null,
       linkDescription: newMoment.link_description ?? null,

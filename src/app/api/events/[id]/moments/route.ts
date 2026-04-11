@@ -31,7 +31,7 @@ export async function GET(
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -82,11 +82,60 @@ export async function GET(
     }
   }
 
-  const result = moments.map((row) => ({
-    ...row,
-    profiles: profilesMap.get(row.author_id as string) ?? null,
-    comment_count: commentCountMap.get(row.id as string) ?? 0,
-  }));
+  // Batch-fetch survey options + votes for survey moments
+  const surveyMomentIds = moments
+    .filter((r) => r.survey_question != null)
+    .map((r) => r.id as string);
+
+  type SurveyOptionRow = { id: string; moment_id: string; position: number; text: string };
+  type SurveyVoteRow = { option_id: string; user_id: string };
+  const optionsMap = new Map<string, SurveyOptionRow[]>(); // moment_id → options
+  const votesMap = new Map<string, SurveyVoteRow[]>();    // option_id → votes
+
+  if (surveyMomentIds.length > 0) {
+    const { data: optRows } = await supabase
+      .from("survey_options")
+      .select("id,moment_id,position,text")
+      .in("moment_id", surveyMomentIds)
+      .order("position", { ascending: true });
+
+    for (const o of (optRows ?? []) as SurveyOptionRow[]) {
+      const arr = optionsMap.get(o.moment_id) ?? [];
+      arr.push(o);
+      optionsMap.set(o.moment_id, arr);
+    }
+
+    const allOptionIds = (optRows ?? []).map((o) => (o as SurveyOptionRow).id);
+    if (allOptionIds.length > 0) {
+      const { data: voteRows } = await supabase
+        .from("survey_votes")
+        .select("option_id,user_id")
+        .in("option_id", allOptionIds);
+
+      for (const v of (voteRows ?? []) as SurveyVoteRow[]) {
+        const arr = votesMap.get(v.option_id) ?? [];
+        arr.push(v);
+        votesMap.set(v.option_id, arr);
+      }
+    }
+  }
+
+  const result = moments.map((row) => {
+    const mid = row.id as string;
+    const opts = optionsMap.get(mid) ?? [];
+    const surveyOptions = opts.map((o) => ({
+      id: o.id,
+      text: o.text,
+      position: o.position,
+      votes: (votesMap.get(o.id) ?? []).map((v) => ({ user_id: v.user_id })),
+    }));
+    return {
+      ...row,
+      profiles: profilesMap.get(row.author_id as string) ?? null,
+      comment_count: commentCountMap.get(mid) ?? 0,
+      survey_options: surveyOptions,
+    };
+  });
 
   return NextResponse.json({ ok: true, moments: result });
 }
@@ -156,6 +205,25 @@ export async function POST(
     );
   }
 
+  // Optional survey
+  const rawSurveyQuestion = body.survey_question != null
+    ? String(body.survey_question).trim()
+    : null;
+  const surveyQuestion = rawSurveyQuestion && rawSurveyQuestion.length > 0
+    ? rawSurveyQuestion
+    : null;
+
+  const rawSurveyOptions = Array.isArray(body.survey_options)
+    ? (body.survey_options as unknown[])
+        .map((o) => String(o).trim())
+        .filter((o) => o.length > 0)
+    : [];
+  // Survey valid only if question + 2-5 options
+  const surveyOptionsValid =
+    surveyQuestion != null &&
+    rawSurveyOptions.length >= 2 &&
+    rawSurveyOptions.length <= 5;
+
   // Optional link — basic URL validation
   const rawLink = body.link_url != null ? String(body.link_url).trim() : null;
   const linkUrl = rawLink && /^https?:\/\/.{3,}/.test(rawLink) ? rawLink : null;
@@ -198,6 +266,7 @@ export async function POST(
       event_id: eventId,
       author_id: user.id,
       body: text,
+      survey_question: surveyOptionsValid ? surveyQuestion : null,
       link_url: linkUrl,
       link_title: linkTitle,
       link_description: linkDescription,
@@ -208,7 +277,7 @@ export async function POST(
       reactions_enabled: reactionsEnabled,
       comments_enabled: commentsEnabled,
     })
-    .select("id,event_id,author_id,body,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at")
+    .select("id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at")
     .single();
 
   if (insertError || !newMoment) {
@@ -217,6 +286,24 @@ export async function POST(
       { ok: false, error: insertError?.message ?? "Failed to create moment." },
       { status: 500 }
     );
+  }
+
+  // Insert survey options if this is a survey moment
+  let surveyOptions: { id: string; text: string; position: number; votes: { user_id: string }[] }[] = [];
+  if (surveyOptionsValid && rawSurveyOptions.length > 0) {
+    const optionRows = rawSurveyOptions.map((text, i) => ({
+      moment_id: (newMoment as { id: string }).id,
+      position: i,
+      text,
+    }));
+    const { data: insertedOptions } = await supabase
+      .from("survey_options")
+      .insert(optionRows)
+      .select("id,text,position");
+    surveyOptions = ((insertedOptions ?? []) as { id: string; text: string; position: number }[]).map((o) => ({
+      ...o,
+      votes: [],
+    }));
   }
 
   // Notify all "going" RSVPs (fire-and-forget; non-critical)
@@ -246,5 +333,5 @@ export async function POST(
     // Non-critical: ignore errors
   }
 
-  return NextResponse.json({ ok: true, moment: newMoment });
+  return NextResponse.json({ ok: true, moment: { ...newMoment, survey_options: surveyOptions } });
 }
