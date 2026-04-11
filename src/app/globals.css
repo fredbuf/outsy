@@ -392,6 +392,66 @@ body.is-aurora-page .page-top-glow::after {
   }
 }
 
+/* ── Liquid glass pill buttons (landing page) ───────────────────────────── */
+/*                                                                           */
+/* .glass-pill          — neutral dark glass (Explore)                       */
+/* .glass-pill-blue     — blue-tinted glass (Sign up / Profile)              */
+/*                                                                           */
+/* The ::before overlay simulates the specular highlight that characterises  */
+/* liquid glass: brighter at the top, fading out toward the bottom.          */
+
+.glass-pill,
+.glass-pill-blue {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 41px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  overflow: hidden;
+  color: #F5F7FA;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  /* Outer glow that reads as glass depth */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.18) inset,   /* top edge highlight */
+    0 -1px 0 rgba(0,0,0,0.18) inset,        /* bottom edge shadow */
+    0 4px 20px rgba(0,0,0,0.25);
+}
+
+.glass-pill {
+  background: rgba(18, 25, 36, 0.28);
+}
+
+.glass-pill-blue {
+  background: rgba(59, 130, 246, 0.22);
+}
+
+/* Inner specular gradient — bright shimmer at top, subtle dark at bottom */
+.glass-pill::before,
+.glass-pill-blue::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.06) 40%,
+    rgba(0, 0, 0, 0.00) 60%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
+  pointer-events: none;
+}
+
 /* ── Mobile responsiveness (≤ 540 px) ──────────────────────────────────── */
 @media (max-width: 540px) {
   /* Prevent horizontal scroll at both html and body level (Safari requires both) */

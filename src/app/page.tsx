@@ -66,75 +66,21 @@ export default function LandingPage() {
               justifyContent: "center",
             }}
           >
-            <Link
-              href="/events"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 120,
-                height: 41,
-                borderRadius: 20,
-                background: "rgba(18,25,36,0.20)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                color: "#F5F7FA",
-                fontSize: 16,
-                fontWeight: 600,
-                textDecoration: "none",
-                letterSpacing: "-0.01em",
-              }}
-            >
+            <Link href="/events" className="glass-pill">
               Explore
             </Link>
 
             {user ? (
-              <Link
-                href="/profile"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 120,
-                  height: 41,
-                  borderRadius: 20,
-                  background: "rgba(59,130,246,0.19)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  color: "#F5F7FA",
-                  fontSize: 16,
-                  fontWeight: 600,
-                  textDecoration: "none",
-                  letterSpacing: "-0.01em",
-                }}
-              >
+              <Link href="/profile" className="glass-pill-blue">
                 Profile
               </Link>
             ) : (
               <button
                 type="button"
+                className="glass-pill-blue"
                 onClick={() =>
                   window.dispatchEvent(new CustomEvent("outsy:open-signin"))
                 }
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 120,
-                  height: 41,
-                  borderRadius: 20,
-                  background: "rgba(59,130,246,0.19)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  color: "#F5F7FA",
-                  fontSize: 16,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  letterSpacing: "-0.01em",
-                }}
               >
                 Sign up
               </button>
