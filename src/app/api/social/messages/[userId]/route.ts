@@ -111,8 +111,9 @@ export async function GET(
   });
 
   // Mark all unread incoming messages from this sender as read now that they've been viewed.
-  // Fire-and-forget — non-blocking.
-  void supabase
+  // Awaited so the DB write is committed before the response is returned — this prevents
+  // stale read_at=null values from showing up when the client refetches conversations.
+  await supabase
     .from("messages")
     .update({ read_at: new Date().toISOString() })
     .eq("recipient_id", user.id)
