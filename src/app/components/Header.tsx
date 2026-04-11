@@ -12,9 +12,28 @@ import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
+// ── In-app browser detection ────────────────────────────────────────────────
+// Google OAuth returns 403 disallowed_useragent in embedded WebViews (Facebook,
+// Messenger, Instagram, TikTok, LinkedIn, etc.). Detect by checking for known
+// UA tokens that appear only in those in-app browsers.
+function detectInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /FBAN|FBAV|Instagram|FB_IAB|LinkedInApp|BytedanceWebview|TikTok|Twitter\/|musical_ly/i.test(ua);
+}
+
+// Returns true on iOS (iPhone/iPad) — used to choose the CTA label.
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 export function Header() {
   const { user } = useAuth();
   const [showPanel, setShowPanel] = useState(false);
+  // Lazy initializer — runs once on mount, safe because detectInAppBrowser
+  // guards against server-side rendering via the navigator typeof check.
+  const [inAppBrowser] = useState(() => detectInAppBrowser());
 
   useEffect(() => {
     function openPanel() {
@@ -25,6 +44,10 @@ export function Header() {
   }, []);
 
   async function handleGoogle() {
+    // Guard: never attempt OAuth inside an in-app browser — it will always fail
+    // with 403 disallowed_useragent. The UI already shows the fallback screen,
+    // so this is a safety net for direct calls.
+    if (detectInAppBrowser()) return;
     await supabaseBrowser().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -42,6 +65,87 @@ export function Header() {
 
   if (!showPanel || user) return null;
 
+  // ── In-app browser fallback screen ────────────────────────────────────────
+  if (inAppBrowser) {
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const ios = isIOS();
+    return (
+      <div
+        style={{
+          position: "fixed", inset: 0,
+          background: "rgba(0,0,0,0.72)",
+          zIndex: 400,
+          display: "flex", alignItems: "flex-end", justifyContent: "center",
+          padding: 16,
+        }}
+      >
+        <div
+          style={{
+            background: "var(--background)",
+            border: "1px solid var(--border)",
+            borderRadius: 24,
+            padding: "28px 24px 32px",
+            width: "100%", maxWidth: 420,
+            display: "grid", gap: 16,
+            boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+            textAlign: "center",
+          }}
+        >
+          {/* Icon */}
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 16,
+              background: "var(--surface-raised)",
+              border: "1px solid var(--border-strong)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 8 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
+              Open in your browser to sign in
+            </h2>
+            <p style={{ fontSize: 14, opacity: 0.6, margin: 0, lineHeight: 1.5 }}>
+              Sign-in with Google doesn&apos;t work inside apps like Instagram or Messenger.
+              Tap below to open Outsy in {ios ? "Safari" : "your browser"}.
+            </p>
+          </div>
+
+          <a
+            href={currentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "13px 20px", borderRadius: 14,
+              background: "var(--foreground)", color: "var(--background)",
+              fontWeight: 700, fontSize: 15, textDecoration: "none",
+            }}
+          >
+            {ios ? "Open in Safari" : "Open in browser"}
+          </a>
+
+          <button
+            onClick={() => setShowPanel(false)}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: 14, opacity: 0.45, padding: 4, color: "inherit",
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal sign-in panel ───────────────────────────────────────────────────
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && setShowPanel(false)}
