@@ -114,7 +114,7 @@ export default async function UserProfilePage({
         gap: 36,
         minHeight: "100dvh",
         border: "1.5px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(177deg, #435C7A 0%, #0B0F14 3%)",
+        background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)",
         boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >
