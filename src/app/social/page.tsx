@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { ActivityItem, MomentMeta } from "@/app/api/social/activity/route";
@@ -1026,7 +1027,10 @@ type Tab = "activity" | "messages";
 
 export default function SocialPage() {
   const { user, session, loading } = useAuth();
-  const [tab, setTab] = useState<Tab>("activity");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() =>
+    searchParams.get("tab") === "messages" ? "messages" : "activity"
+  );
   const [activityUnread, setActivityUnread] = useState(false);
   const [messagesUnread, setMessagesUnread] = useState(false);
   const [addFriendOpen, setAddFriendOpen] = useState(false);

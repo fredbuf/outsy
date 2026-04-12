@@ -256,7 +256,7 @@ export default function ChatPage() {
       >
         {/* Back chevron */}
         <Link
-          href="/social"
+          href="/social?tab=messages"
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", textDecoration: "none", color: "rgba(255,255,255,0.6)", flexShrink: 0, transition: "background 0.15s" }}
           aria-label="Back"
         >
