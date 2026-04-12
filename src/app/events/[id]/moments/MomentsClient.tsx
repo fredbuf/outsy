@@ -4,7 +4,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { MomentRow, SurveyOptionRow } from "./page";
 
@@ -2314,6 +2314,7 @@ export function MomentsClient({
   embedded?: boolean;
 }) {
   const { user, session } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkedMomentId = searchParams.get("moment");
 
@@ -2610,8 +2611,9 @@ export function MomentsClient({
             gap: 12,
           }}
         >
-          <Link
-            href={`/events/${eventId}`}
+          <button
+            type="button"
+            onClick={() => window.history.length > 1 ? router.back() : router.push(`/events/${eventId}`)}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: 40, height: 40, borderRadius: "50%",
@@ -2620,14 +2622,14 @@ export function MomentsClient({
               color: "#fff", flexShrink: 0,
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
-              textDecoration: "none",
+              cursor: "pointer",
             }}
-            aria-label="Back to event"
+            aria-label="Go back"
           >
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
-          </Link>
+          </button>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
