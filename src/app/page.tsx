@@ -8,7 +8,6 @@ export default function LandingPage() {
 
   return (
     <main
-      className="app-bg-gradient"
       style={{
         minHeight: "100dvh",
         display: "flex",
@@ -17,9 +16,13 @@ export default function LandingPage() {
         justifyContent: "center",
         padding: "0 24px",
         position: "relative",
+        isolation: "isolate",
         overflow: "hidden",
+        background: "#0B0F14",
+        color: "#F5F7FA",
       }}
     >
+      <div className="app-bg-gradient" aria-hidden="true" />
       {/* Content */}
       <div
         style={{

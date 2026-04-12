@@ -105,7 +105,7 @@ export default async function UserProfilePage({
 
   return (
     <main
-      className="page-main app-page app-bg-gradient"
+      className="page-main app-page"
       style={{
         maxWidth: 640,
         margin: "0 auto",
@@ -117,6 +117,7 @@ export default async function UserProfilePage({
         boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >
+      <div className="app-bg-gradient" aria-hidden="true" />
       <Link href="/events" style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}>
         ← Back
       </Link>

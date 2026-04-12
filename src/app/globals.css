@@ -154,22 +154,32 @@ body.settings-open .bottom-nav {
   animation: sk-pulse 1.6s ease-in-out infinite;
 }
 
-/* ── Viewport-stable gradient background ──────────────────────────────── */
+/* ── Viewport-fixed gradient layer ────────────────────────────────────── */
 /*                                                                          */
-/* .app-bg-gradient — add alongside .app-page on any <main>.               */
-/*   The gradient is sized to exactly 100dvh so it never stretches when    */
-/*   the page is longer than the viewport. Content below the first         */
-/*   viewport-height sees only the solid dark background-color.            */
+/* .app-bg-gradient — place as FIRST child of any .app-page container.    */
+/*   e.g. <div className="app-bg-gradient" aria-hidden="true" />           */
 /*                                                                          */
-/*   How it works: background-size: 100% 100dvh pins the gradient image    */
-/*   to one viewport height. background-repeat: no-repeat stops it from    */
-/*   tiling below that. background-color fills everything else.            */
+/* Why position:fixed works here:                                           */
+/*   .app-page has isolation:isolate which creates a stacking context.     */
+/*   z-index:-1 within that context paints this layer ABOVE .app-page's   */
+/*   own solid background but BELOW all page content.                      */
+/*   position:fixed pins it to 100vw × 100dvh regardless of page length   */
+/*   — the gradient never stretches with content.                          */
+/*                                                                          */
+/* Below the viewport fold, .app-page { background:#0B0F14 } fills the    */
+/* scroll area with the flat dark base — no gradient repeating.            */
 
 .app-bg-gradient {
-  background-image: linear-gradient(177deg, rgb(67, 92, 122) -2%, #0B0F14 15%);
-  background-size: 100% 100dvh;
-  background-repeat: no-repeat;
-  background-color: #0B0F14;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Radial bloom at top-centre for atmospheric depth + linear sweep for   */
+  /* the blue-grey header glow. Two layers so the colour pools naturally.  */
+  background:
+    radial-gradient(ellipse 110% 38% at 50% 0%, rgba(94, 130, 185, 0.55) 0%, transparent 100%),
+    linear-gradient(180deg, rgb(67, 92, 122) 0%, #0B0F14 22%),
+    #0B0F14;
 }
 
 /* ── Dark app-page base + top atmospheric glow ─────────────────────────── */

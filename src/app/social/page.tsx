@@ -1050,7 +1050,8 @@ export default function SocialPage() {
 
   if (!user || !session) {
     return (
-      <main className="app-page app-bg-gradient" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
+      <main className="app-page" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
+        <div className="app-bg-gradient" aria-hidden="true" />
         <p style={{ fontSize: 15, opacity: 0.6 }}>Sign in to see your activity and messages.</p>
         <button
           type="button"
@@ -1069,10 +1070,10 @@ export default function SocialPage() {
 
   return (
     <main
-      className="page-main app-page app-bg-gradient"
+      className="page-main app-page"
       style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}
     >
-
+      <div className="app-bg-gradient" aria-hidden="true" />
       {/* Header — left-aligned title + add-friend button */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Inbox</h1>

@@ -377,7 +377,7 @@ export default function ProfilePage() {
 
   return (
     <main
-      className="page-main app-page app-bg-gradient"
+      className="page-main app-page"
       style={{
         maxWidth: 640,
         margin: "0 auto",
@@ -389,6 +389,7 @@ export default function ProfilePage() {
         boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >
+      <div className="app-bg-gradient" aria-hidden="true" />
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
