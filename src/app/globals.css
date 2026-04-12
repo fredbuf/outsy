@@ -174,11 +174,24 @@ body.settings-open .bottom-nav {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* Radial bloom at top-centre for atmospheric depth + linear sweep for   */
-  /* the blue-grey header glow. Two layers so the colour pools naturally.  */
+  /* Three soft radial layers — all fade to transparent so colours pool    */
+  /* naturally rather than forming a solid wash.                           */
+  /*                                                                        */
+  /* Layer 1 — wide diffuse bloom centred above the top edge.             */
+  /*   Large spread (180% × 70%) keeps the glow gentle and wide.          */
+  /*   Low opacity (0.28) stops it reading as a solid colour field.       */
+  /*                                                                        */
+  /* Layer 2 — tighter off-centre accent slightly right of centre.        */
+  /*   Adds subtle asymmetry so the glow feels lit rather than painted.   */
+  /*   Very low opacity (0.14).                                            */
+  /*                                                                        */
+  /* Layer 3 — deep navy tint across the upper half.                      */
+  /*   Ultra-wide (200% × 55%) at minimal opacity (0.12) to preserve     */
+  /*   warmth in the dark base without introducing a visible colour cast. */
   background:
-    radial-gradient(ellipse 110% 38% at 50% 0%, rgba(94, 130, 185, 0.55) 0%, transparent 100%),
-    linear-gradient(180deg, rgb(67, 92, 122) 0%, #0B0F14 22%),
+    radial-gradient(ellipse 180% 70% at 50% -10%, rgba(80, 115, 170, 0.28) 0%, transparent 70%),
+    radial-gradient(ellipse 90%  45% at 65%  -5%, rgba(60,  95, 155, 0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 200% 55% at 50%   0%, rgba(30,  55, 100, 0.12) 0%, transparent 80%),
     #0B0F14;
 }
 
