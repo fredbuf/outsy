@@ -154,13 +154,15 @@ export function PrivateEventSwipePage(props: Props) {
           <img
             src={imageUrl}
             alt=""
+            decoding="async"
             style={{
               position: "absolute", inset: 0,
               width: "100%", height: "100%",
               objectFit: "cover",
-              filter: "blur(80px) saturate(1.8) brightness(0.38)",
-              transform: "scale(1.15)",
+              filter: "blur(60px) saturate(1.6) brightness(0.35)",
+              transform: "scale(1.12)",
               pointerEvents: "none",
+              willChange: "transform",
             }}
           />
         </div>
@@ -209,11 +211,9 @@ export function PrivateEventSwipePage(props: Props) {
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: 40, height: 40, borderRadius: "50%",
-                background: "rgba(0,0,0,0.32)",
+                background: "rgba(0,0,0,0.45)",
                 border: "1px solid rgba(255,255,255,0.15)",
                 cursor: "pointer", color: "#fff", flexShrink: 0,
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
                 touchAction: "manipulation",
               }}
             >
@@ -328,6 +328,7 @@ export function PrivateEventSwipePage(props: Props) {
                 width: "200%",
                 transform: `translateX(${page === 0 ? "0%" : "-50%"})`,
                 transition: "transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                willChange: "transform",
               }}
             >
               {/* ── Info panel ───────────────────────────────────────────── */}
@@ -350,10 +351,8 @@ export function PrivateEventSwipePage(props: Props) {
                     <div
                       style={{
                         marginTop: 4, borderRadius: 16,
-                        background: "rgba(255,255,255,0.06)",
+                        background: "rgba(255,255,255,0.08)",
                         border: "1px solid rgba(255,255,255,0.10)",
-                        backdropFilter: "blur(12px)",
-                        WebkitBackdropFilter: "blur(12px)",
                         padding: "12px 16px",
                         textAlign: "center",
                       }}
@@ -417,10 +416,8 @@ export function PrivateEventSwipePage(props: Props) {
                     <div
                       style={{
                         marginTop: 10, borderRadius: 16,
-                        background: "rgba(255,255,255,0.06)",
+                        background: "rgba(255,255,255,0.08)",
                         border: "1px solid rgba(255,255,255,0.10)",
-                        backdropFilter: "blur(12px)",
-                        WebkitBackdropFilter: "blur(12px)",
                         padding: "12px 16px",
                       }}
                     >

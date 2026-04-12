@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -510,10 +510,8 @@ function ComposeArea({
           width: "100%",
           padding: "28px 16px 24px",
           borderRadius: 14,
-          background: "rgba(255,255,255,0.06)",
+          background: "rgba(255,255,255,0.08)",
           border: "1px solid rgba(255,255,255,0.10)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
           cursor: "pointer",
           textAlign: "center",
           color: "rgba(255,255,255,0.50)",
@@ -1322,7 +1320,7 @@ function EditSheet({
 
 // ── Reaction picker ────────────────────────────────────────────────────────────
 
-function ReactionPicker({
+const ReactionPicker = memo(function ReactionPicker({
   reactionGroups,
   canReact,
   onReact,
@@ -1446,7 +1444,7 @@ function ReactionPicker({
       )}
     </div>
   );
-}
+});
 
 // ── Inline comments ────────────────────────────────────────────────────────────
 
@@ -1917,7 +1915,7 @@ function SurveyBlock({
 
 // ── Moment card ────────────────────────────────────────────────────────────────
 
-function MomentCard({
+const MomentCard = memo(function MomentCard({
   moment,
   eventId,
   currentUserId,
@@ -2017,8 +2015,6 @@ function MomentCard({
         border: highlighted
           ? "1px solid rgba(167,139,250,0.35)"
           : "1px solid rgba(255,255,255,0.09)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
         padding: "14px 16px",
         transition: "background 0.3s, border-color 0.3s",
       }}
@@ -2180,6 +2176,8 @@ function MomentCard({
           <img
             src={moment.imageUrl}
             alt=""
+            loading="lazy"
+            decoding="async"
             style={{
               width: "100%", borderRadius: 10,
               maxHeight: 320, objectFit: "cover",
@@ -2210,6 +2208,8 @@ function MomentCard({
             <img
               src={moment.linkImageUrl}
               alt=""
+              loading="lazy"
+              decoding="async"
               style={{
                 width: "100%", display: "block",
                 height: 160, objectFit: "cover",
@@ -2285,7 +2285,7 @@ function MomentCard({
       )}
     </div>
   );
-}
+});
 
 // ── Main client component ──────────────────────────────────────────────────────
 
@@ -2421,11 +2421,11 @@ export function MomentsClient({
     fetchMoments();
   }
 
-  function handleDeleted(id: string) {
+  const handleDeleted = useCallback((id: string) => {
     setMoments((prev) => prev.filter((m) => m.id !== id));
-  }
+  }, []);
 
-  function handleEdited(id: string, updated: EditedMoment) {
+  const handleEdited = useCallback((id: string, updated: EditedMoment) => {
     setMoments((prev) =>
       prev.map((m) => {
         if (m.id !== id) return m;
@@ -2444,9 +2444,9 @@ export function MomentsClient({
         };
       })
     );
-  }
+  }, []);
 
-  function handlePinToggled(id: string, pinned: boolean) {
+  const handlePinToggled = useCallback((id: string, pinned: boolean) => {
     setMoments((prev) =>
       prev.map((m) => {
         if (m.id === id) return { ...m, is_pinned: pinned };
@@ -2459,9 +2459,9 @@ export function MomentsClient({
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       })
     );
-  }
+  }, []);
 
-  function handleReactionToggle(momentId: string, emoji: ValidEmoji, add: boolean) {
+  const handleReactionToggle = useCallback((momentId: string, emoji: ValidEmoji, add: boolean) => {
     setMoments((prev) =>
       prev.map((m) => {
         if (m.id !== momentId) return m;
@@ -2476,7 +2476,7 @@ export function MomentsClient({
         return { ...m, reactionGroups: groups };
       })
     );
-  }
+  }, []);
 
   const isEmpty = moments.length === 0;
 

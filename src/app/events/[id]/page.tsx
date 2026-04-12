@@ -506,13 +506,15 @@ export default async function EventPage({
             alt=""
             width={800}
             height={800}
+            decoding="async"
             style={{
               position: "absolute", inset: 0,
               width: "100%", height: "100%",
               objectFit: "cover",
-              filter: "blur(80px) saturate(1.8) brightness(0.38)",
-              transform: "scale(1.15)",
+              filter: "blur(60px) saturate(1.6) brightness(0.35)",
+              transform: "scale(1.12)",
               pointerEvents: "none",
+              willChange: "transform",
             }}
           />
         </div>
@@ -546,11 +548,9 @@ export default async function EventPage({
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: 40, height: 40, borderRadius: "50%",
-                background: "rgba(0,0,0,0.32)",
+                background: "rgba(0,0,0,0.45)",
                 border: "1px solid rgba(255,255,255,0.15)",
                 cursor: "pointer", color: "#fff", flexShrink: 0,
-                backdropFilter: "blur(10px)",
-                WebkitBackdropFilter: "blur(10px)",
                 touchAction: "manipulation",
               }}
             >
@@ -579,9 +579,7 @@ export default async function EventPage({
               color: "rgba(255,255,255,0.80)",
               textTransform: "uppercase", letterSpacing: "0.07em",
               padding: "4px 12px", borderRadius: 20,
-              background: "rgba(0,0,0,0.35)",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
+              background: "rgba(0,0,0,0.50)",
               border: "1px solid rgba(255,255,255,0.15)",
             }}>
               {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
