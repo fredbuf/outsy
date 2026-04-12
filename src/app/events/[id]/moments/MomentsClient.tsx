@@ -82,6 +82,7 @@ type DisplayMoment = {
   is_pinned: boolean;
   reactions_enabled: boolean;
   created_at: string;
+  updated_at: string | null;
   author: {
     display_name: string | null;
     avatar_url: string | null;
@@ -106,6 +107,48 @@ type CommentRow = {
     username: string | null;
   } | null;
 };
+
+// ── Inline link renderer ──────────────────────────────────────────────────────
+
+const URL_RE = /https?:\/\/[^\s<>"'[\]()]+/g;
+
+function renderWithLinks(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  // Reset lastIndex so the function is safe to call repeatedly
+  URL_RE.lastIndex = 0;
+  while ((match = URL_RE.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push(text.slice(last, match.index));
+    }
+    const url = match[0];
+    parts.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          color: "#a78bfa",
+          textDecoration: "underline",
+          textDecorationColor: "rgba(167,139,250,0.40)",
+          textUnderlineOffset: 2,
+          wordBreak: "break-all",
+        }}
+      >
+        {url}
+      </a>
+    );
+    last = match.index + url.length;
+  }
+  if (last < text.length) {
+    parts.push(text.slice(last));
+  }
+  if (parts.length === 0) return text;
+  if (parts.length === 1 && typeof parts[0] === "string") return parts[0];
+  return <>{parts}</>;
+}
 
 // ── Data transforms ───────────────────────────────────────────────────────────
 
@@ -146,6 +189,7 @@ function buildDisplay(row: MomentRow, currentUserId: string | null): DisplayMome
     is_pinned: row.is_pinned,
     reactions_enabled: row.reactions_enabled,
     created_at: row.created_at,
+    updated_at: (row.updated_at as string | null) ?? null,
     author,
     reactionGroups,
     rawReactions,
@@ -884,6 +928,398 @@ function ComposeArea({
   );
 }
 
+// ── Edit sheet ────────────────────────────────────────────────────────────────
+
+type EditedMoment = {
+  id: string;
+  body: string;
+  link_url: string | null;
+  link_title: string | null;
+  link_description: string | null;
+  link_image_url: string | null;
+  link_site_name: string | null;
+  image_url: string | null;
+  reactions_enabled: boolean;
+  comments_enabled: boolean;
+  updated_at: string | null;
+};
+
+function EditSheet({
+  moment,
+  eventId,
+  token,
+  onSaved,
+  onClose,
+}: {
+  moment: DisplayMoment;
+  eventId: string;
+  token: string;
+  onSaved: (updated: EditedMoment) => void;
+  onClose: () => void;
+}) {
+  // Parse stored body back into title + details (same format as ComposeArea)
+  const firstBreak = moment.body.indexOf("\n\n");
+  const initTitle = firstBreak === -1 ? moment.body : moment.body.slice(0, firstBreak);
+  const initDetails = firstBreak === -1 ? "" : moment.body.slice(firstBreak + 2);
+
+  const [title, setTitle] = useState(initTitle);
+  const [details, setDetails] = useState(initDetails);
+  const [linkUrl, setLinkUrl] = useState(moment.linkUrl ?? "");
+  const [showLinkInput, setShowLinkInput] = useState(moment.linkUrl != null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(moment.imageUrl);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [reactionsEnabled, setReactionsEnabled] = useState(moment.reactions_enabled);
+  const [commentsEnabled, setCommentsEnabled] = useState(moment.commentsEnabled);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTimeout(() => titleRef.current?.focus(), 80);
+  }, []);
+
+  async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setImageError(null);
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/events/upload-image", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
+      if (data.ok && data.url) {
+        setImageUrl(data.url);
+      } else {
+        setImageError(data.error ?? "Upload failed.");
+      }
+    } catch {
+      setImageError("Network error during upload.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  async function handleSave() {
+    const body = [title.trim(), details.trim()].filter(Boolean).join("\n\n");
+    if (!body || saving) return;
+    if (linkUrl.trim() && !/^https?:\/\/.{3,}/.test(linkUrl.trim())) {
+      setLinkError("Enter a valid URL starting with http:// or https://");
+      return;
+    }
+    const finalLink = linkUrl.trim() && /^https?:\/\/.{3,}/.test(linkUrl.trim())
+      ? linkUrl.trim()
+      : null;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/moments/${moment.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          body,
+          link_url: finalLink,
+          image_url: imageUrl,
+          reactions_enabled: reactionsEnabled,
+          comments_enabled: commentsEnabled,
+        }),
+      });
+      const data = (await res.json()) as { ok: boolean; moment?: EditedMoment; error?: string };
+      if (data.ok && data.moment) {
+        onSaved(data.moment);
+        onClose();
+      } else {
+        setError(data.error ?? "Failed to save.");
+      }
+    } catch {
+      setError("Network error.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const overlayStyle: React.CSSProperties = {
+    position: "fixed", inset: 0, zIndex: 400,
+    background: "rgba(0,0,0,0.72)",
+    display: "flex", alignItems: "flex-end", justifyContent: "center",
+  };
+  const sheetStyle: React.CSSProperties = {
+    background: "#111110",
+    color: "#eae8e4",
+    borderRadius: "20px 20px 0 0",
+    width: "100%",
+    maxWidth: 540,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "90dvh",
+    maxHeight: "96dvh",
+    overflow: "hidden",
+  };
+  const sheetHeaderStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "space-between",
+    padding: "16px 16px 14px",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+    flexShrink: 0,
+  };
+  const iconBtnStyle: React.CSSProperties = {
+    width: 36, height: 36, borderRadius: "50%",
+    background: "rgba(255,255,255,0.08)",
+    border: "none", cursor: "pointer", color: "inherit",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
+  };
+
+  return createPortal(
+    <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={sheetStyle}>
+        {/* Hidden file input */}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: "none" }}
+          onChange={handleImagePick}
+        />
+
+        {/* Header */}
+        <div style={sheetHeaderStyle}>
+          <button type="button" onClick={onClose} style={iconBtnStyle} aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+          <span style={{ fontSize: 16, fontWeight: 700 }}>Edit moment</span>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={!title.trim() || saving}
+            aria-label="Save"
+            style={{
+              ...iconBtnStyle,
+              background: title.trim() && !saving ? "#a78bfa" : "rgba(255,255,255,0.08)",
+              opacity: title.trim() && !saving ? 1 : 0.45,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Fields */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 0 }}>
+          <input
+            ref={titleRef}
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="What's happening?"
+            maxLength={200}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: "transparent", border: "none",
+              outline: "none", color: "inherit",
+              fontSize: 20, fontWeight: 600,
+              fontFamily: "inherit", lineHeight: 1.3,
+              marginBottom: 16,
+              caretColor: "#a78bfa",
+            }}
+          />
+          <textarea
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+            placeholder="Add details… (optional)"
+            maxLength={BODY_MAX}
+            rows={6}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              borderRadius: 12,
+              outline: "none", color: "inherit",
+              fontSize: 16, lineHeight: 1.55,
+              resize: "none", fontFamily: "inherit",
+              padding: "12px 14px",
+              caretColor: "#a78bfa",
+              flex: 1,
+            }}
+          />
+          {details.length > BODY_MAX * 0.85 && (
+            <div style={{ marginTop: 4, fontSize: 11, opacity: 0.45, textAlign: "right" }}>
+              {details.length}/{BODY_MAX}
+            </div>
+          )}
+
+          {/* Link input */}
+          {showLinkInput && (
+            <div style={{ marginTop: 14 }}>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null); }}
+                placeholder="https://…"
+                style={{
+                  width: "100%", boxSizing: "border-box",
+                  background: "rgba(255,255,255,0.05)",
+                  border: linkError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.09)",
+                  borderRadius: 12, outline: "none",
+                  color: "inherit", fontSize: 16,
+                  fontFamily: "inherit", padding: "11px 14px",
+                  caretColor: "#a78bfa",
+                }}
+              />
+              {linkError && (
+                <div style={{ marginTop: 5, fontSize: 12, color: "#ef4444" }}>{linkError}</div>
+              )}
+            </div>
+          )}
+
+          {/* Image preview */}
+          {imageUrl && (
+            <div style={{ marginTop: 14, position: "relative" }}>
+              <img
+                src={imageUrl}
+                alt="Attached image"
+                style={{
+                  width: "100%", borderRadius: 12,
+                  maxHeight: 220, objectFit: "cover",
+                  display: "block",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setImageUrl(null)}
+                aria-label="Remove image"
+                style={{
+                  position: "absolute", top: 8, right: 8,
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: "rgba(0,0,0,0.65)",
+                  border: "none", cursor: "pointer", color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          )}
+          {imageError && (
+            <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444" }}>{imageError}</div>
+          )}
+
+          {/* Survey notice (read-only if present) */}
+          {moment.surveyQuestion && (
+            <div style={{
+              marginTop: 14, padding: "10px 14px", borderRadius: 10,
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              fontSize: 13, opacity: 0.5,
+            }}>
+              Survey options cannot be edited after posting.
+            </div>
+          )}
+        </div>
+
+        {/* Tools row */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 4,
+          padding: "12px 16px",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          flexShrink: 0,
+        }}>
+          <button
+            type="button"
+            onClick={() => setShowLinkInput((v) => !v)}
+            aria-label="Add link"
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 12px", borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: showLinkInput ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
+              color: showLinkInput ? "#a78bfa" : "rgba(255,255,255,0.55)",
+              fontSize: 13, fontWeight: 500, cursor: "pointer",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            {linkUrl.trim() ? "Link added" : "Link"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            disabled={uploadingImage}
+            aria-label="Add image"
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 12px", borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: imageUrl ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
+              color: imageUrl ? "#a78bfa" : "rgba(255,255,255,0.55)",
+              fontSize: 13, fontWeight: 500,
+              cursor: uploadingImage ? "wait" : "pointer",
+              opacity: uploadingImage ? 0.6 : 1,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            {uploadingImage ? "Uploading…" : imageUrl ? "Image added" : "Image"}
+          </button>
+        </div>
+
+        {/* Toggles */}
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
+          <Toggle checked={reactionsEnabled} onChange={setReactionsEnabled} label="Allow reactions" />
+          <Toggle checked={commentsEnabled} onChange={setCommentsEnabled} label="Allow comments" />
+        </div>
+
+        {/* Error + Save button */}
+        {error && (
+          <div style={{ padding: "8px 20px 0", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>
+            {error}
+          </div>
+        )}
+        <div style={{ padding: "16px 20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={!title.trim() || saving}
+            style={{
+              width: "100%", padding: "15px",
+              borderRadius: 14, border: "none",
+              background: !title.trim() || saving ? "rgba(167,139,250,0.45)" : "#a78bfa",
+              color: "#fff", fontSize: 16, fontWeight: 700,
+              cursor: !title.trim() || saving ? "not-allowed" : "pointer",
+              transition: "background 0.15s",
+            }}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ── Reaction picker ────────────────────────────────────────────────────────────
 
 function ReactionPicker({
@@ -1241,7 +1677,7 @@ function InlineComments({
                     )}
                   </div>
                   <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, opacity: 0.82, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                    {c.body}
+                    {renderWithLinks(c.body)}
                   </p>
                 </div>
               </div>
@@ -1490,6 +1926,7 @@ function MomentCard({
   token,
   highlighted,
   onDeleted,
+  onEdited,
   onPinToggled,
   onReactionToggle,
 }: {
@@ -1501,11 +1938,13 @@ function MomentCard({
   token: string | null;
   highlighted: boolean;
   onDeleted: (id: string) => void;
+  onEdited: (id: string, updated: EditedMoment) => void;
   onPinToggled: (id: string, pinned: boolean) => void;
   onReactionToggle: (momentId: string, emoji: ValidEmoji, add: boolean) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // Scroll into view when highlighted via deep-link
@@ -1606,8 +2045,11 @@ function MomentCard({
         <Avatar url={moment.author?.avatar_url ?? null} name={authorName} size={32} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{authorName}</div>
-          <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1 }}>
-            {relativeTime(moment.created_at)}
+          <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
+            <span>{relativeTime(moment.created_at)}</span>
+            {moment.updated_at && (
+              <span>· Edited {relativeTime(moment.updated_at)}</span>
+            )}
           </div>
         </div>
 
@@ -1646,6 +2088,25 @@ function MomentCard({
                     boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                   }}
                 >
+                  {/* Edit — author or host/cohost */}
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); setEditOpen(true); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      width: "100%", padding: "11px 16px",
+                      background: "transparent", border: "none",
+                      textAlign: "left", fontSize: 14, cursor: "pointer",
+                      color: "inherit",
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit
+                  </button>
                   {isHostOrCohost && (
                     <button
                       type="button"
@@ -1690,11 +2151,11 @@ function MomentCard({
         return (
           <div style={{ marginBottom: 12 }}>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.45, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-              {momentTitle}
+              {renderWithLinks(momentTitle)}
             </p>
             {momentDetails && (
               <p style={{ margin: "6px 0 0", fontSize: 14, lineHeight: 1.55, opacity: 0.72, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                {momentDetails}
+                {renderWithLinks(momentDetails)}
               </p>
             )}
           </div>
@@ -1809,6 +2270,17 @@ function MomentCard({
           token={token}
           currentUserId={currentUserId}
           isHostOrCohost={isHostOrCohost}
+        />
+      )}
+
+      {/* Edit sheet — portal, rendered when edit is triggered from the menu */}
+      {editOpen && token && (
+        <EditSheet
+          moment={moment}
+          eventId={eventId}
+          token={token}
+          onSaved={(updated) => onEdited(moment.id, updated)}
+          onClose={() => setEditOpen(false)}
         />
       )}
     </div>
@@ -1932,6 +2404,7 @@ export function MomentsClient({
       is_pinned: newMoment.is_pinned,
       reactions_enabled: newMoment.reactions_enabled,
       created_at: newMoment.created_at,
+      updated_at: null,
       author: null,
       reactionGroups: VALID_EMOJI.map((emoji) => ({ emoji, count: 0, isMine: false })),
       rawReactions: [],
@@ -1950,6 +2423,27 @@ export function MomentsClient({
 
   function handleDeleted(id: string) {
     setMoments((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  function handleEdited(id: string, updated: EditedMoment) {
+    setMoments((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        return {
+          ...m,
+          body: updated.body,
+          linkUrl: updated.link_url,
+          linkTitle: updated.link_title,
+          linkDescription: updated.link_description,
+          linkImageUrl: updated.link_image_url,
+          linkSiteName: updated.link_site_name,
+          imageUrl: updated.image_url,
+          reactions_enabled: updated.reactions_enabled,
+          commentsEnabled: updated.comments_enabled,
+          updated_at: updated.updated_at,
+        };
+      })
+    );
   }
 
   function handlePinToggled(id: string, pinned: boolean) {
@@ -2062,6 +2556,7 @@ export function MomentsClient({
               token={session?.access_token ?? null}
               highlighted={moment.id === deepLinkedMomentId}
               onDeleted={handleDeleted}
+              onEdited={handleEdited}
               onPinToggled={handlePinToggled}
               onReactionToggle={handleReactionToggle}
             />

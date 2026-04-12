@@ -31,7 +31,7 @@ export async function GET(
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at,updated_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)
@@ -306,8 +306,9 @@ export async function POST(
     }));
   }
 
-  // Notify all RSVPed guests (going + maybe) — fire-and-forget; non-critical.
-  // Excludes the poster, the event creator, and any cohosts (they are hosts, not guests).
+  // Notify all event participants — RSVPed guests (going + maybe), the creator,
+  // and any cohosts — except the person who just posted the moment.
+  // Using a Set deduplicates in case someone appears in both the RSVP list and cohost_ids.
   try {
     const { data: rsvps } = await supabase
       .from("rsvps")
@@ -315,16 +316,15 @@ export async function POST(
       .eq("event_id", eventId)
       .in("response", ["going", "maybe"]);
 
-    // Build exclusion set: poster + creator + all cohosts
-    const hostIds = new Set<string>([
-      user.id,
+    // Collect all participants then remove the poster
+    const allParticipants = new Set<string>([
       ...(creatorId ? [creatorId] : []),
       ...cohostIds,
+      ...(rsvps ?? []).map((r) => r.user_id as string),
     ]);
+    allParticipants.delete(user.id); // never notify the poster
 
-    const recipientIds = (rsvps ?? [])
-      .map((r) => r.user_id as string)
-      .filter((uid) => !hostIds.has(uid));
+    const recipientIds = [...allParticipants];
 
     if (recipientIds.length > 0) {
       const eventTitle = event.title as string;

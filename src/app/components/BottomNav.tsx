@@ -172,7 +172,10 @@ export function BottomNav() {
   const { session } = useAuth();
   const [unread, setUnread] = useState(false);
 
-  // Poll unread counts for the Inbox badge
+  // Poll unread counts for the Inbox badge.
+  // Re-runs on session change AND on pathname change so that navigating away
+  // from a conversation (which marks messages read server-side) immediately
+  // clears the dot without waiting for a window focus event.
   useEffect(() => {
     if (!session) { setUnread(false); return; }
     const token = session.access_token;
@@ -189,8 +192,10 @@ export function BottomNav() {
     check();
     window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);
+  // pathname is intentionally included: navigating away from a thread should
+  // trigger a fresh count so the dot clears immediately.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.access_token]);
+  }, [session?.access_token, pathname]);
 
   // Hide on pages where the bottom nav conflicts with immersive/full-screen UI.
   // "/events/" (trailing slash) covers /events/new, /events/[id], /events/[id]/edit,

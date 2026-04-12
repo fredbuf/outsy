@@ -36,6 +36,7 @@ export type MomentRow = {
   reactions_enabled: boolean;
   comments_enabled: boolean;
   created_at: string;
+  updated_at: string | null;
   profiles: AuthorProfile | AuthorProfile[] | null;
   moment_reactions: MomentReactionRow[] | null;
   comment_count?: number;
@@ -60,7 +61,7 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
   const { data: rows, error } = await supabase
     .from("moments")
     .select(
-      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at,updated_at," +
         "moment_reactions(user_id,emoji)"
     )
     .eq("event_id", eventId)

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
@@ -96,6 +96,9 @@ export function PrivateEventSwipePage(props: Props) {
   const [page, setPage] = useState(0); // 0 = info, 1 = moments
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
+  const infoPanelRef = useRef<HTMLDivElement>(null);
+  const momentsPanelRef = useRef<HTMLDivElement>(null);
+  const [clipHeight, setClipHeight] = useState<number | undefined>(undefined);
 
   function handleTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
@@ -117,6 +120,17 @@ export function PrivateEventSwipePage(props: Props) {
     touchStartX.current = null;
     touchStartY.current = null;
   }
+
+  // Keep clip container height locked to the active panel so the inactive
+  // panel (which is off-screen) never inflates the page height.
+  useEffect(() => {
+    const panel = page === 0 ? infoPanelRef.current : momentsPanelRef.current;
+    if (!panel) return;
+    setClipHeight(panel.scrollHeight);
+    const ro = new ResizeObserver(() => setClipHeight(panel.scrollHeight));
+    ro.observe(panel);
+    return () => ro.disconnect();
+  }, [page]);
 
   const cssVars = {
     background: "transparent",
@@ -299,7 +313,11 @@ export function PrivateEventSwipePage(props: Props) {
         {/* ── Swipeable content panels ─────────────────────────────────────── */}
         <div style={cssVars}>
           <div
-            style={{ overflow: "hidden" }}
+            style={{
+              overflow: "hidden",
+              height: clipHeight,
+              transition: "height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+            }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
@@ -313,7 +331,7 @@ export function PrivateEventSwipePage(props: Props) {
               }}
             >
               {/* ── Info panel ───────────────────────────────────────────── */}
-              <div style={{ width: "50%", boxSizing: "border-box" }}>
+              <div ref={infoPanelRef} style={{ width: "50%", boxSizing: "border-box" }}>
                 <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 120px" }}>
 
                   {/* RSVP / host controls */}
@@ -448,7 +466,7 @@ export function PrivateEventSwipePage(props: Props) {
               </div>
 
               {/* ── Moments panel ────────────────────────────────────────── */}
-              <div style={{ width: "50%", boxSizing: "border-box" }}>
+              <div ref={momentsPanelRef} style={{ width: "50%", boxSizing: "border-box" }}>
                 <MomentsClient
                   embedded
                   eventId={id}
