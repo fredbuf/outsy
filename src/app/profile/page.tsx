@@ -248,11 +248,6 @@ export default function ProfilePage() {
     await supabaseBrowser().auth.signOut();
   }
 
-  useEffect(() => {
-    document.body.classList.add("is-aurora-page");
-    return () => { document.body.classList.remove("is-aurora-page"); };
-  }, []);
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!session?.access_token) return;
@@ -390,9 +385,11 @@ export default function ProfilePage() {
         minHeight: "100dvh",
         display: "grid",
         gap: 36,
+        border: "1.5px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(177deg, #435C7A 0%, #0B0F14 3%)",
+        boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >
-      <div className="page-top-glow" aria-hidden="true" />
       {/* Hidden file input */}
       <input
         ref={fileInputRef}

@@ -7,7 +7,6 @@ import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { FriendshipButton } from "@/app/profile/[userId]/FriendshipButton";
 import { PublicProfileCounters, type PublicEvent } from "./PublicProfileCounters";
-import SetBodyClass from "@/app/components/SetBodyClass";
 
 // ── DB queries ─────────────────────────────────────────────────────────────────
 
@@ -114,10 +113,11 @@ export default async function UserProfilePage({
         display: "grid",
         gap: 36,
         minHeight: "100dvh",
+        border: "1.5px solid rgba(255,255,255,0.10)",
+        background: "linear-gradient(177deg, #435C7A 0%, #0B0F14 3%)",
+        boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >
-      <SetBodyClass className="is-aurora-page" />
-      <div className="page-top-glow" aria-hidden="true" />
       <Link href="/events" style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}>
         ← Back
       </Link>
