@@ -154,6 +154,24 @@ body.settings-open .bottom-nav {
   animation: sk-pulse 1.6s ease-in-out infinite;
 }
 
+/* ── Viewport-stable gradient background ──────────────────────────────── */
+/*                                                                          */
+/* .app-bg-gradient — add alongside .app-page on any <main>.               */
+/*   The gradient is sized to exactly 100dvh so it never stretches when    */
+/*   the page is longer than the viewport. Content below the first         */
+/*   viewport-height sees only the solid dark background-color.            */
+/*                                                                          */
+/*   How it works: background-size: 100% 100dvh pins the gradient image    */
+/*   to one viewport height. background-repeat: no-repeat stops it from    */
+/*   tiling below that. background-color fills everything else.            */
+
+.app-bg-gradient {
+  background-image: linear-gradient(177deg, rgb(67, 92, 122) -2%, #0B0F14 15%);
+  background-size: 100% 100dvh;
+  background-repeat: no-repeat;
+  background-color: #0B0F14;
+}
+
 /* ── Dark app-page base + top atmospheric glow ─────────────────────────── */
 /*                                                                          */
 /* .app-page   — forces dark base + dark CSS vars. Add to page <main>.     */

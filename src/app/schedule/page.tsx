@@ -644,7 +644,7 @@ export default function SchedulePage() {
   // ── Auth loading ──────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <main className="page-main app-page" style={{ padding: "24px 20px", maxWidth: 600, margin: "0 auto", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
+      <main className="page-main app-page app-bg-gradient" style={{ padding: "24px 20px", maxWidth: 600, margin: "0 auto", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
         <div style={{ height: 32, width: 120, borderRadius: 8, background: "var(--surface-raised)", margin: "0 auto 20px" }} />
         <div style={{ height: 40, borderRadius: 12, background: "var(--surface-raised)", marginBottom: 24 }} />
         <SkeletonRows count={3} />
@@ -655,7 +655,7 @@ export default function SchedulePage() {
   // ── Signed-out gate ───────────────────────────────────────────────────────────
   if (!user) {
     return (
-      <main className="page-main app-page" style={{ padding: "48px 20px", maxWidth: 600, margin: "0 auto", textAlign: "center", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
+      <main className="page-main app-page app-bg-gradient" style={{ padding: "48px 20px", maxWidth: 600, margin: "0 auto", textAlign: "center", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
         <div style={{ opacity: 0.2, marginBottom: 16, display: "flex", justifyContent: "center" }}>
           <CalendarIcon size={48} />
         </div>
@@ -819,7 +819,7 @@ export default function SchedulePage() {
   ];
 
   return (
-    <main className="page-main app-page" style={{ padding: "24px 20px 56px", maxWidth: 600, margin: "0 auto", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
+    <main className="page-main app-page app-bg-gradient" style={{ padding: "24px 20px 56px", maxWidth: 600, margin: "0 auto", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
       {/* Centered heading */}
       <header style={{ textAlign: "center", marginBottom: 20 }}>
         <h1 className="page-h1" style={{ fontSize: 28, fontWeight: 700 }}>Schedule</h1>

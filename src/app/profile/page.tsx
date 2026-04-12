@@ -377,7 +377,7 @@ export default function ProfilePage() {
 
   return (
     <main
-      className="page-main app-page"
+      className="page-main app-page app-bg-gradient"
       style={{
         maxWidth: 640,
         margin: "0 auto",
@@ -386,7 +386,6 @@ export default function ProfilePage() {
         display: "grid",
         gap: 36,
         border: "1.5px solid rgba(255,255,255,0.10)",
-        background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)",
         boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >

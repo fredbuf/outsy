@@ -8,13 +8,13 @@ export default function LandingPage() {
 
   return (
     <main
+      className="app-bg-gradient"
       style={{
         minHeight: "100dvh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(172.5deg, rgb(67,92,122) 0%, rgb(11,15,20) 70%)",
         padding: "0 24px",
         position: "relative",
         overflow: "hidden",

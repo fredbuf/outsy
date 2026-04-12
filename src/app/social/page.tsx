@@ -1050,7 +1050,7 @@ export default function SocialPage() {
 
   if (!user || !session) {
     return (
-      <main className="app-page" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
+      <main className="app-page app-bg-gradient" style={{ maxWidth: 540, margin: "0 auto", padding: "48px 16px", textAlign: "center", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
         <p style={{ fontSize: 15, opacity: 0.6 }}>Sign in to see your activity and messages.</p>
         <button
           type="button"
@@ -1069,8 +1069,8 @@ export default function SocialPage() {
 
   return (
     <main
-      className="page-main app-page"
-      style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", background: "linear-gradient(177deg, rgb(67, 92, 122) -2%, rgb(11, 15, 20) 15%)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}
+      className="page-main app-page app-bg-gradient"
+      style={{ maxWidth: 540, margin: "0 auto", padding: "24px 16px 56px", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}
     >
 
       {/* Header — left-aligned title + add-friend button */}
