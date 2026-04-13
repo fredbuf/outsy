@@ -99,7 +99,7 @@ export function ActionBar({
       flexDirection: "column" as const,
       alignItems: "center" as const,
       justifyContent: "center" as const,
-      gap: 5,
+      gap: 4,
       padding: isPublic ? "14px 8px" : "12px 8px",
       borderRadius: isPublic ? 11 : 16,
       border: "none",

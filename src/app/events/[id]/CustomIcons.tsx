@@ -6,7 +6,7 @@ export function GoingIcon({ size = 18 }: { size?: number }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 768 768"
+      viewBox="242 242 308 308"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
@@ -32,7 +32,7 @@ export function CantGoIcon({ size = 18 }: { size?: number }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 768 768"
+      viewBox="230 230 308 308"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
@@ -64,7 +64,7 @@ export function MaybeIcon({ size = 18 }: { size?: number }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 768 768"
+      viewBox="230 230 308 308"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
