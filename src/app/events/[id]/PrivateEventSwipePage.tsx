@@ -173,7 +173,7 @@ export function PrivateEventSwipePage(props: Props) {
       <div style={{ position: "relative", zIndex: 1 }}>
 
         {/* ── Hero card — always visible ──────────────────────────────────── */}
-        <div style={{ position: "relative", borderRadius: "0 0 28px 28px", overflow: "hidden" }}>
+        <div style={{ position: "relative", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
           {imageUrl ? (
             <img
               src={imageUrl}
@@ -210,14 +210,14 @@ export function PrivateEventSwipePage(props: Props) {
             <BackButton
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
-                width: 40, height: 40, borderRadius: "50%",
-                background: "rgba(0,0,0,0.45)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                width: 34, height: 34, borderRadius: "50%",
+                background: "rgba(18,25,36,0.5)",
+                border: "1px solid rgba(255,255,255,0.14)",
                 cursor: "pointer", color: "#fff", flexShrink: 0,
                 touchAction: "manipulation",
               }}
             >
-              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </BackButton>
@@ -235,20 +235,21 @@ export function PrivateEventSwipePage(props: Props) {
               position: "absolute", bottom: 0, left: 0, right: 0,
               padding: "90px 28px 40px",
               textAlign: "center",
-              background: "linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
+              background: "linear-gradient(to top, rgba(11,15,20,1) 0%, rgba(11,15,20,0.93) 28%, rgba(11,15,20,0.6) 50%, rgba(11,15,20,0.15) 70%, transparent 100%)",
               zIndex: 1,
             }}
           >
             <h1
               style={{
-                color: "#fff", fontSize: 32, fontWeight: 800,
-                lineHeight: 1.15, letterSpacing: "-0.02em",
-                margin: "0 0 12px", textWrap: "balance",
+                color: "#fff", fontSize: 26, fontWeight: 800,
+                lineHeight: 1.2, letterSpacing: "-0.02em",
+                margin: "0 0 10px", textWrap: "balance",
+                textShadow: "0 1px 8px rgba(0,0,0,0.5)",
               } as React.CSSProperties}
             >
               {title}
             </h1>
-            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <p style={{ color: "rgba(255,255,255,0.80)", fontSize: 13, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -261,7 +262,7 @@ export function PrivateEventSwipePage(props: Props) {
               privateMapHref ? (
                 <Link
                   href={privateMapHref}
-                  style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
+                  style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
                 >
                   <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -270,7 +271,7 @@ export function PrivateEventSwipePage(props: Props) {
                   {venueName}
                 </Link>
               ) : (
-                <p style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                   <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                     <circle cx="12" cy="10" r="3" />
@@ -289,9 +290,9 @@ export function PrivateEventSwipePage(props: Props) {
             aria-label="Info"
             onClick={() => setPage(0)}
             style={{
-              width: page === 0 ? 20 : 6, height: 6,
-              borderRadius: 3,
-              background: page === 0 ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.28)",
+              width: page === 0 ? 21 : 8, height: 7,
+              borderRadius: 4,
+              background: page === 0 ? "#ffffff" : "rgba(255,255,255,0.30)",
               border: "none", padding: 0, cursor: "pointer",
               transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease",
             }}
@@ -301,9 +302,9 @@ export function PrivateEventSwipePage(props: Props) {
             aria-label="Moments"
             onClick={() => setPage(1)}
             style={{
-              width: page === 1 ? 20 : 6, height: 6,
-              borderRadius: 3,
-              background: page === 1 ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.28)",
+              width: page === 1 ? 21 : 8, height: 7,
+              borderRadius: 4,
+              background: page === 1 ? "#ffffff" : "rgba(255,255,255,0.30)",
               border: "none", padding: 0, cursor: "pointer",
               transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease",
             }}
@@ -350,10 +351,10 @@ export function PrivateEventSwipePage(props: Props) {
                   {creator && (
                     <div
                       style={{
-                        marginTop: 4, borderRadius: 16,
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        padding: "12px 16px",
+                        marginTop: 4, borderRadius: 20,
+                        background: "rgba(18,25,36,0.14)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        padding: "14px 16px",
                         textAlign: "center",
                       }}
                     >
@@ -415,10 +416,10 @@ export function PrivateEventSwipePage(props: Props) {
                   {(spotsLimited || eventPrice !== null || rsvpDeadline) && (
                     <div
                       style={{
-                        marginTop: 10, borderRadius: 16,
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(255,255,255,0.10)",
-                        padding: "12px 16px",
+                        marginTop: 10, borderRadius: 20,
+                        background: "rgba(18,25,36,0.14)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        padding: "14px 16px",
                       }}
                     >
                       <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>

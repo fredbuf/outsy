@@ -105,15 +105,18 @@ export function ActionBar({
   const isPublic = visibility === "public";
   const hasTickets = isPublic && !!sourceUrl;
 
-  const PRIVATE_COLORS: Record<RsvpResponse, { bg: string; border: string; fg: string }> = {
-    going:   { bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.25)",  fg: "#10b981" },
-    maybe:   { bg: "rgba(245, 158, 11, 0.15)", border: "rgba(245, 158, 11, 0.25)",  fg: "#f59e0b" },
-    cant_go: { bg: "rgba(239, 68, 68, 0.14)",  border: "rgba(239, 68, 68, 0.22)",   fg: "#ef4444" },
+  // For private events: each response has a distinct icon/text color,
+  // but the selected pill background is always the same blue-navy tint
+  // matching the Figma design.
+  const PRIVATE_FG: Record<RsvpResponse, string> = {
+    going:   "#10b981",
+    maybe:   "#f59e0b",
+    cant_go: "#ef4444",
   };
 
   function segmentStyle(response: RsvpResponse) {
     const active = myResponse === response;
-    const pc = !isPublic && active ? PRIVATE_COLORS[response] : null;
+    const privateActive = !isPublic && active;
     return {
       flex: 1,
       display: "flex" as const,
@@ -121,17 +124,22 @@ export function ActionBar({
       alignItems: "center" as const,
       justifyContent: "center" as const,
       gap: 4,
-      padding: "14px 6px",
-      borderRadius: 11,
-      border: pc ? `1.5px solid ${pc.border}` : "none",
-      background: pc ? pc.bg : active ? "var(--background)" : "transparent",
+      padding: "16px 6px",
+      borderRadius: 16,
+      border: "none",
+      background: privateActive
+        ? "rgba(59,130,246,0.25)"
+        : active ? "var(--background)" : "transparent",
       fontWeight: active ? 600 : 400,
-      fontSize: 13,
+      fontSize: 11,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
-      color: (pc ? pc.fg : active && response === "maybe" && isPublic ? "#f59e0b" : "inherit") as string,
+      color: (privateActive
+        ? PRIVATE_FG[response]
+        : active && response === "maybe" && isPublic ? "#f59e0b"
+        : "inherit") as string,
       transition: "background 0.15s, color 0.15s",
-      boxShadow: active && !pc ? "0 1px 3px rgba(0,0,0,0.10)" : "none",
+      boxShadow: "none",
     };
   }
 
@@ -142,9 +150,10 @@ export function ActionBar({
         <div style={{
           flex: 1,
           display: "flex",
-          background: "var(--btn-bg)",
-          borderRadius: 14,
-          padding: 3,
+          background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
+          borderRadius: isPublic ? 14 : 20,
+          border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
+          padding: isPublic ? 3 : 4,
           gap: 2,
         }}>
             {isPublic ? (
