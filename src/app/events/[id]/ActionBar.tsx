@@ -100,7 +100,7 @@ export function ActionBar({
       alignItems: "center" as const,
       justifyContent: "center" as const,
       gap: 5,
-      padding: isPublic ? "14px 8px" : "0 8px",
+      padding: isPublic ? "14px 8px" : "12px 8px",
       borderRadius: isPublic ? 11 : 16,
       border: "none",
       background: privateActive
@@ -127,7 +127,7 @@ export function ActionBar({
           flex: 1,
           display: "flex",
           alignItems: "stretch",
-          height: isPublic ? undefined : 64,
+          height: isPublic ? undefined : 72,
           background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
           borderRadius: isPublic ? 14 : 20,
           border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
