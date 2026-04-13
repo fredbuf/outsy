@@ -823,8 +823,7 @@ export default function SchedulePage() {
   return (
     <main className="page-main app-page" style={{ padding: "24px 20px 56px", maxWidth: 600, margin: "0 auto", minHeight: "100dvh", border: "1.5px solid rgba(255,255,255,0.10)", boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)" }}>
       <div className="app-bg-gradient" aria-hidden="true" />
-      {/* Centered heading */}
-      <header style={{ textAlign: "center", marginBottom: 20 }}>
+      <header style={{ marginBottom: 20 }}>
         <h1 className="page-h1" style={{ fontSize: 28, fontWeight: 700 }}>Schedule</h1>
       </header>
 
