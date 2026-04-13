@@ -6,26 +6,26 @@ import { useAuth } from "../../components/AuthProvider";
 type RsvpResponse = "going" | "maybe" | "cant_go";
 type Counts = { going: number; maybe: number; cant_go: number };
 
-function CheckIcon() {
+function CheckIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
 
-function ClockIcon() {
+function ClockIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }
 
-function XIcon() {
+function XIcon({ size = 14 }: { size?: number }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -119,13 +119,14 @@ export function ActionBar({
     const privateActive = !isPublic && active;
     return {
       flex: 1,
+      alignSelf: "stretch" as const,
       display: "flex" as const,
       flexDirection: "column" as const,
       alignItems: "center" as const,
       justifyContent: "center" as const,
-      gap: 4,
-      padding: "16px 6px",
-      borderRadius: 16,
+      gap: 3,
+      padding: isPublic ? "14px 6px" : "0 6px",
+      borderRadius: isPublic ? 11 : 16,
       border: "none",
       background: privateActive
         ? "rgba(59,130,246,0.25)"
@@ -150,11 +151,14 @@ export function ActionBar({
         <div style={{
           flex: 1,
           display: "flex",
+          alignItems: "stretch",
+          height: isPublic ? undefined : 56,
           background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
           borderRadius: isPublic ? 14 : 20,
           border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
           padding: isPublic ? 3 : 4,
           gap: 2,
+          boxSizing: "border-box" as const,
         }}>
             {isPublic ? (
             <>
@@ -193,7 +197,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
                 style={segmentStyle("going")}
               >
-                <CheckIcon />
+                <CheckIcon size={18} />
                 <span>Going</span>
               </button>
               <button
@@ -202,7 +206,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
                 style={segmentStyle("cant_go")}
               >
-                <XIcon />
+                <XIcon size={18} />
                 <span>Can&apos;t go</span>
               </button>
               <button
@@ -211,7 +215,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
                 style={segmentStyle("maybe")}
               >
-                <ClockIcon />
+                <ClockIcon size={18} />
                 <span>Maybe</span>
               </button>
             </>
