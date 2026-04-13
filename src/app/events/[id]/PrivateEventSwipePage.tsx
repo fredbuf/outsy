@@ -3,10 +3,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "../../components/AuthProvider";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
-import { PrivateActionArea } from "./PrivateActionArea";
-import type { EventPreview } from "./ShareButton";
+import { ActionBar } from "./ActionBar";
+import { AttendeeList } from "./AttendeeList";
+import { InviteFriendsButton } from "./InviteFriendsButton";
+import { ShareButton, type EventPreview } from "./ShareButton";
 import { PaymentReveal } from "./PaymentReveal";
 import { ExpandableDescription } from "./ExpandableDescription";
 import { MomentsClient } from "./moments/MomentsClient";
@@ -93,6 +96,11 @@ export function PrivateEventSwipePage(props: Props) {
     preview,
   } = props;
 
+  const { user } = useAuth();
+  const isHostOrCohost = Boolean(user) && (
+    user!.id === creatorId || cohostIds.includes(user!.id)
+  );
+
   const [page, setPage] = useState(0); // 0 = info, 1 = moments
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
@@ -109,20 +117,14 @@ export function PrivateEventSwipePage(props: Props) {
     if (touchStartX.current === null || touchStartY.current === null) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    // Only trigger on clearly horizontal swipes
     if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 55) {
-      if (dx < 0 && page === 0) {
-        setPage(1);
-      } else if (dx > 0 && page === 1) {
-        setPage(0);
-      }
+      if (dx < 0 && page === 0) setPage(1);
+      else if (dx > 0 && page === 1) setPage(0);
     }
     touchStartX.current = null;
     touchStartY.current = null;
   }
 
-  // Keep clip container height locked to the active panel so the inactive
-  // panel (which is off-screen) never inflates the page height.
   useEffect(() => {
     const panel = page === 0 ? infoPanelRef.current : momentsPanelRef.current;
     if (!panel) return;
@@ -132,23 +134,33 @@ export function PrivateEventSwipePage(props: Props) {
     return () => ro.disconnect();
   }, [page]);
 
+  // CSS custom properties consumed by child components (ActionBar, etc.)
   const cssVars = {
-    background: "transparent",
-    color: "#eae8e4",
     "--border":         "rgba(255,255,255,0.10)",
     "--border-strong":  "rgba(255,255,255,0.18)",
-    "--btn-bg":         "rgba(255,255,255,0.07)",
+    "--btn-bg":         "rgba(18,25,36,0.55)",
     "--btn-bg-active":  "rgba(255,255,255,0.13)",
     "--surface-subtle": "rgba(255,255,255,0.04)",
-    "--background":     "rgba(20,11,7,0.55)",
+    "--background":     "rgba(18,25,36,0.55)",
     "--foreground":     "#eae8e4",
-    "--accent":         "#a78bfa",
+    "--accent":         "#5EA8FF",
+    color: "#eae8e4",
   } as React.CSSProperties;
+
+  // Shared circle icon button style (share, bell, etc.)
+  const iconBtnStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", justifyContent: "center",
+    width: 34, height: 34, borderRadius: "50%",
+    background: "rgba(18,25,36,0.20)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    color: "#eae8e4", cursor: "pointer", flexShrink: 0,
+    padding: 0,
+  };
 
   return (
     <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
 
-      {/* Ambient background */}
+      {/* ── Ambient blurred background ───────────────────────────────────── */}
       {imageUrl ? (
         <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
           <img
@@ -167,12 +179,12 @@ export function PrivateEventSwipePage(props: Props) {
           />
         </div>
       ) : (
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "#111110", pointerEvents: "none" }} />
+        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "#0B0F14", pointerEvents: "none" }} />
       )}
 
       <div style={{ position: "relative", zIndex: 1 }}>
 
-        {/* ── Hero card — always visible ──────────────────────────────────── */}
+        {/* ── Hero card ────────────────────────────────────────────────────── */}
         <div style={{ position: "relative", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
           {imageUrl ? (
             <img
@@ -211,7 +223,7 @@ export function PrivateEventSwipePage(props: Props) {
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: 34, height: 34, borderRadius: "50%",
-                background: "rgba(18,25,36,0.5)",
+                background: "rgba(18,25,36,0.50)",
                 border: "1px solid rgba(255,255,255,0.14)",
                 cursor: "pointer", color: "#fff", flexShrink: 0,
                 touchAction: "manipulation",
@@ -221,15 +233,10 @@ export function PrivateEventSwipePage(props: Props) {
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </BackButton>
-            <EventOwnerActions
-              compact
-              eventId={id}
-              creatorId={creatorId}
-              source={source}
-            />
+            <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} />
           </div>
 
-          {/* Gradient + info overlay */}
+          {/* Gradient overlay + title / date / venue */}
           <div
             style={{
               position: "absolute", bottom: 0, left: 0, right: 0,
@@ -249,8 +256,9 @@ export function PrivateEventSwipePage(props: Props) {
             >
               {title}
             </h1>
-            <p style={{ color: "rgba(255,255,255,0.80)", fontSize: 13, fontWeight: 500, margin: "0 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+
+            <p style={{ color: "rgba(255,255,255,0.80)", fontSize: 13, fontWeight: 500, margin: "0 0 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
                 <rect x="3" y="4" width="18" height="18" rx="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -258,6 +266,7 @@ export function PrivateEventSwipePage(props: Props) {
               </svg>
               {dateLine}{timeLine ? ` · ${timeLine}` : ""}
             </p>
+
             {venueName && (
               privateMapHref ? (
                 <Link
@@ -265,16 +274,14 @@ export function PrivateEventSwipePage(props: Props) {
                   style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
                 >
                   <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                   </svg>
                   {venueName}
                 </Link>
               ) : (
                 <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                   <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                   </svg>
                   {venueName}
                 </p>
@@ -284,14 +291,13 @@ export function PrivateEventSwipePage(props: Props) {
         </div>
 
         {/* ── Page indicator dots ──────────────────────────────────────────── */}
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 7, padding: "14px 0 6px" }}>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 7, padding: "14px 0 10px" }}>
           <button
             type="button"
             aria-label="Info"
             onClick={() => setPage(0)}
             style={{
-              width: page === 0 ? 21 : 8, height: 7,
-              borderRadius: 4,
+              width: page === 0 ? 21 : 8, height: 7, borderRadius: 4,
               background: page === 0 ? "#ffffff" : "rgba(255,255,255,0.30)",
               border: "none", padding: 0, cursor: "pointer",
               transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease",
@@ -302,8 +308,7 @@ export function PrivateEventSwipePage(props: Props) {
             aria-label="Moments"
             onClick={() => setPage(1)}
             style={{
-              width: page === 1 ? 21 : 8, height: 7,
-              borderRadius: 4,
+              width: page === 1 ? 21 : 8, height: 7, borderRadius: 4,
               background: page === 1 ? "#ffffff" : "rgba(255,255,255,0.30)",
               border: "none", padding: 0, cursor: "pointer",
               transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease",
@@ -311,8 +316,27 @@ export function PrivateEventSwipePage(props: Props) {
           />
         </div>
 
-        {/* ── Swipeable content panels ─────────────────────────────────────── */}
-        <div style={cssVars}>
+        {/* ── Unified content surface ──────────────────────────────────────── */}
+        {/*                                                                     */}
+        {/* One rounded glass card that houses both the Info and Moments        */}
+        {/* panels. All sections (RSVP, guests, hosted-by, description)         */}
+        {/* flow as inline sections separated by dividers — not as separate     */}
+        {/* floating cards. The swipe mechanism is preserved inside.            */}
+        <div
+          style={{
+            maxWidth: "min(560px, calc(100% - 32px))",
+            margin: "0 auto 40px",
+            borderRadius: 24,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(18,25,36,0.60)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            overflow: "hidden",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.40)",
+            ...cssVars,
+          }}
+        >
+          {/* Height-animated clip + swipe gesture target */}
           <div
             style={{
               overflow: "hidden",
@@ -322,6 +346,7 @@ export function PrivateEventSwipePage(props: Props) {
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
+            {/* 200%-wide flex row — translated to reveal Info or Moments */}
             <div
               style={{
                 display: "flex",
@@ -332,56 +357,91 @@ export function PrivateEventSwipePage(props: Props) {
                 willChange: "transform",
               }}
             >
+
               {/* ── Info panel ───────────────────────────────────────────── */}
               <div ref={infoPanelRef} style={{ width: "50%", boxSizing: "border-box" }}>
-                <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 120px" }}>
+                <div style={{ padding: "20px 20px 32px" }}>
 
-                  {/* RSVP / host controls */}
-                  <PrivateActionArea
-                    eventId={id}
-                    eventTitle={title}
-                    creatorId={creatorId}
-                    cohostIds={cohostIds}
-                    initialCounts={rsvpCounts}
-                    initialAttendees={attendees}
-                    preview={preview}
-                  />
+                  {/* RSVP segmented control (guests) or invite/share (hosts) */}
+                  {isHostOrCohost ? (
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <InviteFriendsButton eventId={id} large />
+                      <ShareButton title={title} eventId={id} large preview={preview} />
+                    </div>
+                  ) : (
+                    <ActionBar
+                      eventId={id}
+                      initialCounts={rsvpCounts}
+                      sourceUrl={null}
+                      visibility="private"
+                    />
+                  )}
 
-                  {/* Hosting card */}
+                  {/* ── Guests + action icons row ──────────────────────── */}
+                  <div
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      gap: 12, padding: "14px 0",
+                    }}
+                  >
+                    {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
+                      <AttendeeList
+                        eventId={id}
+                        initialAttendees={attendees}
+                        goingCount={rsvpCounts.going}
+                        maybeCount={rsvpCounts.maybe}
+                        avatarSize={28}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 13, opacity: 0.45 }}>
+                        {isHostOrCohost ? "No guests yet." : "No guests yet — be the first!"}
+                      </span>
+                    )}
+
+                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                      {!isHostOrCohost && <InviteFriendsButton eventId={id} />}
+                      <ShareButton title={title} eventId={id} preview={preview} />
+                      {/* Notification bell */}
+                      <button type="button" style={iconBtnStyle} aria-label="Notifications">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ── Hosted by ─────────────────────────────────────── */}
                   {creator && (
-                    <div
-                      style={{
-                        marginTop: 4, borderRadius: 20,
-                        background: "rgba(18,25,36,0.14)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        padding: "14px 16px",
-                        textAlign: "center",
-                      }}
-                    >
-                      <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 16 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.50, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
                         Hosted by
                       </p>
                       <div style={{ display: "flex", justifyContent: "center" }}>
+                        {/* Creator avatar */}
                         {creatorId ? (
                           <Link
                             href={`/profile/${creatorId}`}
                             style={{ lineHeight: 0, display: "block", textDecoration: "none", position: "relative", zIndex: cohostProfiles.length + 1 }}
                           >
                             {creator.avatar_url ? (
-                              <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
+                              <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40}
+                                style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.9)", display: "block" }} />
                             ) : (
-                              <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)" }}>
+                              <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.9)" }}>
                                 {getInitials(creator.display_name)}
                               </div>
                             )}
                           </Link>
                         ) : creator.avatar_url ? (
-                          <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
+                          <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={40} height={40}
+                            style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.9)", display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
                         ) : (
-                          <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)", position: "relative", zIndex: cohostProfiles.length + 1 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.9)", position: "relative", zIndex: cohostProfiles.length + 1 }}>
                             {getInitials(creator.display_name)}
                           </div>
                         )}
+                        {/* Cohost avatars */}
                         {cohostProfiles.map((cp, i) => (
                           <Link
                             key={cp.id}
@@ -389,46 +449,41 @@ export function PrivateEventSwipePage(props: Props) {
                             style={{ lineHeight: 0, display: "block", textDecoration: "none", marginLeft: -10, position: "relative", zIndex: cohostProfiles.length - i }}
                           >
                             {cp.avatar_url ? (
-                              <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={40} height={40} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(20,11,7,0.9)", display: "block" }} />
+                              <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={40} height={40}
+                                style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.9)", display: "block" }} />
                             ) : (
-                              <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(20,11,7,0.9)" }}>
+                              <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.9)" }}>
                                 {getInitials(cp.display_name)}
                               </div>
                             )}
                           </Link>
                         ))}
                       </div>
-                      {/* Description */}
-                      {description && (
-                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
-                          {descriptionTitle && (
-                            <p style={{ fontSize: 17, fontWeight: 600, textAlign: "center", margin: "0 0 10px" }}>
-                              {descriptionTitle}
-                            </p>
-                          )}
-                          <ExpandableDescription text={description} />
-                        </div>
-                      )}
                     </div>
                   )}
 
-                  {/* Details card */}
+                  {/* ── Description ──────────────────────────────────── */}
+                  {description && (
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14, marginTop: creator ? 14 : 0, textAlign: "center" }}>
+                      {descriptionTitle && (
+                        <p style={{ fontSize: 15, fontWeight: 600, textAlign: "center", margin: "0 0 8px" }}>
+                          {descriptionTitle}
+                        </p>
+                      )}
+                      <ExpandableDescription text={description} />
+                    </div>
+                  )}
+
+                  {/* ── Event details (spots / price / deadline) ──────── */}
                   {(spotsLimited || eventPrice !== null || rsvpDeadline) && (
-                    <div
-                      style={{
-                        marginTop: 10, borderRadius: 20,
-                        background: "rgba(18,25,36,0.14)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        padding: "14px 16px",
-                      }}
-                    >
-                      <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.55, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14, marginTop: 14 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.50, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
                         Details
                       </p>
-                      <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
+                      <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
                         {spotsLimited && (
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14 }}>
-                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
+                            <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
                               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
                               <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
                             </svg>
@@ -445,7 +500,7 @@ export function PrivateEventSwipePage(props: Props) {
                         )}
                         {rsvpDeadline && (
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 14 }}>
-                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
+                            <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
                               <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
                             </svg>
                             <span>
@@ -478,12 +533,12 @@ export function PrivateEventSwipePage(props: Props) {
                   initialMoments={initialMoments}
                 />
               </div>
+
             </div>
           </div>
         </div>
 
       </div>
-
     </main>
   );
 }
