@@ -284,7 +284,7 @@ export function PrivateEventSwipePage(props: Props) {
       </div>
 
       {/* ── PAGE DOTS ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "12px 0 8px" }}>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "14px 0 18px" }}>
         <button
           type="button"
           aria-label="Info"
@@ -327,7 +327,7 @@ export function PrivateEventSwipePage(props: Props) {
 
           {/* ── INFO PANEL ──────────────────────────────────────────────── */}
           <div ref={infoPanelRef} style={{ width: "50%", boxSizing: "border-box", ...cssVars }}>
-            <div style={{ padding: "0 20px 48px" }}>
+            <div style={{ padding: "10px 20px 48px" }}>
 
               {/* RSVP — guests only; hosts skip this bar */}
               {!isHostOrCohost && (
