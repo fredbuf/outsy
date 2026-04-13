@@ -12,6 +12,7 @@ import { ExpandableDescription } from "./ExpandableDescription";
 import { ShareButton, type EventPreview } from "./ShareButton";
 import { BackButton } from "./BackButton";
 import { PrivateEventSwipePage } from "./PrivateEventSwipePage";
+import { BellIcon } from "./CustomIcons";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -89,49 +90,6 @@ async function fetchAttendees(eventId: string): Promise<Attendee[]> {
     .filter((p): p is Attendee => p !== null);
 }
 
-type ActivityItem = {
-  response: "going" | "maybe" | "cant_go";
-  updated_at: string;
-  display_name: string | null;
-  avatar_url: string | null;
-  userId: string | null;
-};
-
-async function fetchRecentActivity(eventId: string): Promise<ActivityItem[]> {
-  const { data } = await supabaseServer()
-    .from("rsvps")
-    .select("response,updated_at,profiles(id,display_name,avatar_url)")
-    .eq("event_id", eventId)
-    .in("response", ["going", "maybe", "cant_go"])
-    .order("updated_at", { ascending: false })
-    .limit(3);
-  return (data ?? []).map((row) => {
-    const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-    return {
-      response: row.response as "going" | "maybe" | "cant_go",
-      updated_at: row.updated_at as string,
-      display_name: (p as { display_name: string | null } | null)?.display_name ?? null,
-      avatar_url: (p as { avatar_url: string | null } | null)?.avatar_url ?? null,
-      userId: (p as { id: string } | null)?.id ?? null,
-    };
-  });
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return `${Math.floor(hrs / 24)}d`;
-}
-
-function rsvpActivityLabel(r: "going" | "maybe" | "cant_go"): { text: string; color: string } {
-  if (r === "going")   return { text: "is going",     color: "#10b981" };
-  if (r === "maybe")   return { text: "might go",     color: "#f59e0b" };
-  return                       { text: "can't make it", color: "#ef4444" };
-}
 
 const AVATAR_COLORS = [
   "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
@@ -241,26 +199,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   music:        "Concerts",
   art:          "Arts & Culture",
 };
-
-function formatDateFull(iso: string): string {
-  const d = new Date(iso);
-  const datePart = d.toLocaleString("en-US", {
-    timeZone: "America/Toronto",
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-  const timePart = d.toLocaleString("en-US", {
-    timeZone: "America/Toronto",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  // Hide time when it's midnight (TM events with no explicit time)
-  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
-  return isUnknownTime ? datePart : `${datePart} · ${timePart}`;
-}
 
 // Matches feed card smartDate — compact, context-aware label
 function smartDate(iso: string): string {
@@ -467,7 +405,6 @@ export default async function EventPage({
   }
 
   /* ── Public event: unified layout matching private ─────────────────────── */
-  const recentActivity = await fetchRecentActivity(id);
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";
   const pubLat = (venue as { lat?: number | null } | null)?.lat ?? null;
@@ -496,385 +433,320 @@ export default async function EventPage({
   };
 
   return (
-    <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
+    <main style={{
+      padding: 0,
+      minHeight: "100dvh",
+      background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)",
+      position: "relative",
+    }}>
 
-      {/* Ambient background: blurred image tones fill the full page */}
-      {event.image_url ? (
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
+      {/* ── HERO ──────────────────────────────────────────────────────────── */}
+      <div style={{ position: "relative", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
+        {event.image_url ? (
           <img
             src={event.image_url}
             alt=""
-            width={800}
-            height={800}
-            decoding="async"
-            style={{
-              position: "absolute", inset: 0,
-              width: "100%", height: "100%",
-              objectFit: "cover",
-              filter: "blur(60px) saturate(1.6) brightness(0.35)",
-              transform: "scale(1.12)",
-              pointerEvents: "none",
-              willChange: "transform",
-            }}
+            style={{ display: "block", width: "100%", aspectRatio: "9/10", objectFit: "cover" }}
+          />
+        ) : (
+          <div style={{ width: "100%", aspectRatio: "9/10", background: categoryBg(event.category_primary) }} />
+        )}
+
+        {/* Nav controls */}
+        <div style={{
+          position: "absolute", top: 20, left: 16, right: 16,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          zIndex: 2,
+        }}>
+          <BackButton style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 34, height: 34, borderRadius: "50%",
+            background: "rgba(18,25,36,0.50)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            cursor: "pointer", color: "#fff", flexShrink: 0,
+            touchAction: "manipulation",
+          }}>
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </BackButton>
+          <EventOwnerActions
+            compact
+            eventId={id}
+            creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
+            source={event.source}
           />
         </div>
-      ) : (
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, background: "#111110", pointerEvents: "none" }} />
-      )}
 
-      <div style={{ position: "relative", zIndex: 1 }}>
-
-        {/* Hero card: full-bleed image with title/date/venue overlay */}
-        <div style={{ position: "relative", borderRadius: "0 0 28px 28px", overflow: "hidden" }}>
-          {event.image_url ? (
-            <img
-              src={event.image_url}
-              alt=""
-              style={{ display: "block", width: "100%", aspectRatio: "3/4", objectFit: "cover" }}
-            />
-          ) : (
-            <div style={{ width: "100%", aspectRatio: "3/4", background: categoryBg(event.category_primary) }} />
-          )}
-
-          {/* Nav controls — float over the top of the image */}
-          <div
-            style={{
-              position: "absolute", top: 20, left: 16, right: 16,
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              zIndex: 2,
-            }}
-          >
-            <BackButton
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 40, height: 40, borderRadius: "50%",
-                background: "rgba(0,0,0,0.45)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                cursor: "pointer", color: "#fff", flexShrink: 0,
-                touchAction: "manipulation",
-              }}
-            >
-              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </BackButton>
-            <EventOwnerActions
-              compact
-              eventId={id}
-              creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-              source={event.source}
-            />
-          </div>
-
-          {/* Category pill — top-center of the hero image */}
-          <div
-            style={{
-              position: "absolute", top: 20, left: 0, right: 0,
-              display: "flex", justifyContent: "center", alignItems: "center",
-              pointerEvents: "none", zIndex: 2,
-            }}
-          >
-            <span style={{
-              fontSize: 11, fontWeight: 700,
-              color: "rgba(255,255,255,0.80)",
-              textTransform: "uppercase", letterSpacing: "0.07em",
-              padding: "4px 12px", borderRadius: 20,
-              background: "rgba(0,0,0,0.50)",
-              border: "1px solid rgba(255,255,255,0.15)",
-            }}>
-              {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-            </span>
-          </div>
-
-          {/* Gradient + info overlay — price · title · date · venue */}
-          <div
-            style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              padding: "90px 28px 40px",
-              textAlign: "center",
-              background: "linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)",
-              zIndex: 1,
-            }}
-          >
-            {/* Price · announced — small meta row above title */}
-            {(price || isAnnounced) && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
-                {price && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.50)" }}>{price}</span>}
-                {isAnnounced && (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.65)" }}>
-                    Tickets soon
-                  </span>
-                )}
-              </div>
-            )}
-            <h1
-              style={{
-                color: "#fff",
-                fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em",
-                margin: "0 0 12px", textWrap: "balance",
-              } as React.CSSProperties}
-            >
-              {event.title}
-            </h1>
-            <p style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500, margin: "0 0 6px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              {dateLine}{timeLine ? ` · ${timeLine}` : ""}
-            </p>
-            {venue?.name && (
-              <Link
-                href={mapHref}
-                style={{ color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500, margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.28)", textUnderlineOffset: 3 }}
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                {venue.name}
-              </Link>
-            )}
-          </div>
+        {/* Category pill */}
+        <div style={{
+          position: "absolute", top: 20, left: 0, right: 0,
+          display: "flex", justifyContent: "center", alignItems: "center",
+          pointerEvents: "none", zIndex: 2,
+        }}>
+          <span style={{
+            fontSize: 11, fontWeight: 700,
+            color: "rgba(255,255,255,0.80)",
+            textTransform: "uppercase", letterSpacing: "0.07em",
+            padding: "4px 12px", borderRadius: 20,
+            background: "rgba(0,0,0,0.50)",
+            border: "1px solid rgba(255,255,255,0.15)",
+          }}>
+            {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
+          </span>
         </div>
 
-        {/* Content area — dark surface (same CSS variable overrides as private) */}
+        {/* Gradient scrim + title / date / venue */}
         <div style={{
-          background: "transparent",
-          color: "#eae8e4",
-          "--border":         "rgba(255,255,255,0.10)",
-          "--border-strong":  "rgba(255,255,255,0.18)",
-          "--btn-bg":         "rgba(255,255,255,0.07)",
-          "--btn-bg-active":  "rgba(255,255,255,0.13)",
-          "--surface-subtle": "rgba(255,255,255,0.04)",
-          "--background":     "rgba(20,11,7,0.55)",
-          "--foreground":     "#eae8e4",
-          "--accent":         "#a78bfa",
-        } as React.CSSProperties}>
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 64px" }}>
-
-            {/* RSVP / Tickets */}
-            <div style={{ paddingTop: 32, paddingBottom: 4 }}>
-              <ActionBar
-                eventId={id}
-                initialCounts={rsvpCounts}
-                sourceUrl={event.source_url ?? null}
-                visibility="public"
-              />
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: "80px 24px 32px",
+          textAlign: "center",
+          background: "linear-gradient(to top, rgba(11,15,20,1) 0%, rgba(11,15,20,0.93) 25%, rgba(11,15,20,0.55) 50%, transparent 100%)",
+          zIndex: 1,
+        }}>
+          {(price || isAnnounced) && (
+            <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
+              {price && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.50)" }}>{price}</span>}
+              {isAnnounced && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.65)" }}>
+                  Tickets soon
+                </span>
+              )}
             </div>
-
-            {/* Attendees + Share */}
-            <div
+          )}
+          <h1 style={{
+            color: "#f5f7fa",
+            fontSize: 26, fontWeight: 800,
+            lineHeight: 1.2, letterSpacing: "-0.02em",
+            margin: "0 0 8px",
+            textWrap: "balance",
+            textShadow: "0px 4px 30px rgba(0,0,0,0.9)",
+          } as React.CSSProperties}>
+            {event.title}
+          </h1>
+          <p style={{
+            color: "#f5f7fa", fontSize: 13, fontWeight: 500,
+            margin: "0 0 4px",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+            textShadow: "0px 4px 30px rgba(0,0,0,0.9)",
+          }}>
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            {dateLine}{timeLine ? ` · ${timeLine}` : ""}
+          </p>
+          {venue?.name && (
+            <Link
+              href={mapHref}
               style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: 12, paddingTop: 18, paddingBottom: 18,
-                borderBottom: "1px solid var(--border)",
+                color: "#f5f7fa", fontSize: 13, fontWeight: 500, opacity: 0.80,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.30)",
+                textUnderlineOffset: 3,
+                textShadow: "0px 4px 30px rgba(0,0,0,0.9)",
               }}
             >
-              {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
-                <AttendeeList
-                  eventId={id}
-                  initialAttendees={attendees}
-                  goingCount={rsvpCounts.going}
-                  maybeCount={rsvpCounts.maybe}
-                  avatarSize={36}
-                />
-              ) : (
-                <span style={{ fontSize: 14, opacity: 0.45 }}>No guests yet — be the first!</span>
-              )}
-              <ShareButton title={event.title} eventId={id} preview={sharePreview} />
-            </div>
+              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              {venue.name}
+            </Link>
+          )}
+        </div>
+      </div>
 
-            {/* Recent activity */}
-            {recentActivity.length > 0 && (
-              <div style={{ paddingTop: 6, paddingBottom: 6, borderBottom: "1px solid var(--border)" }}>
-                {recentActivity.map((item, i) => {
-                  const label = rsvpActivityLabel(item.response);
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        paddingTop: 10, paddingBottom: 10,
-                      }}
-                    >
-                      {item.userId ? (
-                        <Link href={`/profile/${item.userId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
-                          {item.avatar_url ? (
-                            <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover" }} />
-                          ) : (
-                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                              {getInitials(item.display_name)}
-                            </div>
-                          )}
-                        </Link>
-                      ) : item.avatar_url ? (
-                        <img src={item.avatar_url} alt={item.display_name ?? ""} width={28} height={28} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                      ) : (
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(item.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                          {getInitials(item.display_name)}
-                        </div>
-                      )}
-                      <span style={{ fontSize: 13, flex: 1 }}>
-                        <strong>{item.display_name ?? "Someone"}</strong>{" "}
-                        <span style={{ color: label.color }}>{label.text}</span>
-                      </span>
-                      <span style={{ fontSize: 12, opacity: 0.35, flexShrink: 0 }}>
-                        {relativeTime(item.updated_at)}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+      {/* ── PAGE DOT ──────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "14px 0 18px" }}>
+        <div style={{ width: 21, height: 7, borderRadius: 20, background: "#ffffff" }} />
+      </div>
+
+      {/* ── CONTENT ───────────────────────────────────────────────────────── */}
+      <div style={{
+        "--border":         "rgba(255,255,255,0.10)",
+        "--border-strong":  "rgba(255,255,255,0.18)",
+        "--btn-bg":         "rgba(18,25,36,0.55)",
+        "--btn-bg-active":  "rgba(255,255,255,0.13)",
+        "--surface-subtle": "rgba(255,255,255,0.04)",
+        "--background":     "rgba(18,25,36,0.55)",
+        "--foreground":     "#f5f7fa",
+        "--accent":         "#5EA8FF",
+        color: "#f5f7fa",
+      } as React.CSSProperties}>
+        <div style={{ padding: "10px 20px 48px" }}>
+
+          {/* RSVP / Tickets */}
+          <ActionBar
+            eventId={id}
+            initialCounts={rsvpCounts}
+            sourceUrl={event.source_url ?? null}
+            visibility="public"
+          />
+
+          {/* ── ATTENDEES ROW ──────────────────────────────────────────────── */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 12, padding: "18px 0 16px",
+          }}>
+            {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
+              <AttendeeList
+                eventId={id}
+                initialAttendees={attendees}
+                goingCount={rsvpCounts.going}
+                maybeCount={rsvpCounts.maybe}
+                avatarSize={28}
+              />
+            ) : (
+              <span style={{ fontSize: 12, opacity: 0.45 }}>No guests yet — be first!</span>
             )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+              <ShareButton title={event.title} eventId={id} preview={sharePreview} />
+              <button type="button" style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 34, height: 34, borderRadius: "50%",
+                background: "rgba(18,25,36,0.20)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#f5f7fa", cursor: "pointer", flexShrink: 0,
+                padding: 0,
+              }} aria-label="Notifications">
+                <BellIcon size={18} />
+              </button>
+            </div>
+          </div>
 
-            {/* Hosted by */}
-            {creator && (
-              <div
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  paddingTop: 16, paddingBottom: 16,
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
+          {/* ── ORGANIZED BY CARD ─────────────────────────────────────────── */}
+          {creator && (
+            <div style={{
+              borderRadius: 20,
+              background: "rgba(18,25,36,0.14)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              padding: "16px",
+            }}>
+              <p style={{
+                fontSize: 14, fontWeight: 600, color: "#f5f7fa",
+                textAlign: "center", margin: "0 0 12px",
+              }}>
+                Organized by
+              </p>
+
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: event.description ? 14 : 0 }}>
                 {creatorId ? (
-                  <Link href={`/profile/${creatorId}`} style={{ flexShrink: 0, lineHeight: 0, display: "flex" }}>
+                  <Link href={`/profile/${creatorId}`} style={{ lineHeight: 0, display: "block", textDecoration: "none" }}>
                     {creator.avatar_url ? (
-                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
+                        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.85)", display: "block" }} />
                     ) : (
-                      <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.85)" }}>
                         {getInitials(creator.display_name)}
                       </div>
                     )}
                   </Link>
                 ) : creator.avatar_url ? (
-                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={32} height={32} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
+                    style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.85)", display: "block" }} />
                 ) : (
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: getAvatarColor(creator.display_name), flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none" }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.85)" }}>
                     {getInitials(creator.display_name)}
                   </div>
                 )}
-                <span style={{ fontSize: 14, opacity: 0.75 }}>
-                  Hosted by{" "}
-                  {creatorId ? (
-                    <Link
-                      href={`/profile/${creatorId}`}
-                      style={{ fontWeight: 600, textDecoration: "none", color: "inherit", opacity: 1 }}
-                    >
-                      {creator.display_name ?? creator.username ?? "a member"}
-                    </Link>
-                  ) : (
-                    <strong>{creator.display_name ?? "a member"}</strong>
+              </div>
+
+              {event.description && (
+                <>
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 0 14px" }} />
+                  {(event as { description_title?: string | null }).description_title && (
+                    <p style={{ fontSize: 14, fontWeight: 600, textAlign: "center", margin: "0 0 6px", color: "#f5f7fa" }}>
+                      {(event as { description_title?: string | null }).description_title}
+                    </p>
                   )}
-                </span>
-              </div>
-            )}
+                  <div style={{ fontSize: 13, color: "#ffffff", textAlign: "center", lineHeight: 1.55 }}>
+                    <ExpandableDescription text={event.description} />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
-            {/* Description */}
-            {event.description && (
-              <div style={{ paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-                <h2 style={{ fontSize: 13, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
-                  About
-                </h2>
-                {(event as { description_title?: string | null }).description_title && (
-                  <p style={{ fontSize: 17, fontWeight: 600, textAlign: "center", margin: "0 0 10px" }}>
-                    {(event as { description_title?: string | null }).description_title}
-                  </p>
-                )}
-                <ExpandableDescription text={event.description} />
-              </div>
-            )}
-
-            {/* Related events — public only */}
-            {related.length > 0 && (
-              <section style={{ paddingTop: 32 }}>
-                <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>More events like this</h2>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    overflowX: "auto",
-                    scrollbarWidth: "none",
-                    paddingBottom: 4,
-                  }}
-                >
-                  {related.map((r) => {
-                    const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
-                    const { series, edition } = splitSeriesTitle(r.title);
-                    return (
-                      <Link
-                        key={r.id}
-                        href={`/events/${r.id}`}
-                        style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
-                      >
-                        <div
-                          style={{
-                            position: "relative",
-                            width: 190,
-                            height: 220,
-                            borderRadius: 12,
-                            overflow: "hidden",
-                            background: categoryBg(r.category_primary),
-                          }}
-                        >
-                          {r.image_url && (
-                            <img
-                              src={r.image_url}
-                              alt=""
-                              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                            />
-                          )}
-                          <div
-                            style={{
-                              position: "absolute", inset: 0,
-                              background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
-                            }}
+          {/* ── RELATED EVENTS ────────────────────────────────────────────── */}
+          {related.length > 0 && (
+            <section style={{ paddingTop: 32 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>More events like this</h2>
+              <div style={{
+                display: "flex",
+                gap: 10,
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                paddingBottom: 4,
+              }}>
+                {related.map((r) => {
+                  const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
+                  const { series, edition } = splitSeriesTitle(r.title);
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/events/${r.id}`}
+                      style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
+                    >
+                      <div style={{
+                        position: "relative",
+                        width: 190,
+                        height: 220,
+                        borderRadius: 12,
+                        overflow: "hidden",
+                        background: categoryBg(r.category_primary),
+                      }}>
+                        {r.image_url && (
+                          <img
+                            src={r.image_url}
+                            alt=""
+                            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
                           />
-                          <div
-                            style={{
-                              position: "absolute", bottom: 0, left: 0, right: 0,
-                              padding: "8px 10px 11px",
-                              display: "flex", flexDirection: "column", gap: 2,
-                            }}
-                          >
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
-                              {smartDate(r.start_at)}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25,
-                                overflow: "hidden",
-                                display: "-webkit-box",
-                                WebkitLineClamp: edition ? 1 : 2,
-                                WebkitBoxOrient: "vertical",
-                              }}
-                            >
-                              {series}
-                            </div>
-                            {edition && (
-                              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {edition}
-                              </div>
-                            )}
-                            {rVenue?.name && (
-                              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
-                              </div>
-                            )}
+                        )}
+                        <div style={{
+                          position: "absolute", inset: 0,
+                          background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
+                        }} />
+                        <div style={{
+                          position: "absolute", bottom: 0, left: 0, right: 0,
+                          padding: "8px 10px 11px",
+                          display: "flex", flexDirection: "column", gap: 2,
+                        }}>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
+                            {smartDate(r.start_at)}
                           </div>
+                          <div style={{
+                            fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25,
+                            overflow: "hidden",
+                            display: "-webkit-box",
+                            WebkitLineClamp: edition ? 1 : 2,
+                            WebkitBoxOrient: "vertical",
+                          }}>
+                            {series}
+                          </div>
+                          {edition && (
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {edition}
+                            </div>
+                          )}
+                          {rVenue?.name && (
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
+                            </div>
+                          )}
                         </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
-          </div>{/* inner maxWidth div */}
-        </div>{/* content wrapper */}
-      </div>{/* z-index wrapper */}
+        </div>
+      </div>
     </main>
   );
 }
