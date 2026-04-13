@@ -128,7 +128,7 @@ export function ActionBar({
           display: "flex",
           alignItems: "stretch",
           height: isPublic ? undefined : 72,
-          background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
+          background: isPublic ? "var(--btn-bg)" : "red", // DEBUG PROOF — remove after confirming
           borderRadius: isPublic ? 14 : 20,
           border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
           padding: isPublic ? 3 : 5,
