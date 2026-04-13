@@ -2,35 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../components/AuthProvider";
+import { GoingIcon, CantGoIcon, MaybeIcon } from "./CustomIcons";
 
 type RsvpResponse = "going" | "maybe" | "cant_go";
 type Counts = { going: number; maybe: number; cant_go: number };
-
-function CheckIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function ClockIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
-function XIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
 
 function StarIcon({ filled }: { filled?: boolean }) {
   return (
@@ -169,7 +144,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
                 style={segmentStyle("going")}
               >
-                <CheckIcon />
+                <GoingIcon size={14} />
                 <span>
                   Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
                 </span>
@@ -197,7 +172,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
                 style={segmentStyle("going")}
               >
-                <CheckIcon size={18} />
+                <GoingIcon size={20} />
                 <span>Going</span>
               </button>
               <button
@@ -206,7 +181,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
                 style={segmentStyle("cant_go")}
               >
-                <XIcon size={18} />
+                <CantGoIcon size={20} />
                 <span>Can&apos;t go</span>
               </button>
               <button
@@ -215,7 +190,7 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
                 style={segmentStyle("maybe")}
               >
-                <ClockIcon size={18} />
+                <MaybeIcon size={20} />
                 <span>Maybe</span>
               </button>
             </>
