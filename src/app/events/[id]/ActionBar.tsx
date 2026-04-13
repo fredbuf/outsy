@@ -124,8 +124,8 @@ export function ActionBar({
       flexDirection: "column" as const,
       alignItems: "center" as const,
       justifyContent: "center" as const,
-      gap: 3,
-      padding: isPublic ? "14px 6px" : "0 6px",
+      gap: 5,
+      padding: isPublic ? "14px 8px" : "0 8px",
       borderRadius: isPublic ? 11 : 16,
       border: "none",
       background: privateActive
@@ -152,12 +152,12 @@ export function ActionBar({
           flex: 1,
           display: "flex",
           alignItems: "stretch",
-          height: isPublic ? undefined : 56,
+          height: isPublic ? undefined : 64,
           background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
           borderRadius: isPublic ? 14 : 20,
           border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
-          padding: isPublic ? 3 : 4,
-          gap: 2,
+          padding: isPublic ? 3 : 5,
+          gap: 3,
           boxSizing: "border-box" as const,
         }}>
             {isPublic ? (
