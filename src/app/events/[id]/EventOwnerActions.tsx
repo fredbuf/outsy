@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/AuthProvider";
 
@@ -22,7 +22,7 @@ export function EventOwnerActions({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const isOwner = Boolean(user && user.id === creatorId && source === "manual");
-  if (!isOwner) return null;
+  if (!isOwner && !compact) return null;
 
   async function handleDelete() {
     if (deleteState !== "confirming" || !session?.access_token) return;
@@ -95,6 +95,30 @@ export function EventOwnerActions({
 
   // ── Compact mode: 3-dot button in hero ──────────────────────────────────
   if (compact) {
+    const btnStyle: React.CSSProperties = {
+      display: "flex", alignItems: "center", justifyContent: "center",
+      width: 34, height: 34, borderRadius: "50%",
+      background: "rgba(18,25,36,0.50)",
+      border: "1px solid rgba(255,255,255,0.14)",
+      cursor: isOwner ? "pointer" : "default",
+      color: "#fff", flexShrink: 0,
+    };
+    const dotIcon = (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <circle cx="12" cy="5" r="1.7" />
+        <circle cx="12" cy="12" r="1.7" />
+        <circle cx="12" cy="19" r="1.7" />
+      </svg>
+    );
+
+    if (!isOwner) {
+      return (
+        <button type="button" aria-label="More" style={btnStyle} disabled>
+          {dotIcon}
+        </button>
+      );
+    }
+
     return (
       <>
         <div style={{ position: "relative" }}>
@@ -102,19 +126,9 @@ export function EventOwnerActions({
             type="button"
             aria-label="Event options"
             onClick={() => setMenuOpen((v) => !v)}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: 40, height: 40, borderRadius: "50%",
-              background: "rgba(0,0,0,0.38)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              cursor: "pointer", color: "#fff",
-            }}
+            style={btnStyle}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="5" r="1.6" />
-              <circle cx="12" cy="12" r="1.6" />
-              <circle cx="12" cy="19" r="1.6" />
-            </svg>
+            {dotIcon}
           </button>
 
           {menuOpen && (

@@ -2,18 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../components/AuthProvider";
-import { GoingIcon, CantGoIcon, MaybeIcon } from "./CustomIcons";
+import { GoingIcon, CantGoIcon, MaybeIcon, InterestedIcon, TicketIcon } from "./CustomIcons";
 
 type RsvpResponse = "going" | "maybe" | "cant_go";
 type Counts = { going: number; maybe: number; cant_go: number };
-
-function StarIcon({ filled }: { filled?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  );
-}
 
 
 export function ActionBar({
@@ -28,7 +20,7 @@ export function ActionBar({
   visibility: "public" | "private";
 }) {
   const { user, loading: authLoading, session } = useAuth();
-  const [counts, setCounts] = useState<Counts>(initialCounts);
+  const [, setCounts] = useState<Counts>(initialCounts);
   const [myResponse, setMyResponse] = useState<RsvpResponse | null>(null);
   const [loadingRsvp, setLoadingRsvp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,18 +72,19 @@ export function ActionBar({
   const isPublic = visibility === "public";
   const hasTickets = isPublic && !!sourceUrl;
 
-  // For private events: each response has a distinct icon/text color,
-  // but the selected pill background is always the same blue-navy tint
-  // matching the Figma design.
+  // Going → green, Interested → orange, Can't go → red
+  const PUBLIC_FG: Record<"going" | "maybe", string> = {
+    going:  "#10b981",
+    maybe:  "#f59e0b",
+  };
   const PRIVATE_FG: Record<RsvpResponse, string> = {
     going:   "#10b981",
     maybe:   "#f59e0b",
     cant_go: "#ef4444",
   };
 
-  function segmentStyle(response: RsvpResponse) {
+  function publicSegmentStyle(response: "going" | "maybe") {
     const active = myResponse === response;
-    const privateActive = !isPublic && active;
     return {
       flex: 1,
       alignSelf: "stretch" as const,
@@ -100,20 +93,39 @@ export function ActionBar({
       alignItems: "center" as const,
       justifyContent: "center" as const,
       gap: 4,
-      padding: isPublic ? "14px 8px" : "12px 8px",
-      borderRadius: isPublic ? 11 : 16,
-      border: "none",
-      background: privateActive
-        ? "rgba(59,130,246,0.25)"
-        : active ? "var(--background)" : "transparent",
+      padding: "12px 8px",
+      borderRadius: 16,
+      border: active ? "1px solid rgba(59,130,246,0.35)" : "none",
+      background: active ? "rgba(59,130,246,0.22)" : "transparent",
       fontWeight: active ? 600 : 400,
-      fontSize: isPublic ? 11 : 11,
+      fontSize: 11,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
-      color: (privateActive
-        ? PRIVATE_FG[response]
-        : active && response === "maybe" && isPublic ? "#f59e0b"
-        : "inherit") as string,
+      color: active ? PUBLIC_FG[response] : ("inherit" as string),
+      transition: "background 0.15s, color 0.15s, border 0.15s",
+      boxShadow: "none",
+    };
+  }
+
+  function privateSegmentStyle(response: RsvpResponse) {
+    const active = myResponse === response;
+    return {
+      flex: 1,
+      alignSelf: "stretch" as const,
+      display: "flex" as const,
+      flexDirection: "column" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 4,
+      padding: "12px 8px",
+      borderRadius: 16,
+      border: "none",
+      background: active ? "rgba(59,130,246,0.25)" : "transparent",
+      fontWeight: active ? 600 : 400,
+      fontSize: 11,
+      cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
+      opacity: busy ? 0.6 : 1,
+      color: active ? PRIVATE_FG[response] : ("inherit" as string),
       transition: "background 0.15s, color 0.15s",
       boxShadow: "none",
     };
@@ -122,32 +134,30 @@ export function ActionBar({
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div style={{ display: "flex", gap: 8 }}>
-        {/* Segmented control: Going + Interested (+ Can't go for private) */}
+        {/* Segmented control */}
         <div style={{
           flex: 1,
           display: "flex",
           alignItems: "stretch",
-          height: isPublic ? undefined : 72,
-          background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
-          borderRadius: isPublic ? 14 : 20,
-          border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
-          padding: isPublic ? 3 : 5,
+          height: 72,
+          background: "rgba(18,25,36,0.14)",
+          borderRadius: 20,
+          border: "1px solid rgba(255,255,255,0.12)",
+          padding: 5,
           gap: 3,
           boxSizing: "border-box" as const,
         }}>
-            {isPublic ? (
+          {isPublic ? (
             <>
               {/* Going */}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
-                style={segmentStyle("going")}
+                style={publicSegmentStyle("going")}
               >
-                <GoingIcon size={14} />
-                <span>
-                  Going{counts.going > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.going}</span>}
-                </span>
+                <GoingIcon size={18} />
+                <span style={{ fontSize: 11 }}>Going</span>
               </button>
 
               {/* Interested */}
@@ -155,22 +165,20 @@ export function ActionBar({
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
-                style={segmentStyle("maybe")}
+                style={publicSegmentStyle("maybe")}
               >
-                <StarIcon filled={myResponse === "maybe"} />
-                <span>
-                  Interested{counts.maybe > 0 && <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 4 }}>{counts.maybe}</span>}
-                </span>
+                <InterestedIcon size={18} />
+                <span style={{ fontSize: 11 }}>Interested</span>
               </button>
             </>
           ) : (
             <>
-              {/* Private: Going / Can't go / Maybe — icon on top, label below */}
+              {/* Private: Going / Can't go / Maybe */}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
-                style={segmentStyle("going")}
+                style={privateSegmentStyle("going")}
               >
                 <GoingIcon size={18} />
                 <span style={{ fontSize: 11 }}>Going</span>
@@ -179,7 +187,7 @@ export function ActionBar({
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
-                style={segmentStyle("cant_go")}
+                style={privateSegmentStyle("cant_go")}
               >
                 <CantGoIcon size={18} />
                 <span style={{ fontSize: 11 }}>Can&apos;t go</span>
@@ -188,7 +196,7 @@ export function ActionBar({
                 type="button"
                 disabled={busy}
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
-                style={segmentStyle("maybe")}
+                style={privateSegmentStyle("maybe")}
               >
                 <MaybeIcon size={18} />
                 <span style={{ fontSize: 11 }}>Maybe</span>
@@ -197,31 +205,32 @@ export function ActionBar({
           )}
         </div>
 
-        {/* Tickets — high-contrast, visually dominant on public events */}
+        {/* Tickets — blue liquid-glass, TicketIcon */}
         {hasTickets && (
           <a
             href={sourceUrl!}
             target="_blank"
             rel="noreferrer"
             style={{
-              flex: 0.8,
+              flex: 0.75,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              gap: 6,
-              padding: "13px 6px",
-              borderRadius: 14,
-              background: "var(--foreground)",
-              color: "var(--background)",
+              gap: 5,
+              height: 72,
+              borderRadius: 20,
+              background: "rgba(59,130,246,0.22)",
+              border: "1px solid rgba(59,130,246,0.40)",
+              color: "#5EA8FF",
               fontWeight: 700,
-              fontSize: 13,
+              fontSize: 12,
               textDecoration: "none",
+              boxSizing: "border-box" as const,
+              flexShrink: 0,
             }}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 17L17 7M17 7H7M17 7v10" />
-            </svg>
+            <TicketIcon size={20} />
             <span>Tickets</span>
           </a>
         )}

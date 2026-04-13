@@ -452,10 +452,10 @@ export default async function EventPage({
           <div style={{ width: "100%", aspectRatio: "9/10", background: categoryBg(event.category_primary) }} />
         )}
 
-        {/* Nav controls */}
+        {/* Nav controls — back | category pill (center) | menu */}
         <div style={{
           position: "absolute", top: 20, left: 16, right: 16,
-          display: "flex", justifyContent: "space-between", alignItems: "center",
+          display: "flex", alignItems: "center",
           zIndex: 2,
         }}>
           <BackButton style={{
@@ -463,37 +463,38 @@ export default async function EventPage({
             width: 34, height: 34, borderRadius: "50%",
             background: "rgba(18,25,36,0.50)",
             border: "1px solid rgba(255,255,255,0.14)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
             cursor: "pointer", color: "#fff", flexShrink: 0,
             touchAction: "manipulation",
-          }}>
+          } as React.CSSProperties}>
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </BackButton>
+
+          {/* Category pill — centered between back and menu */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <span style={{
+              fontSize: 11, fontWeight: 700,
+              color: "rgba(255,255,255,0.85)",
+              textTransform: "uppercase", letterSpacing: "0.07em",
+              padding: "5px 14px", borderRadius: 20,
+              background: "rgba(18,25,36,0.50)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+            } as React.CSSProperties}>
+              {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
+            </span>
+          </div>
+
           <EventOwnerActions
             compact
             eventId={id}
             creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
             source={event.source}
           />
-        </div>
-
-        {/* Category pill */}
-        <div style={{
-          position: "absolute", top: 20, left: 0, right: 0,
-          display: "flex", justifyContent: "center", alignItems: "center",
-          pointerEvents: "none", zIndex: 2,
-        }}>
-          <span style={{
-            fontSize: 11, fontWeight: 700,
-            color: "rgba(255,255,255,0.80)",
-            textTransform: "uppercase", letterSpacing: "0.07em",
-            padding: "4px 12px", borderRadius: 20,
-            background: "rgba(0,0,0,0.50)",
-            border: "1px solid rgba(255,255,255,0.15)",
-          }}>
-            {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-          </span>
         </div>
 
         {/* Gradient scrim + title / date / venue */}
@@ -559,9 +560,14 @@ export default async function EventPage({
         </div>
       </div>
 
-      {/* ── PAGE DOT ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "14px 0 18px" }}>
+      {/* ── PAGE DOTS ─────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "14px 0 18px" }}>
+        {/* Active dot — info page */}
         <div style={{ width: 21, height: 7, borderRadius: 20, background: "#ffffff" }} />
+        {/* Inactive dot — links to moments */}
+        <Link href={`/events/${id}/moments`} style={{ display: "block", lineHeight: 0 }}>
+          <div style={{ width: 8, height: 7, borderRadius: 20, background: "#bbbbbb" }} />
+        </Link>
       </div>
 
       {/* ── CONTENT ───────────────────────────────────────────────────────── */}
