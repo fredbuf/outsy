@@ -107,7 +107,7 @@ export function ActionBar({
         ? "rgba(59,130,246,0.25)"
         : active ? "var(--background)" : "transparent",
       fontWeight: active ? 600 : 400,
-      fontSize: isPublic ? 11 : 9,
+      fontSize: isPublic ? 11 : 11,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
       color: (privateActive
@@ -128,7 +128,7 @@ export function ActionBar({
           display: "flex",
           alignItems: "stretch",
           height: isPublic ? undefined : 72,
-          background: isPublic ? "var(--btn-bg)" : "red", // DEBUG PROOF — remove after confirming
+          background: isPublic ? "var(--btn-bg)" : "rgba(18,25,36,0.14)",
           borderRadius: isPublic ? 14 : 20,
           border: isPublic ? "none" : "1px solid rgba(255,255,255,0.12)",
           padding: isPublic ? 3 : 5,
@@ -172,8 +172,8 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
                 style={segmentStyle("going")}
               >
-                <GoingIcon size={14} />
-                <span style={{ fontSize: 9 }}>Going</span>
+                <GoingIcon size={18} />
+                <span style={{ fontSize: 11 }}>Going</span>
               </button>
               <button
                 type="button"
@@ -181,8 +181,8 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
                 style={segmentStyle("cant_go")}
               >
-                <CantGoIcon size={14} />
-                <span style={{ fontSize: 9 }}>Can&apos;t go</span>
+                <CantGoIcon size={18} />
+                <span style={{ fontSize: 11 }}>Can&apos;t go</span>
               </button>
               <button
                 type="button"
@@ -190,8 +190,8 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
                 style={segmentStyle("maybe")}
               >
-                <MaybeIcon size={14} />
-                <span style={{ fontSize: 9 }}>Maybe</span>
+                <MaybeIcon size={18} />
+                <span style={{ fontSize: 11 }}>Maybe</span>
               </button>
             </>
           )}
