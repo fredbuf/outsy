@@ -12,11 +12,17 @@ type AuthorProfile = {
   avatar_url: string | null;
   username: string | null;
 };
+export type SurveyVoter = {
+  user_id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
 export type SurveyOptionRow = {
   id: string;
   text: string;
   position: number;
-  votes: { user_id: string }[];
+  votes: SurveyVoter[];
 };
 
 export type MomentRow = {
@@ -124,16 +130,36 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
       .in("moment_id", surveyMomentIds)
       .order("position", { ascending: true });
     const allOptIds = (optRows ?? []).map((o) => (o as { id: string }).id);
-    const votesMap = new Map<string, { user_id: string }[]>();
+    const votesMap = new Map<string, SurveyVoter[]>();
     if (allOptIds.length > 0) {
       const { data: voteRows } = await supabase
         .from("survey_votes")
         .select("option_id,user_id")
         .in("option_id", allOptIds);
+
+      // Batch-fetch voter profiles
+      const voterIds = [...new Set((voteRows ?? []).map((v) => (v as { user_id: string }).user_id))];
+      const voterProfilesMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
+      if (voterIds.length > 0) {
+        const { data: voterProfiles } = await supabase
+          .from("profiles")
+          .select("id,display_name,avatar_url")
+          .in("id", voterIds);
+        for (const p of voterProfiles ?? []) {
+          voterProfilesMap.set(p.id as string, {
+            display_name: p.display_name as string | null,
+            avatar_url: p.avatar_url as string | null,
+          });
+        }
+      }
+
       for (const v of voteRows ?? []) {
-        const arr = votesMap.get((v as { option_id: string }).option_id) ?? [];
-        arr.push({ user_id: (v as { user_id: string }).user_id });
-        votesMap.set((v as { option_id: string }).option_id, arr);
+        const optId = (v as { option_id: string }).option_id;
+        const userId = (v as { user_id: string }).user_id;
+        const profile = voterProfilesMap.get(userId);
+        const arr = votesMap.get(optId) ?? [];
+        arr.push({ user_id: userId, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null });
+        votesMap.set(optId, arr);
       }
     }
     for (const o of optRows ?? []) {

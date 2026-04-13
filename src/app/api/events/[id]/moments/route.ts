@@ -90,7 +90,7 @@ export async function GET(
   type SurveyOptionRow = { id: string; moment_id: string; position: number; text: string };
   type SurveyVoteRow = { option_id: string; user_id: string };
   const optionsMap = new Map<string, SurveyOptionRow[]>(); // moment_id → options
-  const votesMap = new Map<string, SurveyVoteRow[]>();    // option_id → votes
+  const votesMap = new Map<string, (SurveyVoteRow & { display_name: string | null; avatar_url: string | null })[]>();
 
   if (surveyMomentIds.length > 0) {
     const { data: optRows } = await supabase
@@ -112,9 +112,26 @@ export async function GET(
         .select("option_id,user_id")
         .in("option_id", allOptionIds);
 
+      // Batch-fetch voter profiles
+      const voterIds = [...new Set((voteRows ?? []).map((v) => (v as SurveyVoteRow).user_id))];
+      const voterProfilesMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
+      if (voterIds.length > 0) {
+        const { data: voterProfiles } = await supabase
+          .from("profiles")
+          .select("id,display_name,avatar_url")
+          .in("id", voterIds);
+        for (const p of voterProfiles ?? []) {
+          voterProfilesMap.set(p.id as string, {
+            display_name: p.display_name as string | null,
+            avatar_url: p.avatar_url as string | null,
+          });
+        }
+      }
+
       for (const v of (voteRows ?? []) as SurveyVoteRow[]) {
+        const profile = voterProfilesMap.get(v.user_id);
         const arr = votesMap.get(v.option_id) ?? [];
-        arr.push(v);
+        arr.push({ ...v, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null });
         votesMap.set(v.option_id, arr);
       }
     }
@@ -127,7 +144,11 @@ export async function GET(
       id: o.id,
       text: o.text,
       position: o.position,
-      votes: (votesMap.get(o.id) ?? []).map((v) => ({ user_id: v.user_id })),
+      votes: (votesMap.get(o.id) ?? []).map((v) => ({
+        user_id: v.user_id,
+        display_name: v.display_name,
+        avatar_url: v.avatar_url,
+      })),
     }));
     return {
       ...row,

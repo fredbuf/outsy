@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
-import type { MomentRow, SurveyOptionRow } from "./page";
+import type { MomentRow, SurveyOptionRow, SurveyVoter } from "./page";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1822,8 +1822,8 @@ function SurveyBlock({
             // Toggle off
             return { ...o, votes: o.votes.filter((v) => v.user_id !== currentUserId) };
           }
-          // Add vote
-          return { ...o, votes: [...o.votes, { user_id: currentUserId! }] };
+          // Add vote (optimistic — profile fields filled in on next background fetch)
+          return { ...o, votes: [...o.votes, { user_id: currentUserId!, display_name: null, avatar_url: null }] };
         }
         return o;
       })
@@ -1877,6 +1877,7 @@ function SurveyBlock({
                 cursor: token && !voting ? "pointer" : "default",
                 color: "inherit", textAlign: "left",
                 transition: "border-color 0.15s",
+                gap: 8,
               }}
             >
               {/* Fill bar */}
@@ -1888,18 +1889,24 @@ function SurveyBlock({
                   pointerEvents: "none",
                 }} />
               )}
-              <span style={{ position: "relative", fontSize: 14, fontWeight: isSelected ? 600 : 400 }}>
+              {/* Option text */}
+              <span style={{ position: "relative", fontSize: 14, fontWeight: isSelected ? 600 : 400, flex: 1 }}>
                 {opt.text}
               </span>
-              {showResults && (
-                <span style={{
-                  position: "relative", fontSize: 12, fontWeight: 600,
-                  color: isSelected ? "#a78bfa" : "rgba(255,255,255,0.40)",
-                  flexShrink: 0, marginLeft: 8,
-                }}>
-                  {pct}%
-                </span>
-              )}
+              {/* Right side: voter avatars (when results visible) or empty placeholder */}
+              <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                {showResults && count > 0 && (
+                  <VoterAvatars voters={opt.votes as SurveyVoter[]} />
+                )}
+                {showResults && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, minWidth: 28, textAlign: "right",
+                    color: isSelected ? "#a78bfa" : "rgba(255,255,255,0.35)",
+                  }}>
+                    {pct}%
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
@@ -1910,6 +1917,74 @@ function SurveyBlock({
         </div>
       )}
     </div>
+  );
+}
+
+// ── Voter avatar stack ────────────────────────────────────────────────────────
+
+function voterAvatarColor(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) & 0xffff;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+function voterInitials(name: string | null): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+const MAX_SHOWN = 4;
+
+function VoterAvatars({ voters }: { voters: SurveyVoter[] }) {
+  const shown = voters.slice(0, MAX_SHOWN);
+  const overflow = voters.length - MAX_SHOWN;
+  const size = 20;
+  const overlap = -5;
+
+  return (
+    <span style={{ display: "flex", alignItems: "center" }}>
+      {shown.map((v, i) => (
+        <span
+          key={v.user_id}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: size, height: size, borderRadius: "50%",
+            border: "1.5px solid rgba(18,25,36,0.7)",
+            marginLeft: i === 0 ? 0 : overlap,
+            flexShrink: 0,
+            position: "relative",
+            zIndex: shown.length - i,
+            overflow: "hidden",
+            background: voterAvatarColor(v.user_id),
+            fontSize: 8, fontWeight: 700, color: "#fff",
+          }}
+        >
+          {v.avatar_url ? (
+            <img
+              src={v.avatar_url}
+              alt={v.display_name ?? ""}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            voterInitials(v.display_name)
+          )}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: size, height: size, borderRadius: "50%",
+          border: "1.5px solid rgba(18,25,36,0.7)",
+          marginLeft: overlap,
+          flexShrink: 0,
+          background: "rgba(255,255,255,0.12)",
+          fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,0.7)",
+        }}>
+          +{overflow}
+        </span>
+      )}
+    </span>
   );
 }
 
