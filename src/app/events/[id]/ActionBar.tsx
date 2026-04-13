@@ -107,7 +107,7 @@ export function ActionBar({
         ? "rgba(59,130,246,0.25)"
         : active ? "var(--background)" : "transparent",
       fontWeight: active ? 600 : 400,
-      fontSize: 11,
+      fontSize: isPublic ? 11 : 9,
       cursor: (busy ? "wait" : "pointer") as "wait" | "pointer",
       opacity: busy ? 0.6 : 1,
       color: (privateActive
@@ -172,8 +172,8 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("going"); }}
                 style={segmentStyle("going")}
               >
-                <GoingIcon size={20} />
-                <span>Going</span>
+                <GoingIcon size={14} />
+                <span style={{ fontSize: 9 }}>Going</span>
               </button>
               <button
                 type="button"
@@ -181,8 +181,8 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("cant_go"); }}
                 style={segmentStyle("cant_go")}
               >
-                <CantGoIcon size={20} />
-                <span>Can&apos;t go</span>
+                <CantGoIcon size={14} />
+                <span style={{ fontSize: 9 }}>Can&apos;t go</span>
               </button>
               <button
                 type="button"
@@ -190,8 +190,8 @@ export function ActionBar({
                 onClick={() => { if (!user) { openSignIn(); return; } handleRsvp("maybe"); }}
                 style={segmentStyle("maybe")}
               >
-                <MaybeIcon size={20} />
-                <span>Maybe</span>
+                <MaybeIcon size={14} />
+                <span style={{ fontSize: 9 }}>Maybe</span>
               </button>
             </>
           )}

@@ -37,24 +37,23 @@ export function ExpandableDescription({ text }: { text: string }) {
       >
         {text}
       </p>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        style={{
-          marginTop: 6,
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          fontSize: 14,
-          fontWeight: 600,
-          opacity: 0.55,
-          textDecoration: "underline",
-          color: "inherit",
-        }}
-      >
-        {expanded ? "Show less" : "Show more"}
-      </button>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 500,
+            color: "#5EA8FF",
+          }}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      </div>
     </div>
   );
 }
