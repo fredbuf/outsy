@@ -508,8 +508,6 @@ export function PrivateEventSwipePage(props: Props) {
               embedded
               eventId={id}
               eventTitle={title}
-              eventImageUrl={imageUrl}
-              eventCategory={category}
               creatorId={creatorId}
               cohostIds={cohostIds}
               guestsCanPost={guestsCanPost}

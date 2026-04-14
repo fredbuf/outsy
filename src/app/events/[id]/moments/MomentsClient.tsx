@@ -47,17 +47,7 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }
 
-function categoryBg(cat: string): string {
-  switch (cat) {
-    case "concerts":     case "music":  return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
-    case "nightlife":                   return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
-    case "arts_culture": case "art":    return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
-    case "comedy":                      return "linear-gradient(150deg, #1a1a00 0%, #3d3000 100%)";
-    case "sports":                      return "linear-gradient(150deg, #001a0d 0%, #00381a 100%)";
-    case "family":                      return "linear-gradient(150deg, #001233 0%, #00296b 100%)";
-    default:                            return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
-  }
-}
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -2367,8 +2357,6 @@ const MomentCard = memo(function MomentCard({
 export function MomentsClient({
   eventId,
   eventTitle,
-  eventImageUrl,
-  eventCategory,
   creatorId,
   cohostIds,
   guestsCanPost,
@@ -2378,8 +2366,6 @@ export function MomentsClient({
 }: {
   eventId: string;
   eventTitle: string;
-  eventImageUrl: string | null;
-  eventCategory: string;
   creatorId: string | null;
   cohostIds: string[];
   guestsCanPost: boolean;
@@ -2559,17 +2545,17 @@ export function MomentsClient({
   const content = (
     <div
       style={{
-        color: "#eae8e4",
+        color: "#f5f7fa",
         "--border": "rgba(255,255,255,0.10)",
         "--border-strong": "rgba(255,255,255,0.18)",
-        "--btn-bg": "rgba(255,255,255,0.07)",
+        "--btn-bg": "rgba(18,25,36,0.55)",
         "--surface-raised": "rgba(255,255,255,0.08)",
-        "--background": "rgba(20,11,7,0.55)",
-        "--foreground": "#eae8e4",
-        "--accent": "#a78bfa",
+        "--background": "rgba(18,25,36,0.55)",
+        "--foreground": "#f5f7fa",
+        "--accent": "#5EA8FF",
       } as React.CSSProperties}
     >
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 80px" }}>
+      <div style={{ padding: "20px 20px 80px" }}>
 
         {/* Compose — visible to users who can post */}
         {canPost && session && (
@@ -2645,112 +2631,66 @@ export function MomentsClient({
 
   if (embedded) return <>{content}</>;
 
+  // Standalone page — same gradient surface as the private/public event pages
   return (
-    <main style={{ padding: 0, position: "relative", minHeight: "100dvh" }}>
+    <main style={{
+      padding: 0,
+      minHeight: "100dvh",
+      background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)",
+      position: "relative",
+      color: "#f5f7fa",
+    }}>
 
-      {/* Ambient background */}
-      {eventImageUrl ? (
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
-          <img
-            src={eventImageUrl}
-            alt=""
-            style={{
-              position: "absolute", inset: 0,
-              width: "100%", height: "100%",
-              objectFit: "cover",
-              filter: "blur(80px) saturate(1.8) brightness(0.38)",
-              transform: "scale(1.15)",
-              pointerEvents: "none",
-            }}
-          />
-        </div>
-      ) : (
-        <div
-          aria-hidden="true"
+      {/* Top nav: back button (left) · event title (center) · placeholder (right) */}
+      <div style={{
+        display: "flex", alignItems: "center",
+        padding: "20px 16px 0",
+        gap: 10,
+      }}>
+        <button
+          type="button"
+          onClick={() => window.history.length > 1 ? router.back() : router.push(`/events/${eventId}`)}
           style={{
-            position: "fixed", inset: 0, zIndex: 0,
-            background: categoryBg(eventCategory),
-            opacity: 0.6,
-            pointerEvents: "none",
-          }}
-        />
-      )}
-
-      <div style={{ position: "relative", zIndex: 1 }}>
-
-        {/* Top nav bar */}
-        <div
-          style={{
-            display: "flex", alignItems: "center",
-            padding: "16px 16px 0",
-            gap: 12,
-          }}
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 34, height: 34, borderRadius: "50%",
+            background: "rgba(18,25,36,0.50)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            color: "#fff", flexShrink: 0,
+            cursor: "pointer",
+          } as React.CSSProperties}
+          aria-label="Go back"
         >
-          <button
-            type="button"
-            onClick={() => window.history.length > 1 ? router.back() : router.push(`/events/${eventId}`)}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center",
-              width: 40, height: 40, borderRadius: "50%",
-              background: "rgba(0,0,0,0.32)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              color: "#fff", flexShrink: 0,
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              cursor: "pointer",
-            }}
-            aria-label="Go back"
-          >
-            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, opacity: 0.45,
-              textTransform: "uppercase", letterSpacing: "0.07em",
-              overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
-              color: "#fff",
-            }}>
-              {eventTitle}
-            </div>
+        <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.07em",
+            overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
+            color: "rgba(255,255,255,0.50)",
+          }}>
+            {eventTitle}
           </div>
         </div>
 
-        {/* Tab strip */}
-        <div
-          style={{
-            display: "flex", gap: 4, margin: "14px 16px 0",
-            background: "rgba(255,255,255,0.06)",
-            borderRadius: 12, padding: 3,
-          }}
-        >
-          <Link
-            href={`/events/${eventId}`}
-            style={{
-              flex: 1, textDecoration: "none",
-              textAlign: "center", padding: "7px 0",
-              borderRadius: 9, fontSize: 14, fontWeight: 600,
-              color: "rgba(255,255,255,0.50)",
-            }}
-          >
-            Info
-          </Link>
-          <div
-            style={{
-              flex: 1, textAlign: "center", padding: "7px 0",
-              borderRadius: 9, fontSize: 14, fontWeight: 600,
-              background: "rgba(255,255,255,0.12)",
-              color: "#fff",
-            }}
-          >
-            Moments
-          </div>
-        </div>
-
-        {content}
+        {/* Right placeholder keeps title visually centered */}
+        <div style={{ width: 34, flexShrink: 0 }} />
       </div>
+
+      {/* Page dots — active dot on Moments side */}
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "14px 0 0" }}>
+        <Link href={`/events/${eventId}`} style={{ display: "block", lineHeight: 0 }}>
+          <div style={{ width: 8, height: 7, borderRadius: 20, background: "#bbbbbb" }} />
+        </Link>
+        <div style={{ width: 21, height: 7, borderRadius: 20, background: "#ffffff" }} />
+      </div>
+
+      {content}
     </main>
   );
 }

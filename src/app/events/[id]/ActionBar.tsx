@@ -222,7 +222,7 @@ export function ActionBar({
               borderRadius: 20,
               background: "rgba(59,130,246,0.22)",
               border: "1px solid rgba(59,130,246,0.40)",
-              color: "#5EA8FF",
+              color: "#ffffff",
               fontWeight: 700,
               fontSize: 12,
               textDecoration: "none",

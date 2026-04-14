@@ -205,8 +205,6 @@ export default async function MomentsPage({
     <MomentsClient
       eventId={id}
       eventTitle={event.title as string}
-      eventImageUrl={(event.image_url as string | null) ?? null}
-      eventCategory={event.category_primary as string}
       creatorId={creatorId}
       cohostIds={cohostIds}
       guestsCanPost={guestsCanPost}
