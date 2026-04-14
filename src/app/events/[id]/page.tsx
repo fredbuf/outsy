@@ -1,18 +1,11 @@
-/* eslint-disable @next/next/no-img-element */
 import "server-only";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
-import { AttendeeList } from "./AttendeeList";
-import { EventOwnerActions } from "./EventOwnerActions";
-import { ActionBar } from "./ActionBar";
-import { ExpandableDescription } from "./ExpandableDescription";
-import { ShareButton, type EventPreview } from "./ShareButton";
-import { BackButton } from "./BackButton";
+import { type EventPreview } from "./ShareButton";
 import { PrivateEventSwipePage } from "./PrivateEventSwipePage";
-import { BellIcon } from "./CustomIcons";
+import { PublicEventSwipePage } from "./PublicEventSwipePage";
 
 // cache() deduplicates the DB call so generateMetadata and the page
 // component share a single round-trip per request.
@@ -90,25 +83,6 @@ async function fetchAttendees(eventId: string): Promise<Attendee[]> {
     .filter((p): p is Attendee => p !== null);
 }
 
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 export async function generateMetadata({
   params,
@@ -188,45 +162,6 @@ export async function generateMetadata({
   };
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  concerts:     "Concerts",
-  nightlife:    "Nightlife",
-  arts_culture: "Arts & Culture",
-  comedy:       "Comedy",
-  sports:       "Sports",
-  family:       "Family",
-  // legacy values still in DB until re-ingestion
-  music:        "Concerts",
-  art:          "Arts & Culture",
-};
-
-// Matches feed card smartDate — compact, context-aware label
-function smartDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const toKey = (dt: Date) => dt.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-  const eventDay = toKey(d);
-  const today = toKey(now);
-  const tomorrow = toKey(new Date(now.getTime() + 86_400_000));
-  const rawTime = d.toLocaleString("en-US", {
-    timeZone: "America/Toronto",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
-  const timeStr = isUnknownTime ? "" : " at " + rawTime.replace(/:00\s/, " ").replace(/\s/, "").toLowerCase();
-  if (eventDay === today) return `Today${timeStr}`;
-  if (eventDay === tomorrow) return `Tomorrow${timeStr}`;
-  const diffMs = d.getTime() - now.getTime();
-  if (diffMs > 0 && diffMs < 7 * 86_400_000) {
-    const weekday = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", weekday: "long" });
-    return `${weekday}${timeStr}`;
-  }
-  const monthDay = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" });
-  return `${monthDay}${timeStr}`;
-}
-
 // Share card date — always "May 8 · 8:30 PM" style (not context-relative)
 function shareCardDate(iso: string): string {
   const d = new Date(iso);
@@ -244,32 +179,6 @@ function shareCardDate(iso: string): string {
     hour12: true,
   });
   return `${monthDay} · ${timeStr}`;
-}
-
-// Matches feed card categoryBg gradient palette
-function categoryBg(cat: string): string {
-  switch (cat) {
-    case "concerts":     case "music":  return "linear-gradient(150deg, #1a0533 0%, #2d1b69 100%)";
-    case "nightlife":                   return "linear-gradient(150deg, #09090f 0%, #1e0a3c 100%)";
-    case "arts_culture": case "art":    return "linear-gradient(150deg, #1c1917 0%, #431407 100%)";
-    case "comedy":                      return "linear-gradient(150deg, #1a1a00 0%, #3d3000 100%)";
-    case "sports":                      return "linear-gradient(150deg, #001a0d 0%, #00381a 100%)";
-    case "family":                      return "linear-gradient(150deg, #001233 0%, #00296b 100%)";
-    default:                            return "linear-gradient(150deg, #111827 0%, #1f2937 100%)";
-  }
-}
-
-// Split "Series Name - Edition" into two display lines
-function splitSeriesTitle(title: string): { series: string; edition: string | null } {
-  const seps = [" - ", " – ", " | ", " : ", " with ", " feat. ", " ft. ", " featuring "];
-  const lower = title.toLowerCase();
-  for (const sep of seps) {
-    const idx = lower.indexOf(sep);
-    if (idx > 0) {
-      return { series: title.slice(0, idx).trim(), edition: title.slice(idx + sep.length).trim() || null };
-    }
-  }
-  return { series: title, edition: null };
 }
 
 function formatPrice(
@@ -291,7 +200,7 @@ async function fetchMomentsForEvent(eventId: string) {
   const { data } = await supabaseServer()
     .from("moments")
     .select(
-      "id,event_id,author_id,body,is_pinned,reactions_enabled,comments_enabled,created_at," +
+      "id,event_id,author_id,body,survey_question,link_url,link_title,link_description,link_image_url,link_site_name,image_url,is_pinned,reactions_enabled,comments_enabled,created_at,updated_at," +
         "profiles(display_name,avatar_url,username)," +
         "moment_reactions(user_id,emoji)"
     )
@@ -404,7 +313,12 @@ export default async function EventPage({
     );
   }
 
-  /* ── Public event: unified layout matching private ─────────────────────── */
+  /* ── Public event: swipe layout ──────────────────────────────────────────── */
+  const cohostIds = Array.isArray((event as { cohost_ids?: string[] | null }).cohost_ids)
+    ? ((event as { cohost_ids?: string[] | null }).cohost_ids as string[])
+    : [];
+  const guestsCanPost = Boolean((event as Record<string, unknown>).moments_guests_can_post ?? false);
+  const guestsCanReact = (event as Record<string, unknown>).moments_guests_can_react !== false;
   const price = formatPrice(event.min_price, event.max_price, event.currency);
   const isAnnounced = (event as { status?: string }).status === "announced";
   const pubLat = (venue as { lat?: number | null } | null)?.lat ?? null;
@@ -414,345 +328,42 @@ export default async function EventPage({
       ? `&lat=${pubLat}&lng=${pubLng}`
       : "";
   const mapHref = venue ? `/map?eventId=${id}${pubCoords}` : "/map";
-  const startD = new Date(event.start_at);
-  const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
-  const dateLine = startD.toLocaleString("en-US", {
+  const pubStartD = new Date(event.start_at);
+  const pubIsUnknownTime = pubStartD.getUTCHours() === 0 && pubStartD.getUTCMinutes() === 0;
+  const dateLine = pubStartD.toLocaleString("en-US", {
     timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
   });
-  const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
+  const timeLine = pubIsUnknownTime ? null : pubStartD.toLocaleString("en-US", {
     timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
   });
-
-  // Share preview props — shown in the in-app share card
-  const sharePreview: EventPreview = {
-    imageUrl: (event.image_url as string | null) ?? null,
-    category: event.category_primary,
-    hostName: creator?.display_name ?? null,
-    dateStr: smartDate(event.start_at),
-    venueName: venue?.name ?? null,
-  };
+  const initialMoments = await fetchMomentsForEvent(id);
 
   return (
-    <main style={{
-      padding: 0,
-      minHeight: "100dvh",
-      background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)",
-      position: "relative",
-    }}>
-
-      {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <div style={{ position: "relative", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
-        {event.image_url ? (
-          <img
-            src={event.image_url}
-            alt=""
-            style={{ display: "block", width: "100%", aspectRatio: "9/10", objectFit: "cover" }}
-          />
-        ) : (
-          <div style={{ width: "100%", aspectRatio: "9/10", background: categoryBg(event.category_primary) }} />
-        )}
-
-        {/* Nav controls — back | category pill (center) | menu */}
-        <div style={{
-          position: "absolute", top: 20, left: 16, right: 16,
-          display: "flex", alignItems: "center",
-          zIndex: 2,
-        }}>
-          <BackButton style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 34, height: 34, borderRadius: "50%",
-            background: "rgba(18,25,36,0.50)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            cursor: "pointer", color: "#fff", flexShrink: 0,
-            touchAction: "manipulation",
-          } as React.CSSProperties}>
-            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </BackButton>
-
-          {/* Category pill — centered between back and menu */}
-          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-            <span style={{
-              fontSize: 11, fontWeight: 700,
-              color: "rgba(255,255,255,0.85)",
-              textTransform: "uppercase", letterSpacing: "0.07em",
-              padding: "5px 14px", borderRadius: 20,
-              background: "rgba(18,25,36,0.50)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-            } as React.CSSProperties}>
-              {CATEGORY_LABELS[event.category_primary] ?? event.category_primary}
-            </span>
-          </div>
-
-          <EventOwnerActions
-            compact
-            eventId={id}
-            creatorId={(event as { creator_id?: string | null }).creator_id ?? null}
-            source={event.source}
-          />
-        </div>
-
-        {/* Gradient scrim + title / date / venue */}
-        <div style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          padding: "80px 24px 32px",
-          textAlign: "center",
-          background: "linear-gradient(to top, rgba(11,15,20,1) 0%, rgba(11,15,20,0.93) 25%, rgba(11,15,20,0.55) 50%, transparent 100%)",
-          zIndex: 1,
-        }}>
-          {(price || isAnnounced) && (
-            <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 10 }}>
-              {price && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.50)" }}>{price}</span>}
-              {isAnnounced && (
-                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.65)" }}>
-                  Tickets soon
-                </span>
-              )}
-            </div>
-          )}
-          <h1 style={{
-            color: "#f5f7fa",
-            fontSize: 26, fontWeight: 800,
-            lineHeight: 1.2, letterSpacing: "-0.02em",
-            margin: "0 0 8px",
-            textWrap: "balance",
-            textShadow: "0px 4px 30px rgba(0,0,0,0.9)",
-          } as React.CSSProperties}>
-            {event.title}
-          </h1>
-          <p style={{
-            color: "#f5f7fa", fontSize: 13, fontWeight: 500,
-            margin: "0 0 4px",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-            textShadow: "0px 4px 30px rgba(0,0,0,0.9)",
-          }}>
-            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}>
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            {dateLine}{timeLine ? ` · ${timeLine}` : ""}
-          </p>
-          {venue?.name && (
-            <Link
-              href={mapHref}
-              style={{
-                color: "#f5f7fa", fontSize: 13, fontWeight: 500, opacity: 0.80,
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.30)",
-                textUnderlineOffset: 3,
-                textShadow: "0px 4px 30px rgba(0,0,0,0.9)",
-              }}
-            >
-              <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}>
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              {venue.name}
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* ── PAGE DOTS ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "14px 0 18px" }}>
-        {/* Active dot — info page */}
-        <div style={{ width: 21, height: 7, borderRadius: 20, background: "#ffffff" }} />
-        {/* Inactive dot — links to moments */}
-        <Link href={`/events/${id}/moments`} style={{ display: "block", lineHeight: 0 }}>
-          <div style={{ width: 8, height: 7, borderRadius: 20, background: "#bbbbbb" }} />
-        </Link>
-      </div>
-
-      {/* ── CONTENT ───────────────────────────────────────────────────────── */}
-      <div style={{
-        "--border":         "rgba(255,255,255,0.10)",
-        "--border-strong":  "rgba(255,255,255,0.18)",
-        "--btn-bg":         "rgba(18,25,36,0.55)",
-        "--btn-bg-active":  "rgba(255,255,255,0.13)",
-        "--surface-subtle": "rgba(255,255,255,0.04)",
-        "--background":     "rgba(18,25,36,0.55)",
-        "--foreground":     "#f5f7fa",
-        "--accent":         "#5EA8FF",
-        color: "#f5f7fa",
-      } as React.CSSProperties}>
-        <div style={{ padding: "10px 20px 48px" }}>
-
-          {/* RSVP / Tickets */}
-          <ActionBar
-            eventId={id}
-            initialCounts={rsvpCounts}
-            sourceUrl={event.source_url ?? null}
-            visibility="public"
-          />
-
-          {/* ── ATTENDEES ROW ──────────────────────────────────────────────── */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: 12, padding: "18px 0 16px",
-          }}>
-            {rsvpCounts.going > 0 || rsvpCounts.maybe > 0 ? (
-              <AttendeeList
-                eventId={id}
-                initialAttendees={attendees}
-                goingCount={rsvpCounts.going}
-                maybeCount={rsvpCounts.maybe}
-                avatarSize={28}
-              />
-            ) : (
-              <span style={{ fontSize: 12, opacity: 0.45 }}>No guests yet — be first!</span>
-            )}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-              <ShareButton title={event.title} eventId={id} preview={sharePreview} />
-              <button type="button" style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                width: 34, height: 34, borderRadius: "50%",
-                background: "rgba(18,25,36,0.20)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                color: "#f5f7fa", cursor: "pointer", flexShrink: 0,
-                padding: 0,
-              }} aria-label="Notifications">
-                <BellIcon size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* ── ORGANIZED BY CARD ─────────────────────────────────────────── */}
-          {creator && (
-            <div style={{
-              borderRadius: 20,
-              background: "rgba(18,25,36,0.14)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              padding: "16px",
-            }}>
-              <p style={{
-                fontSize: 14, fontWeight: 600, color: "#f5f7fa",
-                textAlign: "center", margin: "0 0 12px",
-              }}>
-                Organized by
-              </p>
-
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: event.description ? 14 : 0 }}>
-                {creatorId ? (
-                  <Link href={`/profile/${creatorId}`} style={{ lineHeight: 0, display: "block", textDecoration: "none" }}>
-                    {creator.avatar_url ? (
-                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
-                        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.85)", display: "block" }} />
-                    ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.85)" }}>
-                        {getInitials(creator.display_name)}
-                      </div>
-                    )}
-                  </Link>
-                ) : creator.avatar_url ? (
-                  <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
-                    style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.85)", display: "block" }} />
-                ) : (
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(18,25,36,0.85)" }}>
-                    {getInitials(creator.display_name)}
-                  </div>
-                )}
-              </div>
-
-              {event.description && (
-                <>
-                  <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 0 14px" }} />
-                  {(event as { description_title?: string | null }).description_title && (
-                    <p style={{ fontSize: 14, fontWeight: 600, textAlign: "center", margin: "0 0 6px", color: "#f5f7fa" }}>
-                      {(event as { description_title?: string | null }).description_title}
-                    </p>
-                  )}
-                  <div style={{ fontSize: 13, color: "#ffffff", textAlign: "center", lineHeight: 1.55 }}>
-                    <ExpandableDescription text={event.description} />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ── RELATED EVENTS ────────────────────────────────────────────── */}
-          {related.length > 0 && (
-            <section style={{ paddingTop: 32 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>More events like this</h2>
-              <div style={{
-                display: "flex",
-                gap: 10,
-                overflowX: "auto",
-                scrollbarWidth: "none",
-                paddingBottom: 4,
-              }}>
-                {related.map((r) => {
-                  const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
-                  const { series, edition } = splitSeriesTitle(r.title);
-                  return (
-                    <Link
-                      key={r.id}
-                      href={`/events/${r.id}`}
-                      style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
-                    >
-                      <div style={{
-                        position: "relative",
-                        width: 190,
-                        height: 220,
-                        borderRadius: 12,
-                        overflow: "hidden",
-                        background: categoryBg(r.category_primary),
-                      }}>
-                        {r.image_url && (
-                          <img
-                            src={r.image_url}
-                            alt=""
-                            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                          />
-                        )}
-                        <div style={{
-                          position: "absolute", inset: 0,
-                          background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)",
-                        }} />
-                        <div style={{
-                          position: "absolute", bottom: 0, left: 0, right: 0,
-                          padding: "8px 10px 11px",
-                          display: "flex", flexDirection: "column", gap: 2,
-                        }}>
-                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
-                            {smartDate(r.start_at)}
-                          </div>
-                          <div style={{
-                            fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25,
-                            overflow: "hidden",
-                            display: "-webkit-box",
-                            WebkitLineClamp: edition ? 1 : 2,
-                            WebkitBoxOrient: "vertical",
-                          }}>
-                            {series}
-                          </div>
-                          {edition && (
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {edition}
-                            </div>
-                          )}
-                          {rVenue?.name && (
-                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-        </div>
-      </div>
-    </main>
+    <PublicEventSwipePage
+      id={id}
+      imageUrl={(event.image_url as string | null) ?? null}
+      title={event.title}
+      category={event.category_primary}
+      source={event.source}
+      creatorId={creatorId}
+      creator={creator}
+      cohostIds={cohostIds}
+      dateLine={dateLine}
+      timeLine={timeLine}
+      mapHref={mapHref}
+      venueName={venue?.name ?? null}
+      description={(event.description as string | null) ?? null}
+      descriptionTitle={(event as { description_title?: string | null }).description_title ?? null}
+      price={price}
+      isAnnounced={isAnnounced}
+      rsvpCounts={rsvpCounts}
+      attendees={attendees}
+      related={related as never}
+      sourceUrl={event.source_url ?? null}
+      guestsCanPost={guestsCanPost}
+      guestsCanReact={guestsCanReact}
+      initialMoments={initialMoments as never}
+      startAt={event.start_at}
+    />
   );
 }
