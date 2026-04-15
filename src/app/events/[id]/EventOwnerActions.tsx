@@ -97,7 +97,7 @@ export function EventOwnerActions({
   if (compact) {
     const btnStyle: React.CSSProperties = {
       display: "flex", alignItems: "center", justifyContent: "center",
-      width: 34, height: 34, borderRadius: "50%",
+      width: 39, height: 39, borderRadius: "50%",
       background: "rgba(18,25,36,0.50)",
       border: "1px solid rgba(255,255,255,0.14)",
       cursor: isOwner ? "pointer" : "default",
@@ -136,7 +136,7 @@ export function EventOwnerActions({
               <div style={{ position: "fixed", inset: 0, zIndex: 199 }} onClick={() => setMenuOpen(false)} />
               <div
                 style={{
-                  position: "absolute", top: 42, right: 0, zIndex: 200,
+                  position: "absolute", top: 47, right: 0, zIndex: 200,
                   background: "var(--background)", border: "1px solid var(--border)",
                   borderRadius: 12, overflow: "hidden",
                   boxShadow: "0 8px 32px rgba(0,0,0,0.18)", minWidth: 160,

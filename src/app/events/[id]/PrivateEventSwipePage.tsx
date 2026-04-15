@@ -206,7 +206,7 @@ export function PrivateEventSwipePage(props: Props) {
         }}>
           <BackButton style={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: 34, height: 34, borderRadius: "50%",
+            width: 39, height: 39, borderRadius: "50%",
             background: "rgba(18,25,36,0.50)",
             border: "1px solid rgba(255,255,255,0.14)",
             cursor: "pointer", color: "#fff", flexShrink: 0,
