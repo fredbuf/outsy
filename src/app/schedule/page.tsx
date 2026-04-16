@@ -487,7 +487,18 @@ function CalendarGrid({
 export default function SchedulePage() {
   const { user, loading: authLoading, session } = useAuth();
 
-  const [tab, setTab] = useState<Tab>("upcoming");
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "upcoming";
+    const p = new URLSearchParams(window.location.search).get("tab");
+    if (p === "hosting" || p === "calendar") return p;
+    return "upcoming";
+  });
+
+  function switchTab(t: Tab) {
+    setTab(t);
+    const url = t === "upcoming" ? "/schedule" : `/schedule?tab=${t}`;
+    window.history.replaceState(null, "", url);
+  }
 
 
   // ── Unified fetch state ──────────────────────────────────────────────────────
@@ -841,7 +852,7 @@ export default function SchedulePage() {
               role="tab"
               aria-selected={active}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => switchTab(id)}
               style={{
                 flex: 1, padding: "8px 4px", borderRadius: 9, border: "none",
                 background: active ? "var(--background)" : "transparent",

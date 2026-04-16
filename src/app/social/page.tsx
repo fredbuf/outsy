@@ -1044,6 +1044,8 @@ export default function SocialPage() {
 
   function handleTabSwitch(t: Tab) {
     setTab(t);
+    const url = t === "activity" ? "/social" : `/social?tab=${t}`;
+    window.history.replaceState(null, "", url);
   }
 
   if (loading) return null;

@@ -152,6 +152,10 @@ export function AttendeeList({
       ? `${goingCount} going${maybeCount > 0 ? ` · ${maybeCount} interested` : ""}`
       : `${maybeCount} interested`;
 
+  const MAX_VISIBLE = 3;
+  const visibleAvatars = initialAttendees.slice(0, MAX_VISIBLE);
+  const overflowCount = totalCount - MAX_VISIBLE;
+
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -161,51 +165,35 @@ export function AttendeeList({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 10,
+            gap: 8,
             background: "none",
             border: "none",
             padding: 0,
             cursor: "pointer",
           }}
         >
-          {/* Avatar stack */}
+          {/* Avatar stack — capped at MAX_VISIBLE */}
           <div style={{ display: "flex" }}>
-            {initialAttendees.map((a, i) => (
+            {visibleAvatars.map((a, i) => (
               <div
                 key={i}
                 style={{
                   marginLeft: i === 0 ? 0 : -(avatarSize * 0.27),
-                  zIndex: initialAttendees.length - i,
+                  zIndex: visibleAvatars.length - i,
                   position: "relative",
                 }}
               >
                 <AvatarCircle a={a} size={avatarSize} stackBorder />
               </div>
             ))}
-            {goingCount > initialAttendees.length && (
-              <div
-                style={{
-                  width: avatarSize,
-                  height: avatarSize,
-                  borderRadius: "50%",
-                  background: "var(--surface-subtle)",
-                  border: "2px solid var(--background)",
-                  marginLeft: -(avatarSize * 0.27),
-                  zIndex: 0,
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: Math.round(avatarSize * 0.33),
-                  fontWeight: 700,
-                  opacity: 0.75,
-                }}
-              >
-                +{goingCount - initialAttendees.length}
-              </div>
-            )}
           </div>
-          <span style={{ fontSize: 13, opacity: 0.7 }}>{countLabel}</span>
+          {/* Overflow indicator */}
+          {overflowCount > 0 && (
+            <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.70, flexShrink: 0 }}>
+              +{overflowCount}
+            </span>
+          )}
+          <span style={{ fontSize: 13, opacity: 0.7, flexShrink: 0 }}>{countLabel}</span>
         </button>
       </div>
 
