@@ -190,7 +190,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
 
   // Image
+  // imageFile holds metadata (name, type) for display/validation only.
+  // imageBytes holds pre-read bytes so iOS WebKit stale File URLs can't break upload.
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageBytes, setImageBytes] = useState<Blob | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(
     () => editData?.image_url ?? null
   );
@@ -370,9 +373,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   }, [imagePreview]);
 
   function handleImageChange(file: File | null) {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
     if (!file) {
       setImageFile(null);
+      setImageBytes(null);
       setImagePreview(null);
       return;
     }
@@ -387,6 +391,20 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     setError(null);
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+    // Eagerly read bytes into memory via FileReader so the in-memory Blob is
+    // independent of the File's internal media URL. On iOS WebKit (Safari and
+    // Chrome both use WKWebView), the File's internal URL expires after
+    // navigation — causing fetch() to throw "The string did not match the
+    // expected pattern" when it tries to read the stale reference at upload time.
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageBytes(new Blob([reader.result as ArrayBuffer], { type: file.type }));
+    };
+    reader.onerror = () => {
+      // FileReader failed — imageBytes stays null; upload will fall back to File.
+      setImageBytes(null);
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   function handleVenueNameChange(value: string) {
@@ -480,8 +498,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
+        // Use pre-read Blob bytes (avoids stale iOS WebKit File URL at upload time).
+        // Fall back to original File if bytes weren't read yet (e.g. very fast submit).
+        const uploadBlob = imageBytes ?? imageFile;
         const fd = new FormData();
-        fd.append("file", imageFile);
+        fd.append("file", new File([uploadBlob], imageFile.name, { type: imageFile.type }));
         const uploadRes = await fetch("/api/events/upload-image", {
           method: "POST",
           headers: authHeader,
@@ -575,33 +596,17 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        // Re-read bytes via FileReader in case the File reference has staled (iOS Safari).
-        let uploadFile: File;
-        try {
-          const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as ArrayBuffer);
-            reader.onerror = () => reject(reader.error);
-            reader.readAsArrayBuffer(imageFile);
-          });
-          uploadFile = new File([buf], imageFile.name, { type: imageFile.type });
-        } catch {
-          uploadFile = imageFile;
-        }
+        // Use pre-read Blob bytes (avoids stale iOS WebKit File URL at upload time).
+        // Fall back to original File if bytes weren't read yet (e.g. very fast submit).
+        const uploadBlob = imageBytes ?? imageFile;
         const fd = new FormData();
-        fd.append("file", uploadFile);
-        let uploadRes: Response;
-        let uploadJson: { ok?: boolean; url?: string; error?: string };
-        try {
-          uploadRes = await fetch("/api/events/upload-image", {
-            method: "POST",
-            headers: authHeader,
-            body: fd,
-          });
-          uploadJson = await uploadRes.json();
-        } catch (uploadErr) {
-          throw new Error(`[upload] ${uploadErr instanceof Error ? uploadErr.message : String(uploadErr)}`);
-        }
+        fd.append("file", new File([uploadBlob], imageFile.name, { type: imageFile.type }));
+        const uploadRes = await fetch("/api/events/upload-image", {
+          method: "POST",
+          headers: authHeader,
+          body: fd,
+        });
+        const uploadJson = await uploadRes.json();
         if (!uploadRes.ok || !uploadJson?.ok) {
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
@@ -646,18 +651,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             sourceUrl: sourceUrl.trim() || null,
           };
 
-      let res: Response;
-      let json: { ok?: boolean; eventId?: string; error?: string };
-      try {
-        res = await fetch("/api/events/submit", {
-          method: "POST",
-          headers: { "content-type": "application/json", ...authHeader },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-      } catch (submitErr) {
-        throw new Error(`[submit] ${submitErr instanceof Error ? submitErr.message : String(submitErr)}`);
-      }
+      const res = await fetch("/api/events/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...authHeader },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error ?? "Could not create event.");
       }
@@ -669,7 +668,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         setPublicSubmitted(true);
       }
     } catch (err) {
-      console.error("[handlePublish]", err);
       setError(err instanceof Error ? err.message : "Could not create event.");
     } finally {
       setSubmitting(false);
@@ -774,6 +772,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setVenueCity("Montréal");
               setSourceUrl("");
               setImageFile(null);
+              setImageBytes(null);
               setImagePreview(null);
             }}
             style={{
