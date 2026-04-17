@@ -561,6 +561,7 @@ export default function MapPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [filterClosing, setFilterClosing] = useState(false);
   // Draft state — lives only while the filter sheet is open.
   // Chips edit draft; X discards; ✓ commits to real filter state.
   const [draftDateFilter, setDraftDateFilter] = useState<DateFilter>("all");
@@ -740,7 +741,16 @@ export default function MapPage() {
     setDraftPickedDateEnd(pickedDateEnd);
     setDraftTimeFilter(timeFilter);
     setDraftTypeFilter(typeFilter);
+    setFilterClosing(false);
     setFilterOpen(true);
+  }
+
+  function closeFilter() {
+    setFilterClosing(true);
+    setTimeout(() => {
+      setFilterOpen(false);
+      setFilterClosing(false);
+    }, 250);
   }
 
   function confirmFilters() {
@@ -749,7 +759,7 @@ export default function MapPage() {
     setPickedDateEnd(draftPickedDateEnd);
     setTimeFilter(draftTimeFilter);
     setTypeFilter(draftTypeFilter);
-    setFilterOpen(false);
+    closeFilter();
   }
 
   function clearDraftFilters() {
@@ -1890,7 +1900,7 @@ export default function MapPage() {
       {/* Filter bottom sheet */}
       {filterOpen && (
         <div
-          onClick={(e) => e.target === e.currentTarget && setFilterOpen(false)}
+          onClick={(e) => e.target === e.currentTarget && closeFilter()}
           style={{
             position: "fixed",
             inset: 0,
@@ -1901,6 +1911,7 @@ export default function MapPage() {
           }}
         >
           <div
+            className={filterClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
             style={{
               background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
               border: "1px solid rgba(255,255,255,0.10)",
@@ -1912,11 +1923,16 @@ export default function MapPage() {
               maxHeight: "85dvh",
             }}
           >
+            {/* Grab handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.40)" }} />
+            </div>
+
             {/* Header: X · title+count · ✓ */}
             <div
               style={{
                 flexShrink: 0,
-                padding: "16px 16px 14px",
+                padding: "12px 16px 14px",
                 borderBottom: "1px solid rgba(255,255,255,0.08)",
                 display: "grid",
                 gridTemplateColumns: "40px 1fr 40px",
@@ -1926,7 +1942,7 @@ export default function MapPage() {
               {/* Close — discard draft */}
               <button
                 type="button"
-                onClick={() => setFilterOpen(false)}
+                onClick={closeFilter}
                 aria-label="Close filters"
                 style={{
                   width: 34, height: 34, borderRadius: "50%",
@@ -1939,7 +1955,6 @@ export default function MapPage() {
                   flexShrink: 0,
                 }}
               >
-                {/* X icon */}
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <line x1="1" y1="1" x2="13" y2="13" /><line x1="13" y1="1" x2="1" y2="13" />
                 </svg>
@@ -1947,7 +1962,7 @@ export default function MapPage() {
 
               {/* Title + count */}
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>Filters</div>
+                <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: "#FFFFFF" }}>Filters</div>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
                   {draftFilteredCount} event{draftFilteredCount !== 1 ? "s" : ""}
                 </div>
@@ -1969,7 +1984,6 @@ export default function MapPage() {
                   flexShrink: 0, justifySelf: "end",
                 }}
               >
-                {/* Check icon */}
                 <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="2,8 6,12 13,3" />
                 </svg>
@@ -2103,12 +2117,13 @@ export default function MapPage() {
                 <button
                   type="button"
                   onClick={clearDraftFilters}
+                  className="filter-clear-btn"
                   style={{
-                    padding: "8px 24px",
+                    padding: "9px 28px",
                     borderRadius: 20,
                     border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.05)",
-                    color: "rgba(255,255,255,0.70)",
+                    background: "rgba(255,255,255,0.08)",
+                    color: "rgba(255,255,255,0.85)",
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: "pointer",

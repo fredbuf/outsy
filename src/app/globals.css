@@ -149,6 +149,28 @@ body.settings-open .bottom-nav {
 }
 
 
+/* ── Filter bottom sheet animations ────────────────────────────────────── */
+@keyframes filter-sheet-in {
+  from { transform: translateY(100%); opacity: 0.7; }
+  to   { transform: translateY(0);    opacity: 1;   }
+}
+@keyframes filter-sheet-out {
+  from { transform: translateY(0);    opacity: 1;   }
+  to   { transform: translateY(100%); opacity: 0.7; }
+}
+.filter-sheet-enter {
+  animation: filter-sheet-in 0.27s ease-out forwards;
+}
+.filter-sheet-exit {
+  animation: filter-sheet-out 0.25s ease-in forwards;
+}
+.filter-clear-btn {
+  transition: background 0.15s ease, transform 0.08s ease;
+}
+.filter-clear-btn:active {
+  transform: scale(0.93);
+}
+
 /* ── Skeleton pulse ─────────────────────────────────────────────────────── */
 @keyframes sk-pulse {
   0%, 100% { opacity: 1; }
