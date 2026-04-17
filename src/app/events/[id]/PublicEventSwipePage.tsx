@@ -127,6 +127,8 @@ type Props = {
   previewMode?: boolean;
   onPreviewBack?: () => void;
   onPublish?: () => void;
+  previewSubmitting?: boolean;
+  previewError?: string | null;
 };
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -146,6 +148,8 @@ export function PublicEventSwipePage(props: Props) {
     previewMode = false,
     onPreviewBack,
     onPublish,
+    previewSubmitting = false,
+    previewError = null,
   } = props;
 
   const [page, setPage] = useState(0); // 0 = about, 1 = moments
@@ -245,15 +249,17 @@ export function PublicEventSwipePage(props: Props) {
           {previewMode ? (
             <button
               type="button"
+              disabled={previewSubmitting}
               onClick={onPublish}
               style={{
                 height: 33, padding: "0 18px", borderRadius: 20,
-                background: "#ffffff", border: "none",
+                background: previewSubmitting ? "rgba(255,255,255,0.55)" : "#ffffff",
+                border: "none",
                 color: "#0b0f14", fontWeight: 700, fontSize: 13,
-                cursor: "pointer", flexShrink: 0,
+                cursor: previewSubmitting ? "not-allowed" : "pointer", flexShrink: 0,
               }}
             >
-              Publish
+              {previewSubmitting ? "Publishing…" : "Publish"}
             </button>
           ) : (
             <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} />
@@ -319,6 +325,23 @@ export function PublicEventSwipePage(props: Props) {
           )}
         </div>
       </div>
+
+      {/* ── PREVIEW ERROR BANNER ──────────────────────────────────────────── */}
+      {previewMode && previewError && (
+        <div style={{
+          margin: "12px 20px 0",
+          padding: "10px 14px",
+          borderRadius: 12,
+          background: "rgba(220,38,38,0.15)",
+          border: "1px solid rgba(220,38,38,0.35)",
+          color: "#fca5a5",
+          fontSize: 13,
+          fontWeight: 500,
+          lineHeight: 1.4,
+        }}>
+          {previewError}
+        </div>
+      )}
 
       {/* ── SEGMENTED CONTROL ─────────────────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "center", padding: "16px 20px 8px" }}>

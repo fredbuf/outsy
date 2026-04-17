@@ -643,6 +643,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         setPublicSubmitted(true);
       }
     } catch (err) {
+      console.error("[handlePublish]", err);
       setError(err instanceof Error ? err.message : "Could not create event.");
     } finally {
       setSubmitting(false);
@@ -814,6 +815,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           previewMode
           onPreviewBack={() => setShowPreview(false)}
           onPublish={handlePublish}
+          previewSubmitting={submitting}
+          previewError={error}
         />
       );
     }
@@ -847,6 +850,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         previewMode
         onPreviewBack={() => setShowPreview(false)}
         onPublish={handlePublish}
+        previewSubmitting={submitting}
+        previewError={error}
       />
     );
 
@@ -1215,7 +1220,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       style={{
                         display: "block", width: "100%", boxSizing: "border-box",
                         padding: "0 0 10px", border: "none",
-                        fontSize: 15, fontWeight: 600,
+                        fontSize: 16, fontWeight: 600,
                         background: "transparent", color: "inherit",
                         outline: "none", fontFamily: "inherit",
                         borderBottom: "1px solid var(--border)",
@@ -1231,7 +1236,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       style={{
                         display: "block", width: "100%", boxSizing: "border-box",
                         padding: 0, border: "none",
-                        fontSize: 15, background: "transparent", color: "inherit",
+                        fontSize: 16, background: "transparent", color: "inherit",
                         resize: "vertical", outline: "none",
                         fontFamily: "inherit", lineHeight: 1.6,
                       }}
@@ -1348,7 +1353,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               <button
                 type="button"
                 disabled={!canSubmit}
-                onClick={() => setShowPreview(true)}
+                onClick={() => { setError(null); setShowPreview(true); }}
                 style={{
                   height: 30, padding: "0 22px",
                   borderRadius: 999,
