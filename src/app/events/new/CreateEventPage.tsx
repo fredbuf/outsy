@@ -607,8 +607,9 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             throw new Error(uploadJson?.error ?? "Image upload failed.");
           }
         } catch (uploadErr) {
+          const uploadMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
           console.error("[handlePublish] UPLOAD STEP threw", uploadErr);
-          throw uploadErr;
+          throw new Error(`[upload] ${uploadMsg}`);
         }
         imageUrl = uploadJson.url as string;
       }
@@ -664,19 +665,26 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         json = await res.json();
         console.log("[handlePublish] submit result", res.status, json);
       } catch (submitErr) {
+        const submitMsg = submitErr instanceof Error ? submitErr.message : String(submitErr);
         console.error("[handlePublish] SUBMIT STEP threw", submitErr);
-        throw submitErr;
+        throw new Error(`[submit] ${submitMsg}`);
       }
 
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error ?? "Could not create event.");
       }
 
-      if (isPrivate) {
-        router.push(`/events/${json.eventId}`);
-      } else {
-        setShowPreview(false);
-        setPublicSubmitted(true);
+      try {
+        if (isPrivate) {
+          router.push(`/events/${json.eventId}`);
+        } else {
+          setShowPreview(false);
+          setPublicSubmitted(true);
+        }
+      } catch (navErr) {
+        const navMsg = navErr instanceof Error ? navErr.message : String(navErr);
+        console.error("[handlePublish] NAV STEP threw", navErr);
+        throw new Error(`[nav] ${navMsg}`);
       }
     } catch (err) {
       console.error("[handlePublish] CAUGHT", err);
