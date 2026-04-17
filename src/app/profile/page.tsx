@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 import { useBottomNav } from "../components/BottomNavContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -188,6 +189,7 @@ function DetailSheet({
 
 export default function ProfilePage() {
   const { user, loading: authLoading, session } = useAuth();
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [goingEvents, setGoingEvents] = useState<EventRow[]>([]);
@@ -212,7 +214,6 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (authLoading || !session?.access_token) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetching(true);
     const token = session.access_token;
     Promise.all([
@@ -248,6 +249,14 @@ export default function ProfilePage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editOpen, activeSheet, settingsOpen]);
+
+  // Restore active sheet from URL on mount (e.g. returning via back button)
+  useEffect(() => {
+    const sheet = new URLSearchParams(window.location.search).get("sheet");
+    if (sheet === "friends" || sheet === "following" || sheet === "events") {
+      setActiveSheet(sheet);
+    }
+  }, []);
 
   async function handleSignOut() {
     setSettingsOpen(false);
@@ -572,7 +581,7 @@ export default function ProfilePage() {
         >
           <button
             type="button"
-            onClick={() => { setActiveSheet("friends"); setSheetSearch(""); }}
+            onClick={() => { setActiveSheet("friends"); setSheetSearch(""); router.replace("/profile?sheet=friends", { scroll: false }); }}
             style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
           >
             <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{friends.length}</span>
@@ -581,7 +590,7 @@ export default function ProfilePage() {
           <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
           <button
             type="button"
-            onClick={() => { setActiveSheet("following"); setSheetSearch(""); }}
+            onClick={() => { setActiveSheet("following"); setSheetSearch(""); router.replace("/profile?sheet=following", { scroll: false }); }}
             style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
           >
             <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>0</span>
@@ -590,7 +599,7 @@ export default function ProfilePage() {
           <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
           <button
             type="button"
-            onClick={() => { setActiveSheet("events"); setSheetSearch(""); }}
+            onClick={() => { setActiveSheet("events"); setSheetSearch(""); router.replace("/profile?sheet=events", { scroll: false }); }}
             style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
           >
             <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{goingEvents.length + interestedEvents.length + events.length}</span>
@@ -604,7 +613,7 @@ export default function ProfilePage() {
       {activeSheet === "friends" && (
         <DetailSheet
           title={`Friends · ${friends.length}`}
-          onClose={() => setActiveSheet(null)}
+          onClose={() => { setActiveSheet(null); router.replace("/profile", { scroll: false }); }}
           search={sheetSearch}
           onSearchChange={setSheetSearch}
           searchPlaceholder="Search friends…"
@@ -666,7 +675,7 @@ export default function ProfilePage() {
       {activeSheet === "following" && (
         <DetailSheet
           title="Following"
-          onClose={() => setActiveSheet(null)}
+          onClose={() => { setActiveSheet(null); router.replace("/profile", { scroll: false }); }}
           search={sheetSearch}
           onSearchChange={setSheetSearch}
           searchPlaceholder="Search…"
@@ -681,7 +690,7 @@ export default function ProfilePage() {
       {activeSheet === "events" && (
         <DetailSheet
           title={`Events · ${goingEvents.length + interestedEvents.length + events.length}`}
-          onClose={() => setActiveSheet(null)}
+          onClose={() => { setActiveSheet(null); router.replace("/profile", { scroll: false }); }}
           search={sheetSearch}
           onSearchChange={setSheetSearch}
           searchPlaceholder="Search events…"

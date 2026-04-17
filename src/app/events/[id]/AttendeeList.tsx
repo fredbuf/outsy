@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Attendee = { display_name: string | null; avatar_url: string | null; userId?: string | null };
@@ -107,9 +108,19 @@ export function AttendeeList({
   maybeCount: number;
   avatarSize?: number;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [allAttendees, setAllAttendees] = useState<FullAttendee[] | null>(null);
   const [fetching, setFetching] = useState(false);
+
+  // Re-open modal when returning via back button from a profile page
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("guests") === "open") {
+      handleOpen();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -118,8 +129,22 @@ export function AttendeeList({
     };
   }, [open]);
 
+  function closeModal() {
+    setOpen(false);
+    const sp = new URLSearchParams(window.location.search);
+    sp.delete("guests");
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   async function handleOpen() {
     setOpen(true);
+    // Stamp URL so back-navigation from a profile restores this modal
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("guests") !== "open") {
+      sp.set("guests", "open");
+      router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
+    }
     if (allAttendees !== null) return;
     setFetching(true);
     const { data } = await supabaseBrowser()
@@ -200,7 +225,7 @@ export function AttendeeList({
       {/* Attendee modal */}
       {open && createPortal(
         <div
-          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
+          onClick={(e) => e.target === e.currentTarget && closeModal()}
           style={{
             position: "fixed",
             inset: 0,
@@ -244,7 +269,7 @@ export function AttendeeList({
               </h2>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeModal}
                 aria-label="Close"
                 style={{
                   background: "none",

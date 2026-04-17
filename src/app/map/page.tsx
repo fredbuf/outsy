@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { BackButton } from "../events/[id]/BackButton";
 
@@ -533,6 +534,7 @@ function MiniCalendar({
 }
 
 export default function MapPage() {
+  const router = useRouter();
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -611,6 +613,19 @@ export default function MapPage() {
     } else {
       const q = params.get("q");
       if (q) { setSearchQuery(q); setDebouncedSearchQuery(q); }
+      // Restore filter state preserved in URL (e.g. returning via back button)
+      const cat = params.get("cat") as MapCategory | null;
+      if (cat && cat !== "all") setSelectedCategory(cat);
+      const date = params.get("date") as DateFilter | null;
+      if (date && date !== "all") setDateFilter(date);
+      const dateFrom = params.get("dateFrom");
+      if (dateFrom) setPickedDate(dateFrom);
+      const dateTo = params.get("dateTo");
+      if (dateTo) setPickedDateEnd(dateTo);
+      const time = params.get("time") as TimeFilter | null;
+      if (time && time !== "all") setTimeFilter(time);
+      const type = params.get("type") as TypeFilter | null;
+      if (type && type !== "all") setTypeFilter(type);
     }
   }, []);
 
@@ -685,6 +700,24 @@ export default function MapPage() {
     const id = setTimeout(() => setDebouncedSearchQuery(searchQuery), 200);
     return () => clearTimeout(id);
   }, [searchQuery]);
+
+  // Persist filter state in URL so navigating to an event and pressing back
+  // restores the exact filter configuration. Skipped in deep-link mode
+  // (isDeepLinkActiveRef) where the URL is controlled by the eventId param.
+  useEffect(() => {
+    if (isDeepLinkActiveRef.current) return;
+    const params = new URLSearchParams();
+    if (selectedCategory !== "all") params.set("cat", selectedCategory);
+    if (dateFilter !== "all")        params.set("date", dateFilter);
+    if (dateFilter === "pick_date" && pickedDate)    params.set("dateFrom", pickedDate);
+    if (dateFilter === "pick_date" && pickedDateEnd) params.set("dateTo",   pickedDateEnd);
+    if (timeFilter !== "all") params.set("time", timeFilter);
+    if (typeFilter !== "all") params.set("type", typeFilter);
+    if (debouncedSearchQuery) params.set("q", debouncedSearchQuery);
+    const qs = params.toString();
+    router.replace(qs ? `/map?${qs}` : "/map", { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter, debouncedSearchQuery]);
 
   const filterActive =
     dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
