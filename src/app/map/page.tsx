@@ -16,38 +16,41 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 // ── Custom map style ──────────────────────────────────────────────────────────
-// Warm off-white base, muted POIs, soft roads — clean and readable.
+// Dark blue-grey matching the app palette (#0B0F14 base, blue-tinted roads).
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  { elementType: "geometry",                           stylers: [{ color: "#faf8f5" }] },
-  { elementType: "labels.text.stroke",                 stylers: [{ color: "#faf8f5" }] },
-  { elementType: "labels.text.fill",                   stylers: [{ color: "#7a7570" }] },
-  // Water
-  { featureType: "water", elementType: "geometry",     stylers: [{ color: "#c8d8ea" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#8fa8c2" }] },
+  // Base geometry — deep dark matching app background
+  { elementType: "geometry",                              stylers: [{ color: "#0d1520" }] },
+  { elementType: "labels.text.stroke",                    stylers: [{ color: "#0b0f14" }] },
+  { elementType: "labels.text.fill",                      stylers: [{ color: "#8c98a8" }] },
+  // Water — deep navy
+  { featureType: "water", elementType: "geometry",        stylers: [{ color: "#091525" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#2a4a6a" }] },
   // Landscape
-  { featureType: "landscape", elementType: "geometry", stylers: [{ color: "#f5f2ed" }] },
-  // Parks — keep readable, soft sage
-  { featureType: "poi.park", elementType: "geometry",          stylers: [{ color: "#daebd2" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill",  stylers: [{ color: "#6d956a" }] },
+  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0f1822" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#111d2a" }] },
+  // Parks — very dark teal tint
+  { featureType: "poi.park", elementType: "geometry",          stylers: [{ color: "#0a1a15" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill",  stylers: [{ color: "#2a5a48" }] },
   { featureType: "poi.park", elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  // POIs — hide icons and business clutter
+  // POIs — hide all icons and business clutter
   { featureType: "poi",          elementType: "labels.icon",      stylers: [{ visibility: "off" }] },
   { featureType: "poi.business",                                   stylers: [{ visibility: "off" }] },
-  { featureType: "poi",          elementType: "labels.text.fill",  stylers: [{ color: "#b0aba6" }] },
-  // Roads
-  { featureType: "road",          elementType: "geometry",          stylers: [{ color: "#ffffff" }] },
-  { featureType: "road.arterial", elementType: "geometry",          stylers: [{ color: "#ede9e4" }] },
-  { featureType: "road.highway",  elementType: "geometry",          stylers: [{ color: "#e5e0d8" }] },
-  { featureType: "road.highway",  elementType: "geometry.stroke",   stylers: [{ color: "#d8d3cb" }] },
-  { featureType: "road",          elementType: "labels.text.fill",  stylers: [{ color: "#8a8580" }] },
+  { featureType: "poi",          elementType: "labels.text.fill",  stylers: [{ color: "#2e3d4e" }] },
+  // Roads — dark with blue-grey tint
+  { featureType: "road",          elementType: "geometry",          stylers: [{ color: "#1a2535" }] },
+  { featureType: "road",          elementType: "geometry.stroke",   stylers: [{ color: "#111d2a" }] },
+  { featureType: "road.arterial", elementType: "geometry",          stylers: [{ color: "#1e2c40" }] },
+  { featureType: "road.highway",  elementType: "geometry",          stylers: [{ color: "#253448" }] },
+  { featureType: "road.highway",  elementType: "geometry.stroke",   stylers: [{ color: "#1e2c40" }] },
+  { featureType: "road",          elementType: "labels.text.fill",  stylers: [{ color: "#4a5a6a" }] },
   { featureType: "road",          elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  // Transit — minimal
-  { featureType: "transit",         elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  { featureType: "transit.line",    elementType: "geometry",          stylers: [{ color: "#ddd8d0" }] },
-  { featureType: "transit.station", elementType: "labels.text.fill",  stylers: [{ color: "#a09890" }] },
-  // Administrative
-  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#666260" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#9a9490" }] },
+  // Transit — hide icons, minimal lines
+  { featureType: "transit",         elementType: "labels.icon",      stylers: [{ visibility: "off" }] },
+  { featureType: "transit.line",    elementType: "geometry",         stylers: [{ color: "#131e2c" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#2e3d4e" }] },
+  // Administrative — soft blue-grey labels
+  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#5e7080" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#3a4e60" }] },
 ];
 
 // ── Legacy circle icons (fallback when MAP_ID is not set) ─────────────────────
@@ -55,7 +58,7 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
 const MARKER_DEFAULT: google.maps.Symbol = {
   path: 0 as google.maps.SymbolPath,
   scale: 7,
-  fillColor: "#7c3aed",
+  fillColor: "#2563EB",
   fillOpacity: 1,
   strokeColor: "#ffffff",
   strokeWeight: 1.5,
@@ -64,7 +67,7 @@ const MARKER_DEFAULT: google.maps.Symbol = {
 const MARKER_SELECTED: google.maps.Symbol = {
   path: 0 as google.maps.SymbolPath,
   scale: 11,
-  fillColor: "#7c3aed",
+  fillColor: "#2563EB",
   fillOpacity: 1,
   strokeColor: "#ffffff",
   strokeWeight: 3,
@@ -96,8 +99,8 @@ function createMarkerEl(imageUrl: string | null, selected: boolean, category = "
   const size   = selected ? 52 : 40;
   const border = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
   const shadow = selected
-    ? "0 0 0 2px #7c3aed, 0 4px 20px rgba(0,0,0,0.40)"
-    : "0 1px 8px rgba(0,0,0,0.30)";
+    ? "0 0 0 3px rgba(37,99,235,0.70), 0 4px 24px rgba(37,99,235,0.30), 0 4px 20px rgba(0,0,0,0.50)"
+    : "0 2px 10px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.10)";
 
   const el = document.createElement("div");
   el.style.cssText = [
@@ -127,8 +130,8 @@ function updateMarkerEl(el: HTMLElement, selected: boolean): void {
   el.style.height    = selected ? "52px" : "40px";
   el.style.border    = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
   el.style.boxShadow = selected
-    ? "0 0 0 2px #7c3aed, 0 4px 20px rgba(0,0,0,0.40)"
-    : "0 1px 8px rgba(0,0,0,0.30)";
+    ? "0 0 0 3px rgba(37,99,235,0.70), 0 4px 24px rgba(37,99,235,0.30), 0 4px 20px rgba(0,0,0,0.50)"
+    : "0 2px 10px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.10)";
 }
 
 type MapEvent = {
@@ -508,12 +511,12 @@ function MiniCalendar({
                 fontSize: 13,
                 fontWeight: isSelected ? 700 : 400,
                 background: isSelected
-                  ? "#7c3aed"
+                  ? "#2563EB"
                   : inRange
-                  ? "rgba(124,58,237,0.14)"
+                  ? "rgba(37,99,235,0.18)"
                   : "transparent",
-                color: isSelected ? "#fff" : isToday ? "#7c3aed" : "inherit",
-                outline: isToday && !isSelected ? "1.5px solid #7c3aed" : "none",
+                color: isSelected ? "#fff" : isToday ? "#5EA8FF" : "inherit",
+                outline: isToday && !isSelected ? "1.5px solid #2563EB" : "none",
                 outlineOffset: -1,
               }}
             >
@@ -1352,6 +1355,28 @@ export default function MapPage() {
         {/* Google Maps canvas */}
         <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
 
+        {/* Top edge fade — blends map into app chrome, never blocks touches */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 130,
+            background: "linear-gradient(to bottom, #0B0F14 0%, rgba(11,15,20,0.60) 55%, transparent 100%)",
+            pointerEvents: "none",
+            zIndex: 8,
+          }}
+        />
+
+        {/* Bottom edge fade — softens map below the event cards */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 160,
+            background: "linear-gradient(to top, #0B0F14 0%, rgba(11,15,20,0.55) 55%, transparent 100%)",
+            pointerEvents: "none",
+            zIndex: 8,
+          }}
+        />
+
         {/* Top overlay — back + search + filter button (row 1) + category chips (row 2) */}
         <div
           style={{
@@ -1377,13 +1402,13 @@ export default function MapPage() {
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                border: "none",
-                background: "rgba(255,255,255,0.88)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                background: "rgba(16,23,34,0.82)",
+                backdropFilter: "blur(16px) saturate(160%)",
+                WebkitBackdropFilter: "blur(16px) saturate(160%)",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.50)",
                 cursor: "pointer",
-                color: "#333",
+                color: "#F5F7FA",
                 touchAction: "manipulation",
               }}
             >
@@ -1406,14 +1431,14 @@ export default function MapPage() {
                   width: "100%",
                   height: 44,
                   borderRadius: mapSuggestions.length > 0 ? "22px 22px 0 0" : 22,
-                  border: "none",
+                  border: "1px solid rgba(255,255,255,0.10)",
                   padding: searchQuery ? "0 40px 0 16px" : "0 16px",
                   fontSize: 16,
-                  background: "rgba(255,255,255,0.92)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
-                  color: "#1c1917",
+                  background: "rgba(16,23,34,0.82)",
+                  backdropFilter: "blur(16px) saturate(160%)",
+                  WebkitBackdropFilter: "blur(16px) saturate(160%)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.50)",
+                  color: "#F5F7FA",
                   boxSizing: "border-box",
                 }}
               />
@@ -1441,7 +1466,7 @@ export default function MapPage() {
                     alignItems: "center",
                     justifyContent: "center",
                     padding: 4,
-                    color: "#78716c",
+                    color: "rgba(245,247,250,0.45)",
                     zIndex: 1,
                     touchAction: "manipulation",
                   }}
@@ -1461,11 +1486,13 @@ export default function MapPage() {
                     top: "100%",
                     left: 0,
                     right: 0,
-                    background: "rgba(255,255,255,0.96)",
-                    backdropFilter: "blur(16px)",
-                    WebkitBackdropFilter: "blur(16px)",
+                    background: "rgba(16,23,34,0.96)",
+                    backdropFilter: "blur(20px) saturate(160%)",
+                    WebkitBackdropFilter: "blur(20px) saturate(160%)",
                     borderRadius: "0 0 16px 16px",
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderTop: "none",
+                    boxShadow: "0 8px 28px rgba(0,0,0,0.55)",
                     overflow: "hidden",
                     zIndex: 20,
                   }}
@@ -1509,7 +1536,7 @@ export default function MapPage() {
                           style={{
                             fontSize: 13,
                             fontWeight: 600,
-                            color: "#1c1917",
+                            color: "#F5F7FA",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -1521,7 +1548,7 @@ export default function MapPage() {
                           <div
                             style={{
                               fontSize: 11,
-                              color: "#78716c",
+                              color: "rgba(245,247,250,0.50)",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                               whiteSpace: "nowrap",
@@ -1547,18 +1574,18 @@ export default function MapPage() {
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                border: "none",
-                background: filterActive ? "#7c3aed" : "rgba(255,255,255,0.88)",
-                backdropFilter: filterActive ? "none" : "blur(12px)",
-                WebkitBackdropFilter: filterActive ? "none" : "blur(12px)",
+                border: filterActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                background: filterActive ? "#2563EB" : "rgba(16,23,34,0.82)",
+                backdropFilter: filterActive ? "none" : "blur(16px) saturate(160%)",
+                WebkitBackdropFilter: filterActive ? "none" : "blur(16px) saturate(160%)",
                 boxShadow: filterActive
-                  ? "0 2px 12px rgba(124,58,237,0.35)"
-                  : "0 2px 12px rgba(0,0,0,0.16)",
+                  ? "0 2px 14px rgba(37,99,235,0.45)"
+                  : "0 4px 20px rgba(0,0,0,0.50)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
-                color: filterActive ? "#fff" : "#333",
+                color: "#F5F7FA",
                 touchAction: "manipulation",
               }}
             >
@@ -1590,17 +1617,17 @@ export default function MapPage() {
                     flexShrink: 0,
                     padding: "7px 14px",
                     borderRadius: 20,
-                    border: "none",
-                    background: isActive ? "#7c3aed" : "rgba(255,255,255,0.88)",
-                    backdropFilter: isActive ? "none" : "blur(8px)",
-                    WebkitBackdropFilter: isActive ? "none" : "blur(8px)",
-                    color: isActive ? "#fff" : "#1c1917",
+                    border: isActive ? "none" : "1px solid rgba(255,255,255,0.09)",
+                    background: isActive ? "#2563EB" : "rgba(16,23,34,0.80)",
+                    backdropFilter: isActive ? "none" : "blur(14px) saturate(150%)",
+                    WebkitBackdropFilter: isActive ? "none" : "blur(14px) saturate(150%)",
+                    color: "#F5F7FA",
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: "pointer",
                     boxShadow: isActive
-                      ? "0 2px 8px rgba(124,58,237,0.30)"
-                      : "0 1px 6px rgba(0,0,0,0.14)",
+                      ? "0 2px 10px rgba(37,99,235,0.40)"
+                      : "0 2px 10px rgba(0,0,0,0.40)",
                     touchAction: "manipulation",
                   }}
                 >
@@ -1617,13 +1644,14 @@ export default function MapPage() {
                 style={{
                   padding: "4px 12px",
                   borderRadius: 20,
-                  background: "rgba(255,255,255,0.78)",
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
+                  background: "rgba(16,23,34,0.75)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255,255,255,0.08)",
                   fontSize: 11,
                   fontWeight: 600,
-                  color: "#78716c",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+                  color: "rgba(245,247,250,0.60)",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
                   letterSpacing: "0.02em",
                 }}
               >
@@ -1649,16 +1677,16 @@ export default function MapPage() {
               width: 44,
               height: 44,
               borderRadius: "50%",
-              border: "none",
-              background: "rgba(255,255,255,0.88)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.16)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "rgba(16,23,34,0.82)",
+              backdropFilter: "blur(16px) saturate(160%)",
+              WebkitBackdropFilter: "blur(16px) saturate(160%)",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.50)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "#333",
+              color: "#F5F7FA",
               touchAction: "manipulation",
             }}
           >
@@ -1712,13 +1740,14 @@ export default function MapPage() {
                   style={{
                     padding: "5px 14px",
                     borderRadius: 20,
-                    background: "rgba(255,255,255,0.88)",
-                    backdropFilter: "blur(12px)",
-                    WebkitBackdropFilter: "blur(12px)",
+                    background: "rgba(16,23,34,0.85)",
+                    backdropFilter: "blur(14px) saturate(160%)",
+                    WebkitBackdropFilter: "blur(14px) saturate(160%)",
+                    border: "1px solid rgba(255,255,255,0.09)",
                     fontSize: 12,
                     fontWeight: 700,
-                    color: "#1c1917",
-                    boxShadow: "0 1px 6px rgba(0,0,0,0.14)",
+                    color: "#F5F7FA",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.45)",
                     maxWidth: "calc(100% - 48px)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
