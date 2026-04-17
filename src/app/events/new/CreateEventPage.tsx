@@ -212,6 +212,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publicSubmitted, setPublicSubmitted] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Cohost (private events only) — supports multiple
   type CohostProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null };
@@ -349,16 +350,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     return () => {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
-  }, [imagePreview]);
-
-  // Toggle aurora background: active when no image, removed when one is uploaded
-  useEffect(() => {
-    if (!imagePreview) {
-      document.body.classList.add("is-aurora-page");
-    } else {
-      document.body.classList.remove("is-aurora-page");
-    }
-    return () => { document.body.classList.remove("is-aurora-page"); };
   }, [imagePreview]);
 
   function handleImageChange(file: File | null) {
@@ -555,6 +546,92 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     }
   }
 
+  async function handlePublish() {
+    if (!canSubmit) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const authHeader: Record<string, string> = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        const fd = new FormData();
+        fd.append("file", imageFile);
+        const uploadRes = await fetch("/api/events/upload-image", {
+          method: "POST",
+          headers: authHeader,
+          body: fd,
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson?.ok) {
+          throw new Error(uploadJson?.error ?? "Image upload failed.");
+        }
+        imageUrl = uploadJson.url as string;
+      }
+
+      const basePayload = { title, description, descriptionTitle: descriptionTitle.trim() || undefined, startAt, endAt, visibility, imageUrl };
+      const payload = isPrivate
+        ? {
+            ...basePayload,
+            category: "concerts",
+            venueName: privatePlaceName.trim() || privateAddress.trim() || "",
+            venueAddress: privateAddress.trim() || "",
+            venueCity: "Montréal",
+            venueId: null,
+            sourceUrl: null,
+            lat: privateLat ?? undefined,
+            lng: privateLng ?? undefined,
+            placeId: privatePlaceId ?? undefined,
+            cohostIds: cohostIds.length > 0 ? cohostIds : undefined,
+            spotsMode,
+            spotsLimit: spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
+              ? parseInt(spotsLimit)
+              : null,
+            price: costAmount.trim() && parseFloat(costAmount) > 0
+              ? parseFloat(costAmount)
+              : null,
+            currency: costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
+            paymentMethod: costAmount.trim() && parseFloat(costAmount) > 0 ? "interac" : null,
+            paymentContact: costAmount.trim() && parseFloat(costAmount) > 0
+              ? costPaymentContact.trim() || null
+              : null,
+            rsvpDeadline: rsvpDeadline || null,
+          }
+        : {
+            ...basePayload,
+            category,
+            venueName,
+            venueAddress,
+            venueCity,
+            venueId: venueId ?? null,
+            sourceUrl: sourceUrl.trim() || null,
+          };
+
+      const res = await fetch("/api/events/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...authHeader },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error ?? "Could not create event.");
+      }
+
+      if (isPrivate) {
+        router.push(`/events/${json.eventId}`);
+      } else {
+        setShowPreview(false);
+        setPublicSubmitted(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create event.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   // Auth guard
   if (!authLoading && !user) {
     return (
@@ -672,6 +749,215 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     );
   }
 
+  // ── Preview mode ────────────────────────────────────────────────
+  if (showPreview) {
+    const previewDarkVars = {
+      color: "#eae8e4",
+      "--background":     "rgba(18,25,36,0.55)",
+      "--foreground":     "#eae8e4",
+      "--border":         "rgba(255,255,255,0.10)",
+      "--border-strong":  "rgba(255,255,255,0.18)",
+      "--btn-bg":         "rgba(255,255,255,0.07)",
+      "--btn-bg-active":  "rgba(255,255,255,0.13)",
+      "--surface-subtle": "rgba(255,255,255,0.04)",
+      "--surface-raised": "rgba(255,255,255,0.09)",
+      "--accent":         "#5EA8FF",
+    } as React.CSSProperties;
+
+    const previewGlassCircle: React.CSSProperties = {
+      display: "flex", alignItems: "center", justifyContent: "center",
+      width: 39, height: 39, borderRadius: "50%",
+      background: "rgba(0,0,0,0.30)",
+      border: "1px solid rgba(255,255,255,0.16)",
+      color: "#fff", cursor: "pointer", flexShrink: 0,
+    };
+
+    return (
+      <div style={{ position: "relative", zIndex: 1, minHeight: "100dvh", background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)", ...previewDarkVars }}>
+        {/* Hero */}
+        <div style={{ position: "relative", aspectRatio: "9/10", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
+          {imagePreview && (
+            <img
+              src={imagePreview}
+              alt="Cover"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )}
+          {/* Overlay */}
+          <div
+            style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              background: imagePreview
+                ? "linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 22%), linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)"
+                : "linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 18%), linear-gradient(to top, rgba(11,15,20,0.85) 0%, transparent 40%)",
+            }}
+          />
+
+          {/* Nav: Back left, Publish right */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px" }}>
+            <button
+              type="button"
+              aria-label="Back to editing"
+              style={previewGlassCircle}
+              onClick={() => setShowPreview(false)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={handlePublish}
+              style={{
+                padding: "9px 20px", borderRadius: 20,
+                background: submitting ? "rgba(255,255,255,0.55)" : "#ffffff",
+                color: "#0b0f14",
+                fontWeight: 700, fontSize: 14, border: "none",
+                cursor: submitting ? "not-allowed" : "pointer",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {submitting ? "Publishing…" : "Publish"}
+            </button>
+          </div>
+
+          {/* Bottom: title, date, location */}
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
+              padding: "90px 28px 40px",
+              textAlign: "center",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+            }}
+          >
+            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#fff" }}>
+              {title || "Event title"}
+            </h1>
+            {dateLine && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                {dateLine}
+              </div>
+            )}
+            {locationLine && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                {locationLine}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lower preview section */}
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 80px", ...previewDarkVars }}>
+          {/* Hosted by card */}
+          {user && (
+            <div
+              style={{
+                borderRadius: 18,
+                background: "rgba(18,25,36,0.50)",
+                border: "1px solid rgba(255,255,255,0.14)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                padding: "16px 18px",
+                marginBottom: 12,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(displayName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                    {getInitials(displayName)}
+                  </div>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Organized by</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {[displayName, ...cohostProfiles.map(cp => cp.display_name ?? `@${cp.username}`)].join(" & ")}
+                  </div>
+                </div>
+              </div>
+              {description && (
+                <>
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "14px 0" }} />
+                  {descriptionTitle && (
+                    <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700 }}>{descriptionTitle}</p>
+                  )}
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, opacity: 0.75, whiteSpace: "pre-wrap" }}>{description}</p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Options chips row (private only) */}
+          {isPrivate && (() => {
+            const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0 ? `${spotsLimit} spots` : null;
+            const costLabel = costAmount.trim() && parseFloat(costAmount) > 0 ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}` : null;
+            const rsvpLabel = rsvpDeadline ? (() => {
+              const [y, m, d] = rsvpDeadline.split("-").map(Number);
+              return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+            })() : null;
+            if (!spotsLabel && !costLabel && !rsvpLabel) return null;
+            return (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                {spotsLabel && <span style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)", fontSize: 13, fontWeight: 600 }}>{spotsLabel}</span>}
+                {costLabel && <span style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)", fontSize: 13, fontWeight: 600 }}>{costLabel}</span>}
+                {rsvpLabel && <span style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)", fontSize: 13, fontWeight: 600 }}>RSVP by {rsvpLabel}</span>}
+              </div>
+            );
+          })()}
+
+          {/* RSVP placeholder */}
+          <div
+            style={{
+              borderRadius: 18,
+              background: "rgba(18,25,36,0.50)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              padding: "16px 18px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Going?</div>
+              <div style={{ fontSize: 12, opacity: 0.45 }}>0 attending</div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["Going", "Maybe", "Can't"].map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  disabled
+                  style={{
+                    padding: "7px 14px", borderRadius: 20,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "transparent", color: "inherit",
+                    fontSize: 13, fontWeight: 500, cursor: "not-allowed", opacity: 0.55,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && <p style={{ color: "#dc2626", fontSize: 13, margin: "16px 0 0" }}>{error}</p>}
+        </div>
+      </div>
+    );
+  }
+
   // ── Shared glass styles for on-canvas controls ──────────────────
   const glassCircle: React.CSSProperties = {
     display: "flex", alignItems: "center", justifyContent: "center",
@@ -690,7 +976,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   const darkVars = {
     color: "#eae8e4",
-    "--background":     "rgba(20,11,7,0.72)",
+    "--background":     "rgba(18,25,36,0.55)",
     "--foreground":     "#eae8e4",
     "--border":         "rgba(255,255,255,0.10)",
     "--border-strong":  "rgba(255,255,255,0.18)",
@@ -698,7 +984,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     "--btn-bg-active":  "rgba(255,255,255,0.13)",
     "--surface-subtle": "rgba(255,255,255,0.04)",
     "--surface-raised": "rgba(255,255,255,0.09)",
-    "--accent":         "#a78bfa",
+    "--accent":         "#5EA8FF",
+    "--accent-subtle":  "rgba(94,168,255,0.12)",
   } as React.CSSProperties;
 
   return (
@@ -717,40 +1004,20 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         .cep-loc-row:active { opacity: 0.75; }
       `}</style>
 
-      {/* ── Ambient background — image state only ──────────────────────── */}
-      {imagePreview && (
-        <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
-          <img
-            src={imagePreview}
-            alt=""
-            style={{
-              position: "absolute", inset: 0,
-              width: "100%", height: "100%",
-              objectFit: "cover",
-              filter: "blur(80px) saturate(1.8) brightness(0.35)",
-              transform: "scale(1.15)",
-              pointerEvents: "none",
-            }}
-          />
-        </div>
-      )}
-
-      <div style={{ position: "relative", zIndex: 1, ...darkVars }}>
+      <div style={{ position: "relative", zIndex: 1, minHeight: "100dvh", background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)", ...darkVars }}>
       <form onSubmit={handleSubmit}>
 
         {/* ════════════════════════════════════════════════════════════
             CANVAS — full composition zone
             ════════════════════════════════════════════════════════════ */}
         <div
-          className={imagePreview ? undefined : "app-page"}
           style={{
             position: "relative",
-            aspectRatio: "3/4",
-            borderRadius: "0 0 28px 28px",
+            aspectRatio: "9/10",
+            borderRadius: "0 0 50px 50px",
             overflow: "hidden",
           }}
         >
-          {!imagePreview && <div className="page-top-glow" aria-hidden="true" />}
           {/* Background image */}
           {imagePreview && (
             <img
@@ -788,7 +1055,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             <button
               type="button"
               aria-label="Back"
-              style={glassCircle}
+              style={{ ...glassCircle, width: 39, height: 39 }}
               onClick={() => {
                 if (window.history.length > 1) {
                   router.back();
@@ -849,7 +1116,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             </div>
 
             {/* Spacer to balance the back button */}
-            <div style={{ width: 36, flexShrink: 0 }} />
+            <div style={{ width: 39, flexShrink: 0 }} />
           </div>
 
           {/* ── Photo CTA (centered, no-image state only) ─────────── */}
@@ -1322,23 +1589,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           )}
 
           {/* ── Submit ──────────────────────────────────────────────── */}
-          <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-            <button
-              type="button"
-              style={{
-                padding: "14px 20px", borderRadius: 12,
-                border: "1px solid var(--border-strong)", background: "transparent",
-                fontWeight: 600, fontSize: 15, cursor: "pointer", color: "inherit",
-                flexShrink: 0,
-              }}
-            >
-              Preview
-            </button>
+          {isEditMode ? (
             <button
               type="submit"
               disabled={submitting || !canSubmit}
               style={{
-                flex: 1,
+                display: "block", width: "100%", marginTop: 20,
                 padding: "14px", borderRadius: 12, border: "none",
                 fontWeight: 700, fontSize: 15,
                 background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
@@ -1346,11 +1602,25 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
               }}
             >
-              {submitting
-                ? (isEditMode ? "Saving…" : "Creating…")
-                : (isEditMode ? "Save changes" : "Publish event")}
+              {submitting ? "Saving…" : "Save changes"}
             </button>
-          </div>
+          ) : (
+            <button
+              type="button"
+              disabled={!canSubmit}
+              onClick={() => setShowPreview(true)}
+              style={{
+                display: "block", width: "100%", marginTop: 20,
+                padding: "14px", borderRadius: 12, border: "none",
+                fontWeight: 700, fontSize: 15,
+                background: !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
+                color: !canSubmit ? "inherit" : "var(--background)",
+                cursor: !canSubmit ? "not-allowed" : "pointer",
+              }}
+            >
+              Preview
+            </button>
+          )}
 
           <p style={{ fontSize: 12, opacity: 0.4, textAlign: "center", margin: "12px 0 0" }}>
             {isPrivate
