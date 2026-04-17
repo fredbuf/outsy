@@ -16,41 +16,42 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 // ── Custom map style ──────────────────────────────────────────────────────────
-// Dark blue-grey matching the app palette (#0B0F14 base, blue-tinted roads).
+// Exact Outsy dark palette. All colors mapped to app tokens:
+//   background  #0B0F14   water  #0F172A   roads  #1F2937   labels  #8FA3B8
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  // Base geometry — deep dark matching app background
-  { elementType: "geometry",                              stylers: [{ color: "#0d1520" }] },
-  { elementType: "labels.text.stroke",                    stylers: [{ color: "#0b0f14" }] },
-  { elementType: "labels.text.fill",                      stylers: [{ color: "#8c98a8" }] },
-  // Water — deep navy
-  { featureType: "water", elementType: "geometry",        stylers: [{ color: "#091525" }] },
-  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#2a4a6a" }] },
-  // Landscape
-  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0f1822" }] },
-  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#111d2a" }] },
-  // Parks — very dark teal tint
-  { featureType: "poi.park", elementType: "geometry",          stylers: [{ color: "#0a1a15" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill",  stylers: [{ color: "#2a5a48" }] },
-  { featureType: "poi.park", elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  // POIs — hide all icons and business clutter
-  { featureType: "poi",          elementType: "labels.icon",      stylers: [{ visibility: "off" }] },
-  { featureType: "poi.business",                                   stylers: [{ visibility: "off" }] },
-  { featureType: "poi",          elementType: "labels.text.fill",  stylers: [{ color: "#2e3d4e" }] },
-  // Roads — dark with blue-grey tint
-  { featureType: "road",          elementType: "geometry",          stylers: [{ color: "#1a2535" }] },
-  { featureType: "road",          elementType: "geometry.stroke",   stylers: [{ color: "#111d2a" }] },
-  { featureType: "road.arterial", elementType: "geometry",          stylers: [{ color: "#1e2c40" }] },
-  { featureType: "road.highway",  elementType: "geometry",          stylers: [{ color: "#253448" }] },
-  { featureType: "road.highway",  elementType: "geometry.stroke",   stylers: [{ color: "#1e2c40" }] },
-  { featureType: "road",          elementType: "labels.text.fill",  stylers: [{ color: "#4a5a6a" }] },
-  { featureType: "road",          elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  // Transit — hide icons, minimal lines
-  { featureType: "transit",         elementType: "labels.icon",      stylers: [{ visibility: "off" }] },
-  { featureType: "transit.line",    elementType: "geometry",         stylers: [{ color: "#131e2c" }] },
-  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#2e3d4e" }] },
-  // Administrative — soft blue-grey labels
-  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#5e7080" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#3a4e60" }] },
+  // Base — exact app background (#0B0F14)
+  { elementType: "geometry",                                stylers: [{ color: "#0b0f14" }] },
+  { elementType: "labels.text.stroke",                      stylers: [{ color: "#0b0f14" }] },
+  { elementType: "labels.text.fill",                        stylers: [{ color: "#8fa3b8" }] },
+  // Water — deep navy (#0F172A)
+  { featureType: "water", elementType: "geometry",          stylers: [{ color: "#0f172a" }] },
+  { featureType: "water", elementType: "labels.text.fill",  stylers: [{ color: "#253a52" }] },
+  // Landscape — just above base
+  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0d1219" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#101824" }] },
+  // Parks — barely perceptible teal tint to distinguish open space
+  { featureType: "poi.park", elementType: "geometry",           stylers: [{ color: "#0a1510" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill",   stylers: [{ color: "#243d30" }] },
+  { featureType: "poi.park", elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
+  // POIs — all icons off, business hidden, text nearly invisible
+  { featureType: "poi",          elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
+  { featureType: "poi.business",                                    stylers: [{ visibility: "off" }] },
+  { featureType: "poi",          elementType: "labels.text.fill",   stylers: [{ color: "#1e2d3d" }] },
+  // Roads — muted (#1F2937 per spec) with hierarchy
+  { featureType: "road",          elementType: "geometry",           stylers: [{ color: "#1f2937" }] },
+  { featureType: "road",          elementType: "geometry.stroke",    stylers: [{ color: "#141e2b" }] },
+  { featureType: "road.arterial", elementType: "geometry",           stylers: [{ color: "#243042" }] },
+  { featureType: "road.highway",  elementType: "geometry",           stylers: [{ color: "#2a3a52" }] },
+  { featureType: "road.highway",  elementType: "geometry.stroke",    stylers: [{ color: "#1f2d40" }] },
+  { featureType: "road",          elementType: "labels.text.fill",   stylers: [{ color: "#435c7a" }] },
+  { featureType: "road",          elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
+  // Transit — hidden icons, near-invisible lines
+  { featureType: "transit",         elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
+  { featureType: "transit.line",    elementType: "geometry",          stylers: [{ color: "#111827" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill",  stylers: [{ color: "#1e2d3d" }] },
+  // Administrative — brand-tinted soft labels
+  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#5e7a94" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#374f66" }] },
 ];
 
 // ── Legacy circle icons (fallback when MAP_ID is not set) ─────────────────────
@@ -1352,26 +1353,44 @@ export default function MapPage() {
       {/* Full-height container below the sticky header */}
       <div style={{ position: "relative", height: "calc(100dvh - 57px)", overflow: "hidden" }}>
 
-        {/* Google Maps canvas */}
-        <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
+        {/* Google Maps canvas — brightness/saturation reduced so UI dominates */}
+        <div
+          ref={mapDivRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            filter: "brightness(0.80) saturate(0.82)",
+          }}
+        />
 
-        {/* Top edge fade — blends map into app chrome, never blocks touches */}
+        {/* Brand tint — very subtle blue wash to unify map tones with app accent */}
         <div
           aria-hidden="true"
           style={{
-            position: "absolute", top: 0, left: 0, right: 0, height: 130,
-            background: "linear-gradient(to bottom, #0B0F14 0%, rgba(11,15,20,0.60) 55%, transparent 100%)",
+            position: "absolute", inset: 0,
+            background: "rgba(94,168,255,0.05)",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        />
+
+        {/* Top edge fade — anchors search bar into app chrome */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 160,
+            background: "linear-gradient(to bottom, #0B0F14 0%, rgba(11,15,20,0.90) 35%, rgba(11,15,20,0.55) 65%, transparent 100%)",
             pointerEvents: "none",
             zIndex: 8,
           }}
         />
 
-        {/* Bottom edge fade — softens map below the event cards */}
+        {/* Bottom edge fade — grounds map into nav + event cards */}
         <div
           aria-hidden="true"
           style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, height: 160,
-            background: "linear-gradient(to top, #0B0F14 0%, rgba(11,15,20,0.55) 55%, transparent 100%)",
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 200,
+            background: "linear-gradient(to top, #0B0F14 0%, rgba(11,15,20,0.90) 35%, rgba(11,15,20,0.55) 65%, transparent 100%)",
             pointerEvents: "none",
             zIndex: 8,
           }}
