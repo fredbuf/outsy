@@ -1210,28 +1210,40 @@ export default function SocialPage() {
           position: "relative",
           display: "flex",
           background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 20,
-          padding: 3,
+          border: "1px solid rgba(255,255,255,0.10)",
+          borderRadius: 14,
+          overflow: "hidden",       /* clips sliding bg to rounded corners — no padding needed */
           marginBottom: 20,
-          overflow: "hidden",
         }}
       >
-        {/* Sliding selection pill */}
+        {/* Full-segment sliding background — no border-radius; container clips it */}
         <div
           aria-hidden="true"
           style={{
             position: "absolute",
-            top: 3,
-            bottom: 3,
-            left: tab === "activity" ? 3 : "calc(50% + 1.5px)",
-            width: "calc(50% - 4.5px)",
-            borderRadius: 16,
-            background: "linear-gradient(135deg, rgba(94,168,255,0.18) 0%, rgba(37,99,235,0.22) 100%)",
-            border: "1px solid rgba(94,168,255,0.28)",
-            boxShadow: "0 1px 8px rgba(37,99,235,0.15)",
-            transition: "left 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: "50%",
+            background: "linear-gradient(135deg, rgba(94,168,255,0.20) 0%, rgba(37,99,235,0.26) 100%)",
+            boxShadow: "0 1px 8px rgba(37,99,235,0.12)",
+            transform: tab === "activity" ? "translateX(0)" : "translateX(100%)",
+            transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
             pointerEvents: "none",
+          }}
+        />
+        {/* Thin centre divider — sits above the sliding bg, below text */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: "18%",
+            bottom: "18%",
+            left: "50%",
+            width: 1,
+            background: "rgba(255,255,255,0.08)",
+            pointerEvents: "none",
+            zIndex: 1,
           }}
         />
         {(["activity", "messages"] as Tab[]).map((t) => (
@@ -1242,9 +1254,8 @@ export default function SocialPage() {
             style={{
               flex: 1,
               position: "relative",
-              zIndex: 1,
-              padding: "9px 0",
-              borderRadius: 16,
+              zIndex: 2,
+              padding: "10px 0",
               border: "none",
               fontWeight: 600,
               fontSize: 14,
