@@ -82,6 +82,73 @@ function toLocalTimeStr(iso: string): string {
   return `${h}:${p.minute}`;
 }
 
+// ── Direct Supabase Storage upload (bypasses Vercel payload limits) ──────────
+
+const STORAGE_BUCKET = "event-images";
+
+/**
+ * Compress and resize an image Blob using an off-screen canvas.
+ * Caps the longer edge at maxPx, re-encodes as JPEG at the given quality.
+ * Falls back to the original blob if canvas is unavailable.
+ */
+async function compressImage(blob: Blob, maxPx = 1920, quality = 0.85): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const scale = Math.min(1, maxPx / Math.max(w, h));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(blob); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (result) => resolve(result ?? blob),
+        "image/jpeg",
+        quality,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+    img.src = url;
+  });
+}
+
+/**
+ * Upload an image directly from the browser to Supabase Storage.
+ * Returns the public URL of the uploaded file.
+ * Path format: <userId>/<timestamp>-<random8>.<ext>
+ */
+async function uploadEventImageDirect(
+  bytes: Blob,
+  mimeType: string,
+  userId: string,
+): Promise<string> {
+  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  const compressed = await compressImage(bytes);
+  const buf = await compressed.arrayBuffer();
+  const finalMime = "image/jpeg"; // compressImage always outputs JPEG (unless fallback)
+  const actualMime = compressed === bytes ? mimeType : finalMime;
+  const actualExt = actualMime === "image/png" ? "png" : actualMime === "image/webp" ? "webp" : ext === "png" || ext === "webp" ? "jpg" : ext;
+  const path = `${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${actualExt}`;
+
+  const { error } = await supabaseBrowser()
+    .storage.from(STORAGE_BUCKET)
+    .upload(path, buf, { contentType: actualMime, upsert: false });
+
+  if (error) {
+    console.error("[uploadEventImageDirect] storage error:", error.message);
+    throw new Error(`Image upload failed: ${error.message}`);
+  }
+
+  const { data } = supabaseBrowser().storage.from(STORAGE_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function buildPreviewDateLines(startDate: string, startTime: string, allDay: boolean): { dateLine: string; timeLine: string | null } {
   if (!startDate) return { dateLine: "", timeLine: null };
   const [y, m, d] = startDate.split("-").map(Number);
@@ -506,38 +573,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       let imageUrl: string | null = null;
       if (imageFile) {
         if (!imageBytes) throw new Error("Image not ready. Please wait a moment and try again.");
-        let uploadBuffer: ArrayBuffer;
-        try {
-          uploadBuffer = await imageBytes.arrayBuffer();
-        } catch (bufErr) {
-          throw new Error(`[blob-to-buf] ${bufErr instanceof Error ? bufErr.message : String(bufErr)}`);
-        }
-        let uploadRes: Response;
-        try {
-          uploadRes = await fetch("/api/events/upload-image", {
-            method: "POST",
-            headers: { ...authHeader, "content-type": imageFile.type },
-            body: uploadBuffer,
-          });
-        } catch (fetchErr) {
-          throw new Error(`[fetch] ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
-        }
-        let rawText: string;
-        try {
-          rawText = await uploadRes.text();
-        } catch (textErr) {
-          throw new Error(`[response-text] ${textErr instanceof Error ? textErr.message : String(textErr)}`);
-        }
-        let uploadJson: { ok?: boolean; url?: string; error?: string };
-        try {
-          uploadJson = JSON.parse(rawText);
-        } catch {
-          throw new Error(`[json-parse] server returned: ${rawText.slice(0, 200)}`);
-        }
-        if (!uploadRes.ok || !uploadJson?.ok) {
-          throw new Error(uploadJson?.error ?? "Image upload failed.");
-        }
-        imageUrl = uploadJson.url as string;
+        if (!user) throw new Error("Sign in to upload images.");
+        imageUrl = await uploadEventImageDirect(imageBytes, imageFile.type, user.id);
       } else if (isEditMode && imagePreview?.startsWith("https://")) {
         // Keep existing image when editing without picking a new file
         imageUrl = imagePreview;
@@ -622,58 +659,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       let imageUrl: string | null = null;
       if (imageFile) {
         if (!imageBytes) throw new Error("Image not ready. Please wait a moment and try again.");
-
-        // Convert Blob → ArrayBuffer before passing to fetch.
-        // Passing a Blob body can still trigger WebKit's internal URL serialisation
-        // (same failure mode as FormData/File). ArrayBuffer is pure heap memory with
-        // no URL reference, so WebKit can't choke on an expired media URL.
-        let uploadBuffer: ArrayBuffer;
-        try {
-          uploadBuffer = await imageBytes.arrayBuffer();
-        } catch (bufErr) {
-          throw new Error(`[blob-to-buf] ${bufErr instanceof Error ? bufErr.message : String(bufErr)}`);
-        }
-
-        console.log("[upload] imageBytes exists:", !!imageBytes,
-          "size:", imageBytes.size,
-          "type:", imageFile.type,
-          "bufferByteLength:", uploadBuffer.byteLength,
-          "url:", "/api/events/upload-image",
-          "headers:", { "content-type": imageFile.type, hasAuth: !!authHeader.Authorization });
-
-        let uploadRes: Response;
-        try {
-          uploadRes = await fetch("/api/events/upload-image", {
-            method: "POST",
-            headers: { ...authHeader, "content-type": imageFile.type },
-            body: uploadBuffer,
-          });
-        } catch (fetchErr) {
-          throw new Error(`[fetch] ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
-        }
-
-        console.log("[upload] response status:", uploadRes.status, "type:", uploadRes.type, "url:", uploadRes.url);
-
-        // Read body as text first so we can see it even if JSON.parse fails
-        let rawText: string;
-        try {
-          rawText = await uploadRes.text();
-        } catch (textErr) {
-          throw new Error(`[response-text] ${textErr instanceof Error ? textErr.message : String(textErr)}`);
-        }
-        console.log("[upload] raw response text:", rawText);
-
-        let uploadJson: { ok?: boolean; url?: string; error?: string };
-        try {
-          uploadJson = JSON.parse(rawText);
-        } catch {
-          throw new Error(`[json-parse] server returned: ${rawText.slice(0, 200)}`);
-        }
-
-        if (!uploadRes.ok || !uploadJson?.ok) {
-          throw new Error(uploadJson?.error ?? "Image upload failed.");
-        }
-        imageUrl = uploadJson.url as string;
+        if (!user) throw new Error("Sign in to upload images.");
+        imageUrl = await uploadEventImageDirect(imageBytes, imageFile.type, user.id);
       }
 
       const basePayload = { title, description, descriptionTitle: descriptionTitle.trim() || undefined, startAt, endAt, visibility, imageUrl };
