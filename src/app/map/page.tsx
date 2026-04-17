@@ -561,6 +561,13 @@ export default function MapPage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  // Draft state — lives only while the filter sheet is open.
+  // Chips edit draft; X discards; ✓ commits to real filter state.
+  const [draftDateFilter, setDraftDateFilter] = useState<DateFilter>("all");
+  const [draftPickedDate, setDraftPickedDate] = useState("");
+  const [draftPickedDateEnd, setDraftPickedDateEnd] = useState("");
+  const [draftTimeFilter, setDraftTimeFilter] = useState<TimeFilter>("all");
+  const [draftTypeFilter, setDraftTypeFilter] = useState<TypeFilter>("all");
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
@@ -726,21 +733,45 @@ export default function MapPage() {
   const filterActive =
     dateFilter !== "all" || typeFilter !== "all" || timeFilter !== "all";
 
-  // Tap-tap date selection: first tap = start, second tap = end (or same = single day)
-  function handleDateTap(iso: string) {
-    if (pickedDate === "" || pickedDateEnd !== "") {
-      // No selection yet, or a complete range is already set → start fresh
-      setPickedDate(iso);
-      setPickedDateEnd("");
-      setDateFilter("pick_date");
+  // ── Filter sheet helpers ───────────────────────────────────────────────────
+  function openFilter() {
+    setDraftDateFilter(dateFilter);
+    setDraftPickedDate(pickedDate);
+    setDraftPickedDateEnd(pickedDateEnd);
+    setDraftTimeFilter(timeFilter);
+    setDraftTypeFilter(typeFilter);
+    setFilterOpen(true);
+  }
+
+  function confirmFilters() {
+    setDateFilter(draftDateFilter);
+    setPickedDate(draftPickedDate);
+    setPickedDateEnd(draftPickedDateEnd);
+    setTimeFilter(draftTimeFilter);
+    setTypeFilter(draftTypeFilter);
+    setFilterOpen(false);
+  }
+
+  function clearDraftFilters() {
+    setDraftDateFilter("all");
+    setDraftPickedDate("");
+    setDraftPickedDateEnd("");
+    setDraftTimeFilter("all");
+    setDraftTypeFilter("all");
+  }
+
+  function handleDraftDateTap(iso: string) {
+    if (draftPickedDate === "" || draftPickedDateEnd !== "") {
+      setDraftPickedDate(iso);
+      setDraftPickedDateEnd("");
+      setDraftDateFilter("pick_date");
     } else {
-      // Start is set, waiting for end
-      if (iso === pickedDate) {
-        setPickedDateEnd(iso); // same date twice → single-day
-      } else if (iso < pickedDate) {
-        setPickedDate(iso);    // earlier date → reset start
+      if (iso === draftPickedDate) {
+        setDraftPickedDateEnd(iso);
+      } else if (iso < draftPickedDate) {
+        setDraftPickedDate(iso);
       } else {
-        setPickedDateEnd(iso); // later date → set range end
+        setDraftPickedDateEnd(iso);
       }
     }
   }
@@ -862,6 +893,43 @@ export default function MapPage() {
 
     return result;
   }, [events, defaultEvents, debouncedSearchQuery, selectedCategory, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
+
+  // Count of events matching draft filters — shown in the filter sheet header.
+  const draftFilteredCount = useMemo(() => {
+    const isDefault =
+      !debouncedSearchQuery.trim() &&
+      selectedCategory === "all" &&
+      draftDateFilter === "all" &&
+      draftTimeFilter === "all" &&
+      draftTypeFilter === "all";
+
+    let result = isDefault ? defaultEvents : events;
+
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase();
+      result = result.filter(
+        (e) => e.title.toLowerCase().includes(q) || (e.venues?.name?.toLowerCase().includes(q) ?? false)
+      );
+    }
+    if (draftDateFilter !== "all")
+      result = result.filter((e) => isInDateWindow(e.start_at, draftDateFilter, draftPickedDate, draftPickedDateEnd));
+    if (draftTimeFilter !== "all")
+      result = result.filter((e) => {
+        const h = new Date(e.start_at).getHours();
+        if (draftTimeFilter === "morning")   return h >= 6  && h < 12;
+        if (draftTimeFilter === "afternoon") return h >= 12 && h < 18;
+        if (draftTimeFilter === "evening")   return h >= 18;
+        return true;
+      });
+    if (selectedCategory !== "all")
+      result = result.filter((e) => normalizeCategory(e.category_primary) === selectedCategory);
+    if (draftTypeFilter !== "all")
+      result = result.filter((e) =>
+        draftTypeFilter === "private" ? e.source === "manual" : e.source !== "manual"
+      );
+
+    return result.length;
+  }, [events, defaultEvents, debouncedSearchQuery, selectedCategory, draftDateFilter, draftPickedDate, draftPickedDateEnd, draftTimeFilter, draftTypeFilter]);
 
   // All events at the selected venue within the active result set (no dedup).
   // In the default state this uses the same time window as defaultEvents but without
@@ -1588,7 +1656,7 @@ export default function MapPage() {
             <button
               type="button"
               aria-label="Open filters"
-              onClick={() => setFilterOpen(true)}
+              onClick={() => openFilter()}
               className="map-overlay-btn"
               style={{
                 flexShrink: 0,
@@ -1826,7 +1894,7 @@ export default function MapPage() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.45)",
+            background: "rgba(0,0,0,0.55)",
             zIndex: 200,
             display: "flex",
             alignItems: "flex-end",
@@ -1834,7 +1902,9 @@ export default function MapPage() {
         >
           <div
             style={{
-              background: "var(--background)",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderBottom: "none",
               width: "100%",
               borderRadius: "20px 20px 0 0",
               display: "flex",
@@ -1842,188 +1912,213 @@ export default function MapPage() {
               maxHeight: "85dvh",
             }}
           >
-            {/* Fixed header: drag handle + title + X */}
-            <div style={{ flexShrink: 0, padding: "12px 20px 0" }}>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16 }}>
-                <span style={{ fontSize: 16, fontWeight: 700 }}>Filters</span>
-                <button
-                  type="button"
-                  onClick={() => setFilterOpen(false)}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.45, lineHeight: 1, padding: 4 }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-
-            {/* Scrollable filter content */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", display: "flex", flexDirection: "column", gap: 24 }}>
-
-            {/* Date */}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-                Date
-              </div>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {DATE_OPTIONS.map((opt) => {
-                  const isPickDate = opt.id === "pick_date";
-                  const isActive   = dateFilter === opt.id;
-
-                  let label = opt.label;
-                  if (isPickDate && pickedDate) {
-                    const fmt = (iso: string) =>
-                      new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                    label = pickedDateEnd && pickedDateEnd !== pickedDate
-                      ? `${fmt(pickedDate)} → ${fmt(pickedDateEnd)}`
-                      : fmt(pickedDate);
-                  }
-
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setDateFilter(opt.id)}
-                      className="map-overlay-btn"
-                      style={{
-                        padding: "7px 14px",
-                        borderRadius: 20,
-                        border: "none",
-                        background: isActive ? "#7c3aed" : "var(--surface-raised)",
-                        color: isActive ? "#fff" : "inherit",
-                        fontSize: 13,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Inline calendar — visible when "Pick a date" is active */}
-              {dateFilter === "pick_date" && (
-                <MiniCalendar
-                  start={pickedDate}
-                  end={pickedDateEnd}
-                  onDayTap={handleDateTap}
-                />
-              )}
-            </div>
-
-            {/* Time */}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-                Time
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {TIME_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setTimeFilter(opt.id)}
-                    className="map-overlay-btn"
-                    style={{
-                      padding: "7px 14px",
-                      borderRadius: 20,
-                      border: "none",
-                      background: timeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
-                      color: timeFilter === opt.id ? "#fff" : "inherit",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Type */}
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.45, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
-                Type
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setTypeFilter(opt.id)}
-                    className="map-overlay-btn"
-                    style={{
-                      padding: "7px 14px",
-                      borderRadius: 20,
-                      border: "none",
-                      background: typeFilter === opt.id ? "#7c3aed" : "var(--surface-raised)",
-                      color: typeFilter === opt.id ? "#fff" : "inherit",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Clear button — only shown when filters are active */}
-            {filterActive && (
-              <button
-                type="button"
-                onClick={() => { setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setTimeFilter("all"); setTypeFilter("all"); }}
-                style={{
-                  padding: "10px",
-                  borderRadius: 10,
-                  border: "1px solid var(--border-strong)",
-                  background: "none",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  opacity: 0.6,
-                }}
-              >
-                Clear filters
-              </button>
-            )}
-
-            {/* Bottom spacer so last item clears the sticky CTA */}
-            <div style={{ height: 8 }} />
-            </div>
-
-            {/* Sticky CTA footer */}
+            {/* Header: X · title+count · ✓ */}
             <div
               style={{
                 flexShrink: 0,
-                padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))",
-                borderTop: "1px solid var(--border-strong)",
-                background: "var(--background)",
+                padding: "16px 16px 14px",
+                borderBottom: "1px solid rgba(255,255,255,0.08)",
+                display: "grid",
+                gridTemplateColumns: "40px 1fr 40px",
+                alignItems: "center",
               }}
             >
+              {/* Close — discard draft */}
               <button
                 type="button"
                 onClick={() => setFilterOpen(false)}
+                aria-label="Close filters"
                 style={{
-                  width: "100%",
-                  padding: "14px",
-                  borderRadius: 14,
-                  border: "none",
-                  background: "#7c3aed",
-                  color: "#fff",
-                  fontSize: 16,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  letterSpacing: "-0.01em",
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  cursor: "pointer", color: "#F5F7FA",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
                 }}
               >
-                Show {filteredEvents.length} event{filteredEvents.length !== 1 ? "s" : ""}
+                {/* X icon */}
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="1" y1="1" x2="13" y2="13" /><line x1="13" y1="1" x2="1" y2="13" />
+                </svg>
               </button>
+
+              {/* Title + count */}
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>Filters</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
+                  {draftFilteredCount} event{draftFilteredCount !== 1 ? "s" : ""}
+                </div>
+              </div>
+
+              {/* Confirm — commit draft */}
+              <button
+                type="button"
+                onClick={confirmFilters}
+                aria-label="Apply filters"
+                style={{
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  cursor: "pointer", color: "#F5F7FA",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, justifySelf: "end",
+                }}
+              >
+                {/* Check icon */}
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="2,8 6,12 13,3" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Scrollable filter content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 24 }}>
+
+              {/* Date */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>
+                  Date
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {DATE_OPTIONS.map((opt) => {
+                    const isPickDate = opt.id === "pick_date";
+                    const isActive   = draftDateFilter === opt.id;
+
+                    let label = opt.label;
+                    if (isPickDate && draftPickedDate) {
+                      const fmt = (iso: string) =>
+                        new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                      label = draftPickedDateEnd && draftPickedDateEnd !== draftPickedDate
+                        ? `${fmt(draftPickedDate)} → ${fmt(draftPickedDateEnd)}`
+                        : fmt(draftPickedDate);
+                    }
+
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDraftDateFilter(opt.id)}
+                        style={{
+                          padding: "7px 14px",
+                          borderRadius: 20,
+                          border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                          background: isActive
+                            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                            : "rgba(255,255,255,0.07)",
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.70)",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Inline calendar */}
+                {draftDateFilter === "pick_date" && (
+                  <MiniCalendar
+                    start={draftPickedDate}
+                    end={draftPickedDateEnd}
+                    onDayTap={handleDraftDateTap}
+                  />
+                )}
+              </div>
+
+              {/* Time */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>
+                  Time
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {TIME_OPTIONS.map((opt) => {
+                    const isActive = draftTimeFilter === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDraftTimeFilter(opt.id)}
+                        style={{
+                          padding: "7px 14px",
+                          borderRadius: 20,
+                          border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                          background: isActive
+                            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                            : "rgba(255,255,255,0.07)",
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.70)",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Type */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>
+                  Type
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {TYPE_OPTIONS.map((opt) => {
+                    const isActive = draftTypeFilter === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDraftTypeFilter(opt.id)}
+                        style={{
+                          padding: "7px 14px",
+                          borderRadius: 20,
+                          border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                          background: isActive
+                            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                            : "rgba(255,255,255,0.07)",
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.70)",
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Clear — always shown, resets draft to defaults */}
+              <div style={{ display: "flex", justifyContent: "center", paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
+                <button
+                  type="button"
+                  onClick={clearDraftFilters}
+                  style={{
+                    padding: "8px 24px",
+                    borderRadius: 20,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "rgba(255,255,255,0.70)",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    backdropFilter: "blur(8px)",
+                    WebkitBackdropFilter: "blur(8px)",
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
         </div>
