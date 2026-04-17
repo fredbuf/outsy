@@ -401,8 +401,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       setImageBytes(new Blob([reader.result as ArrayBuffer], { type: file.type }));
     };
     reader.onerror = () => {
-      // FileReader failed — imageBytes stays null; upload will fall back to File.
+      // Could not read image bytes — clear the selection so the user picks again.
+      setImageFile(null);
       setImageBytes(null);
+      if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+      setError("Could not read image. Please try selecting it again.");
     };
     reader.readAsArrayBuffer(file);
   }
@@ -473,7 +477,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       ? `${endDate}T${allDay ? "00:00" : endTime || "00:00"}`
       : "";
 
-  const canSubmit = Boolean(title.trim() && startDate);
+  // True once FileReader has finished reading the selected image into memory.
+  // Upload must never fall back to the raw File — gate submission until ready.
+  const imageBytesReady = !imageFile || imageBytes !== null;
+  const canSubmit = Boolean(title.trim() && startDate && imageBytesReady);
   const dateLine = formatDateLine(startDate, startTime, allDay);
   const locationLine = isPrivate ? (privatePlaceName || privateAddress) : venueName;
 
@@ -498,27 +505,16 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        // Use pre-read in-memory bytes. If FileReader hadn't finished, read now.
-        // Send as raw binary body — avoids FormData/Blob serialisation on iOS WebKit
-        // (both Safari and Chrome/WKWebView) which silently fails and returns a
-        // status-0 Response whose .json() then calls new URL("") internally and
-        // throws "The string did not match the expected pattern".
-        let uploadBlob: Blob;
-        if (imageBytes) {
-          uploadBlob = imageBytes;
-        } else {
-          const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(r.result as ArrayBuffer);
-            r.onerror = () => reject(r.error ?? new Error("FileReader failed"));
-            r.readAsArrayBuffer(imageFile);
-          });
-          uploadBlob = new Blob([buf], { type: imageFile.type });
-        }
+        // imageBytes must be set — canSubmit is gated on imageBytesReady so this
+        // path is only reachable once FileReader has finished. Never fall back to
+        // the raw File; on iOS WebKit the File's internal media URL expires after
+        // navigation and causes fetch() to silently return a status-0 error Response.
+        if (!imageBytes) throw new Error("Image not ready. Please wait a moment and try again.");
+        console.log("[upload] sending raw binary blob, size:", imageBytes.size, "type:", imageFile.type);
         const uploadRes = await fetch("/api/events/upload-image", {
           method: "POST",
           headers: { ...authHeader, "content-type": imageFile.type },
-          body: uploadBlob,
+          body: imageBytes,
         });
         const uploadJson = await uploadRes.json();
         if (!uploadRes.ok || !uploadJson?.ok) {
@@ -608,24 +604,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        // Use pre-read in-memory bytes. If FileReader hadn't finished, read now.
-        // Send as raw binary body — avoids FormData/Blob serialisation on iOS WebKit.
-        let uploadBlob: Blob;
-        if (imageBytes) {
-          uploadBlob = imageBytes;
-        } else {
-          const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(r.result as ArrayBuffer);
-            r.onerror = () => reject(r.error ?? new Error("FileReader failed"));
-            r.readAsArrayBuffer(imageFile);
-          });
-          uploadBlob = new Blob([buf], { type: imageFile.type });
-        }
+        if (!imageBytes) throw new Error("Image not ready. Please wait a moment and try again.");
+        console.log("[upload] sending raw binary blob, size:", imageBytes.size, "type:", imageFile.type);
         const uploadRes = await fetch("/api/events/upload-image", {
           method: "POST",
           headers: { ...authHeader, "content-type": imageFile.type },
-          body: uploadBlob,
+          body: imageBytes,
         });
         const uploadJson = await uploadRes.json();
         if (!uploadRes.ok || !uploadJson?.ok) {
@@ -1413,6 +1397,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               >
                 Preview
               </button>
+              {imageFile && !imageBytesReady && (
+                <p style={{ fontSize: 11, opacity: 0.5, margin: "6px 0 0", textAlign: "right" }}>
+                  Preparing image…
+                </p>
+              )}
             </div>
           )}
         </div>
