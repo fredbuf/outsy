@@ -1207,27 +1207,55 @@ export default function SocialPage() {
       {/* Segmented tabs */}
       <div
         style={{
-          display: "flex", gap: 0,
+          position: "relative",
+          display: "flex",
           background: "rgba(255,255,255,0.05)",
           border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 14, padding: 3,
+          borderRadius: 20,
+          padding: 3,
           marginBottom: 20,
+          overflow: "hidden",
         }}
       >
+        {/* Sliding selection pill */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 3,
+            bottom: 3,
+            left: tab === "activity" ? 3 : "calc(50% + 1.5px)",
+            width: "calc(50% - 4.5px)",
+            borderRadius: 16,
+            background: "linear-gradient(135deg, rgba(94,168,255,0.18) 0%, rgba(37,99,235,0.22) 100%)",
+            border: "1px solid rgba(94,168,255,0.28)",
+            boxShadow: "0 1px 8px rgba(37,99,235,0.15)",
+            transition: "left 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+            pointerEvents: "none",
+          }}
+        />
         {(["activity", "messages"] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => handleTabSwitch(t)}
             style={{
-              flex: 1, padding: "9px 0", borderRadius: 11,
-              border: "none", fontWeight: 600, fontSize: 14,
+              flex: 1,
+              position: "relative",
+              zIndex: 1,
+              padding: "9px 0",
+              borderRadius: 16,
+              border: "none",
+              fontWeight: 600,
+              fontSize: 14,
               cursor: "pointer",
-              background: tab === t ? "rgba(124,58,237,0.22)" : "transparent",
-              color: tab === t ? "#c4b5fd" : "rgba(255,255,255,0.5)",
-              boxShadow: tab === t ? "0 0 0 1px rgba(124,58,237,0.35) inset" : "none",
-              transition: "background 0.15s, color 0.15s",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent",
+              color: tab === t ? "#ffffff" : "rgba(255,255,255,0.45)",
+              transition: "color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 5,
             }}
           >
             {t === "activity" ? "Activity" : "Messages"}
