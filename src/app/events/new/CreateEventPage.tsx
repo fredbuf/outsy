@@ -1247,7 +1247,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         {/* ── Lower section ────────────────────────────────────────── */}
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
 
-          {/* ── Organized by + description card ─────────────────────── */}
+          {/* ── Hosted by / Organized by + description card ──────────── */}
           {user && (
             <div
               style={{
@@ -1258,11 +1258,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 overflow: "hidden",
               }}
             >
-              {/* Organized by section — centered */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 16px 0", gap: 8 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#f5f7fa" }}>Organized by</p>
+              {/* Header section — centered */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "22px 16px 0", gap: 10 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#f5f7fa" }}>
+                  {isPrivate ? "Hosted by" : "Organized by"}
+                </p>
                 {/* Host + cohosts avatars row */}
-                <div style={{ display: "flex", alignItems: "center", gap: -6 }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
                   {avatarUrl ? (
                     <img src={avatarUrl} alt={displayName} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }} />
                   ) : (
@@ -1270,7 +1272,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       {getInitials(displayName)}
                     </div>
                   )}
-                  {isPrivate && cohostProfiles.map((cp) => (
+                  {cohostProfiles.map((cp) => (
                     cp.avatar_url ? (
                       <img key={cp.id} src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }} />
                     ) : (
@@ -1280,35 +1282,19 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     )
                   ))}
                 </div>
-                {/* + cohost button */}
-                {isPrivate ? (
-                  <button
-                    type="button"
-                    onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
-                    style={{
-                      height: 17, padding: "0 12px", borderRadius: 10, border: "none",
-                      background: "rgba(255,255,255,0.05)",
-                      cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff",
-                      marginBottom: 4,
-                    }}
-                  >
-                    + cohost
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    title="Coming soon"
-                    style={{
-                      height: 17, padding: "0 12px", borderRadius: 10, border: "none",
-                      background: "rgba(255,255,255,0.05)",
-                      cursor: "not-allowed", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0.35,
-                      marginBottom: 4,
-                    }}
-                  >
-                    + cohost
-                  </button>
-                )}
+                {/* + cohost button — available for both public and private */}
+                <button
+                  type="button"
+                  onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
+                  style={{
+                    height: 19, padding: "0 13px", borderRadius: 10, border: "none",
+                    background: "rgba(255,255,255,0.05)",
+                    cursor: "pointer", fontSize: 10, fontWeight: 700, color: "#fff",
+                    marginBottom: 6, fontFamily: "inherit",
+                  }}
+                >
+                  + cohost
+                </button>
               </div>
 
               {/* Divider */}
@@ -1326,7 +1312,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 }}
               >
                 {descriptionOpen || description ? (
-                  <div style={{ padding: "12px 16px 16px" }}>
+                  <div style={{ padding: "14px 18px 18px" }}>
                     <input
                       type="text"
                       placeholder="Section title (optional)"
@@ -1334,12 +1320,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       onChange={(e) => setDescriptionTitle(e.target.value)}
                       style={{
                         display: "block", width: "100%", boxSizing: "border-box",
-                        padding: "0 0 8px", border: "none",
+                        padding: "0 0 10px", border: "none",
                         fontSize: 15, fontWeight: 600,
                         background: "transparent", color: "inherit",
                         outline: "none", fontFamily: "inherit",
                         borderBottom: "1px solid var(--border)",
-                        marginBottom: 8,
+                        marginBottom: 10,
                       }}
                     />
                     <textarea
@@ -1358,13 +1344,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     />
                   </div>
                 ) : (
-                  <div style={{ padding: "10px 16px 16px" }}>
+                  <div style={{ padding: "14px 16px 18px", display: "flex", justifyContent: "center" }}>
                     <button
                       type="button"
                       onClick={() => setDescriptionOpen(true)}
                       style={{
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        width: "100%", height: 33,
+                        width: "85%", height: 33,
                         background: "#ffffff", border: "none", borderRadius: 10,
                         cursor: "pointer", color: "#1f2b39", fontSize: 13, fontWeight: 700,
                         fontFamily: "inherit",
