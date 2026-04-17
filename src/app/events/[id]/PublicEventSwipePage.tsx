@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
@@ -142,38 +142,7 @@ export function PublicEventSwipePage(props: Props) {
     startAt,
   } = props;
 
-  const [page, setPage] = useState(0); // 0 = info, 1 = moments
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const infoPanelRef = useRef<HTMLDivElement>(null);
-  const momentsPanelRef = useRef<HTMLDivElement>(null);
-  const [clipHeight, setClipHeight] = useState<number | undefined>(undefined);
-
-  function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  }
-
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 55) {
-      if (dx < 0 && page === 0) setPage(1);
-      else if (dx > 0 && page === 1) setPage(0);
-    }
-    touchStartX.current = null;
-    touchStartY.current = null;
-  }
-
-  useEffect(() => {
-    const panel = page === 0 ? infoPanelRef.current : momentsPanelRef.current;
-    if (!panel) return;
-    setClipHeight(panel.scrollHeight);
-    const ro = new ResizeObserver(() => setClipHeight(panel.scrollHeight));
-    ro.observe(panel);
-    return () => ro.disconnect();
-  }, [page]);
+  const [page, setPage] = useState(0); // 0 = about, 1 = moments
 
   // Compute share preview client-side from startAt
   const sharePreview: EventPreview = {
@@ -327,50 +296,44 @@ export function PublicEventSwipePage(props: Props) {
         </div>
       </div>
 
-      {/* ── PAGE DOTS ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 6, padding: "14px 0 18px" }}>
-        <button
-          type="button"
-          aria-label="Info"
-          onClick={() => setPage(0)}
-          style={{
-            width: page === 0 ? 21 : 8, height: 7, borderRadius: 20,
-            background: page === 0 ? "#ffffff" : "#bbbbbb",
-            border: "none", padding: 0, cursor: "pointer",
-            transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.25s",
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Moments"
-          onClick={() => setPage(1)}
-          style={{
-            width: page === 1 ? 21 : 8, height: 7, borderRadius: 20,
-            background: page === 1 ? "#ffffff" : "#bbbbbb",
-            border: "none", padding: 0, cursor: "pointer",
-            transition: "width 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.25s",
-          }}
-        />
-      </div>
-
-      {/* ── SWIPEABLE CONTENT ─────────────────────────────────────────────── */}
-      <div
-        style={{ overflow: "hidden", height: clipHeight, transition: "height 0.35s cubic-bezier(0.25,0.46,0.45,0.94)" }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+      {/* ── SEGMENTED CONTROL ─────────────────────────────────────────────── */}
+      <div style={{ padding: "16px 20px 4px" }}>
         <div style={{
           display: "flex",
-          alignItems: "flex-start",
-          width: "200%",
-          transform: `translateX(${page === 0 ? "0%" : "-50%"})`,
-          transition: "transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)",
-          willChange: "transform",
+          background: "rgba(18,25,36,0.50)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 20,
+          padding: 3,
         }}>
+          {(["about", "moments"] as const).map((t) => {
+            const active = (t === "about" && page === 0) || (t === "moments" && page === 1);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPage(t === "about" ? 0 : 1)}
+                style={{
+                  flex: 1, padding: "9px 0", borderRadius: 16,
+                  border: "none", fontWeight: 600, fontSize: 14,
+                  cursor: "pointer",
+                  background: active ? "#ffffff" : "transparent",
+                  color: active ? "#0b0f14" : "rgba(255,255,255,0.55)",
+                  transition: "background 0.15s, color 0.15s",
+                }}
+              >
+                {t === "about" ? "About" : "Moments"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* ── INFO PANEL ──────────────────────────────────────────────── */}
-          <div ref={infoPanelRef} style={{ width: "50%", boxSizing: "border-box", ...cssVars }}>
-            <div style={{ padding: "10px 20px 48px" }}>
+      {/* ── CONTENT ───────────────────────────────────────────────────────── */}
+      <div style={{ ...cssVars }}>
+
+        {/* ── ABOUT PANEL ─────────────────────────────────────────────── */}
+        {page === 0 && (
+          <div style={{ padding: "16px 20px 48px" }}>
 
               {/* RSVP / Tickets */}
               <ActionBar
@@ -490,24 +453,23 @@ export function PublicEventSwipePage(props: Props) {
                 </section>
               )}
 
-            </div>
           </div>
+        )}
 
-          {/* ── MOMENTS PANEL ───────────────────────────────────────────── */}
-          <div ref={momentsPanelRef} style={{ width: "50%", boxSizing: "border-box" }}>
-            <MomentsClient
-              embedded
-              eventId={id}
-              eventTitle={title}
-              creatorId={creatorId}
-              cohostIds={cohostIds}
-              guestsCanPost={guestsCanPost}
-              guestsCanReact={guestsCanReact}
-              initialMoments={initialMoments}
-            />
-          </div>
+        {/* ── MOMENTS PANEL ───────────────────────────────────────────── */}
+        {page === 1 && (
+          <MomentsClient
+            embedded
+            eventId={id}
+            eventTitle={title}
+            creatorId={creatorId}
+            cohostIds={cohostIds}
+            guestsCanPost={guestsCanPost}
+            guestsCanReact={guestsCanReact}
+            initialMoments={initialMoments}
+          />
+        )}
 
-        </div>
       </div>
 
     </main>
