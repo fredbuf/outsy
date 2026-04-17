@@ -648,7 +648,7 @@ export default function ProfilePage() {
                 {filtered.map((f) => (
                   <Link
                     key={f.id}
-                    href={f.username ? `/u/${f.username}` : "#"}
+                    href={f.username ? `/u/${f.username}` : `/profile/${f.id}`}
                     onClick={() => setActiveSheet(null)}
                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", textDecoration: "none", color: "inherit", borderBottom: "1px solid var(--border)" }}
                   >
