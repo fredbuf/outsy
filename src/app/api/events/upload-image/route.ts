@@ -17,45 +17,47 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid session. Please sign in again." }, { status: 401 });
   }
 
-  let formData: FormData;
-  try {
-    formData = await req.formData();
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid form data." }, { status: 400 });
-  }
+  // Accept raw binary body with content-type header.
+  // Previously used multipart/form-data but iOS WebKit (both Safari and Chrome/WKWebView)
+  // silently fails to serialise FormData/Blob bodies in some cases — returning a
+  // status-0 error Response instead of throwing, so .json() then calls new URL("")
+  // internally and throws "The string did not match the expected pattern".
+  const contentType = req.headers.get("content-type") ?? "";
+  const mimeType = contentType.split(";")[0].trim();
 
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ ok: false, error: "No file provided." }, { status: 400 });
-  }
-
-  if (!ALLOWED_MIME.has(file.type)) {
+  if (!ALLOWED_MIME.has(mimeType)) {
     return NextResponse.json(
       { ok: false, error: "Only JPG, PNG, and WebP images are accepted." },
       { status: 400 }
     );
   }
 
-  if (file.size > MAX_BYTES) {
+  let arrayBuffer: ArrayBuffer;
+  try {
+    arrayBuffer = await req.arrayBuffer();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Could not read image data." }, { status: 400 });
+  }
+
+  if (arrayBuffer.byteLength === 0) {
+    return NextResponse.json({ ok: false, error: "File is empty." }, { status: 400 });
+  }
+
+  if (arrayBuffer.byteLength > MAX_BYTES) {
     return NextResponse.json(
       { ok: false, error: "Image must be 5 MB or smaller." },
       { status: 400 }
     );
   }
 
-  if (file.size === 0) {
-    return NextResponse.json({ ok: false, error: "File is empty." }, { status: 400 });
-  }
-
-  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
   const path = `events/${crypto.randomUUID()}.${ext}`;
 
-  const arrayBuffer = await file.arrayBuffer();
   const supabase = supabaseServer();
 
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, arrayBuffer, { contentType: file.type, upsert: false });
+    .upload(path, arrayBuffer, { contentType: mimeType, upsert: false });
 
   if (error) {
     return NextResponse.json(
