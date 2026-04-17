@@ -16,42 +16,42 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 // ── Custom map style ──────────────────────────────────────────────────────────
-// Exact Outsy dark palette. All colors mapped to app tokens:
-//   background  #0B0F14   water  #0F172A   roads  #1F2937   labels  #8FA3B8
+// Outsy dark palette — tuned ~12% darker than base spec so the map reads as
+// a quiet background behind UI overlays.
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  // Base — exact app background (#0B0F14)
-  { elementType: "geometry",                                stylers: [{ color: "#0b0f14" }] },
-  { elementType: "labels.text.stroke",                      stylers: [{ color: "#0b0f14" }] },
-  { elementType: "labels.text.fill",                        stylers: [{ color: "#8fa3b8" }] },
-  // Water — deep navy (#0F172A)
-  { featureType: "water", elementType: "geometry",          stylers: [{ color: "#0f172a" }] },
-  { featureType: "water", elementType: "labels.text.fill",  stylers: [{ color: "#253a52" }] },
+  // Base geometry — slightly darker than app bg so tiles recede
+  { elementType: "geometry",                                stylers: [{ color: "#090c11" }] },
+  { elementType: "labels.text.stroke",                      stylers: [{ color: "#090c11" }] },
+  { elementType: "labels.text.fill",                        stylers: [{ color: "#7e8fa2" }] },
+  // Water — deep navy, pushed darker
+  { featureType: "water", elementType: "geometry",          stylers: [{ color: "#0c1422" }] },
+  { featureType: "water", elementType: "labels.text.fill",  stylers: [{ color: "#1c2d44" }] },
   // Landscape — just above base
-  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0d1219" }] },
-  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#101824" }] },
-  // Parks — barely perceptible teal tint to distinguish open space
-  { featureType: "poi.park", elementType: "geometry",           stylers: [{ color: "#0b1220" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill",   stylers: [{ color: "#243d30" }] },
+  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0a0f15" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#0d1520" }] },
+  // Parks — barely perceptible tint, quieter green
+  { featureType: "poi.park", elementType: "geometry",           stylers: [{ color: "#09101c" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill",   stylers: [{ color: "#1c3026" }] },
   { featureType: "poi.park", elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
   // POIs — all icons off, business hidden, text nearly invisible
   { featureType: "poi",          elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
   { featureType: "poi.business",                                    stylers: [{ visibility: "off" }] },
-  { featureType: "poi",          elementType: "labels.text.fill",   stylers: [{ color: "#1e2d3d" }] },
-  // Roads — muted (#1F2937 per spec) with hierarchy
-  { featureType: "road",          elementType: "geometry",           stylers: [{ color: "#1f2937" }] },
-  { featureType: "road",          elementType: "geometry.stroke",    stylers: [{ color: "#141e2b" }] },
-  { featureType: "road.arterial", elementType: "geometry",           stylers: [{ color: "#273549" }] },
-  { featureType: "road.highway",  elementType: "geometry",           stylers: [{ color: "#334155" }] },
-  { featureType: "road.highway",  elementType: "geometry.stroke",    stylers: [{ color: "#1f2d40" }] },
-  { featureType: "road",          elementType: "labels.text.fill",   stylers: [{ color: "#435c7a" }] },
+  { featureType: "poi",          elementType: "labels.text.fill",   stylers: [{ color: "#161f2c" }] },
+  // Roads — readable hierarchy, slightly quieter
+  { featureType: "road",          elementType: "geometry",           stylers: [{ color: "#192230" }] },
+  { featureType: "road",          elementType: "geometry.stroke",    stylers: [{ color: "#111925" }] },
+  { featureType: "road.arterial", elementType: "geometry",           stylers: [{ color: "#20293c" }] },
+  { featureType: "road.highway",  elementType: "geometry",           stylers: [{ color: "#2b3449" }] },
+  { featureType: "road.highway",  elementType: "geometry.stroke",    stylers: [{ color: "#192538" }] },
+  { featureType: "road",          elementType: "labels.text.fill",   stylers: [{ color: "#38506c" }] },
   { featureType: "road",          elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
   // Transit — hidden icons, near-invisible lines
   { featureType: "transit",         elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  { featureType: "transit.line",    elementType: "geometry",          stylers: [{ color: "#111827" }] },
-  { featureType: "transit.station", elementType: "labels.text.fill",  stylers: [{ color: "#1e2d3d" }] },
-  // Administrative — brand-tinted soft labels
-  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#5e7a94" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#374f66" }] },
+  { featureType: "transit.line",    elementType: "geometry",          stylers: [{ color: "#0e1422" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill",  stylers: [{ color: "#161f2c" }] },
+  // Administrative — quieter area labels
+  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#4d6479" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#2d3f53" }] },
 ];
 
 // ── Legacy circle icons (fallback when MAP_ID is not set) ─────────────────────
