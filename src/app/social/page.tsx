@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { ActivityItem, MomentMeta } from "@/app/api/social/activity/route";
 import type { ConversationPreview } from "@/app/api/social/conversations/route";
@@ -1026,6 +1027,7 @@ type Tab = "activity" | "messages";
 
 export default function SocialPage() {
   const { user, session, loading } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "activity";
     return new URLSearchParams(window.location.search).get("tab") === "messages"
@@ -1045,7 +1047,7 @@ export default function SocialPage() {
   function handleTabSwitch(t: Tab) {
     setTab(t);
     const url = t === "activity" ? "/social" : `/social?tab=${t}`;
-    window.history.replaceState(null, "", url);
+    router.replace(url);
   }
 
   if (loading) return null;

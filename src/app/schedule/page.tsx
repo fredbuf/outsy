@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
@@ -486,6 +487,7 @@ function CalendarGrid({
 
 export default function SchedulePage() {
   const { user, loading: authLoading, session } = useAuth();
+  const router = useRouter();
 
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === "undefined") return "upcoming";
@@ -497,7 +499,7 @@ export default function SchedulePage() {
   function switchTab(t: Tab) {
     setTab(t);
     const url = t === "upcoming" ? "/schedule" : `/schedule?tab=${t}`;
-    window.history.replaceState(null, "", url);
+    router.replace(url);
   }
 
 
