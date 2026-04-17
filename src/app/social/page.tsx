@@ -1211,12 +1211,12 @@ export default function SocialPage() {
           display: "flex",
           background: "rgba(255,255,255,0.05)",
           border: "1px solid rgba(255,255,255,0.10)",
-          borderRadius: 14,
-          overflow: "hidden",       /* clips sliding bg to rounded corners — no padding needed */
+          borderRadius: 9999,
+          overflow: "hidden",       /* clips pill to capsule shape on outer edges */
           marginBottom: 20,
         }}
       >
-        {/* Full-segment sliding background — no border-radius; container clips it */}
+        {/* Full-segment sliding background — own borderRadius rounds inner edge */}
         <div
           aria-hidden="true"
           style={{
@@ -1225,6 +1225,7 @@ export default function SocialPage() {
             bottom: 0,
             left: 0,
             width: "50%",
+            borderRadius: 9999,
             background: "linear-gradient(135deg, rgba(94,168,255,0.20) 0%, rgba(37,99,235,0.26) 100%)",
             boxShadow: "0 1px 8px rgba(37,99,235,0.12)",
             transform: tab === "activity" ? "translateX(0)" : "translateX(100%)",
