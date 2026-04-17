@@ -567,6 +567,23 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     if (!canSubmit) return;
     setError(null);
     setSubmitting(true);
+
+    // Pre-flight diagnostic log
+    console.log("[handlePublish] START", {
+      title,
+      startAt,
+      endAt,
+      visibility,
+      sourceUrl,
+      rsvpDeadline,
+      hasImage: !!imageFile,
+      imageName: imageFile?.name,
+      imageType: imageFile?.type,
+      imageSize: imageFile?.size,
+      hasToken: !!session?.access_token,
+      isPrivate,
+    });
+
     try {
       const authHeader: Record<string, string> = session?.access_token
         ? { Authorization: `Bearer ${session.access_token}` }
@@ -574,16 +591,24 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        const fd = new FormData();
-        fd.append("file", imageFile);
-        const uploadRes = await fetch("/api/events/upload-image", {
-          method: "POST",
-          headers: authHeader,
-          body: fd,
-        });
-        const uploadJson = await uploadRes.json();
-        if (!uploadRes.ok || !uploadJson?.ok) {
-          throw new Error(uploadJson?.error ?? "Image upload failed.");
+        let uploadJson: { ok?: boolean; url?: string; error?: string } = {};
+        try {
+          const fd = new FormData();
+          fd.append("file", imageFile);
+          console.log("[handlePublish] uploading image…");
+          const uploadRes = await fetch("/api/events/upload-image", {
+            method: "POST",
+            headers: authHeader,
+            body: fd,
+          });
+          uploadJson = await uploadRes.json();
+          console.log("[handlePublish] upload result", uploadRes.status, uploadJson);
+          if (!uploadRes.ok || !uploadJson?.ok) {
+            throw new Error(uploadJson?.error ?? "Image upload failed.");
+          }
+        } catch (uploadErr) {
+          console.error("[handlePublish] UPLOAD STEP threw", uploadErr);
+          throw uploadErr;
         }
         imageUrl = uploadJson.url as string;
       }
@@ -626,12 +651,23 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             sourceUrl: sourceUrl.trim() || null,
           };
 
-      const res = await fetch("/api/events/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...authHeader },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
+      console.log("[handlePublish] PAYLOAD", JSON.stringify(payload, null, 2));
+
+      let res: Response;
+      let json: { ok?: boolean; eventId?: string; error?: string };
+      try {
+        res = await fetch("/api/events/submit", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...authHeader },
+          body: JSON.stringify(payload),
+        });
+        json = await res.json();
+        console.log("[handlePublish] submit result", res.status, json);
+      } catch (submitErr) {
+        console.error("[handlePublish] SUBMIT STEP threw", submitErr);
+        throw submitErr;
+      }
+
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error ?? "Could not create event.");
       }
@@ -643,7 +679,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         setPublicSubmitted(true);
       }
     } catch (err) {
-      console.error("[handlePublish]", err);
+      console.error("[handlePublish] CAUGHT", err);
       setError(err instanceof Error ? err.message : "Could not create event.");
     } finally {
       setSubmitting(false);
