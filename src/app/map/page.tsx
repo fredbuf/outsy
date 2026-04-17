@@ -464,15 +464,15 @@ function MiniCalendar({
         <button
           type="button"
           onClick={prevMonth}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.55, padding: "0 8px", lineHeight: 1 }}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.9)", padding: "0 8px", lineHeight: 1 }}
         >
           ‹
         </button>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{monthLabel}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{monthLabel}</span>
         <button
           type="button"
           onClick={nextMonth}
-          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, opacity: 0.55, padding: "0 8px", lineHeight: 1 }}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "rgba(255,255,255,0.9)", padding: "0 8px", lineHeight: 1 }}
         >
           ›
         </button>
@@ -481,7 +481,7 @@ function MiniCalendar({
       {/* Day-of-week headers */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
         {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, opacity: 0.4, padding: "2px 0" }}>
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.9)", padding: "2px 0" }}>
             {d}
           </div>
         ))}
@@ -497,6 +497,7 @@ function MiniCalendar({
           const isSelected = isStart || isEnd;
           const inRange    = !!(start && end && start !== end && iso > start && iso < end);
           const isToday    = iso === todayIso;
+          const isPast     = iso < todayIso;
 
           return (
             <button
@@ -504,24 +505,44 @@ function MiniCalendar({
               type="button"
               onClick={() => onDayTap(iso)}
               style={{
-                textAlign: "center",
-                padding: "6px 2px",
+                // Each cell is a fixed-height row; the circle is centered inside it
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "3px 0",
                 border: "none",
                 cursor: "pointer",
-                borderRadius: 6,
-                fontSize: 13,
-                fontWeight: isSelected ? 700 : 400,
-                background: isSelected
-                  ? "#2563EB"
-                  : inRange
-                  ? "rgba(37,99,235,0.18)"
-                  : "transparent",
-                color: isSelected ? "#fff" : isToday ? "#5EA8FF" : "inherit",
-                outline: isToday && !isSelected ? "1.5px solid #2563EB" : "none",
-                outlineOffset: -1,
+                background: inRange ? "rgba(37,99,235,0.18)" : "transparent",
+                borderRadius: inRange ? 0 : 4,
               }}
             >
-              {new Date(iso + "T00:00:00").getDate()}
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  fontSize: 13,
+                  fontWeight: isSelected ? 700 : 400,
+                  background: isSelected
+                    ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)"
+                    : "transparent",
+                  color: isSelected
+                    ? "#fff"
+                    : isPast
+                    ? "rgba(255,255,255,0.25)"
+                    : "rgba(255,255,255,0.85)",
+                  border: isToday && !isSelected
+                    ? "1.5px solid rgba(94,168,255,0.55)"
+                    : "none",
+                  boxSizing: "border-box",
+                  flexShrink: 0,
+                }}
+              >
+                {new Date(iso + "T00:00:00").getDate()}
+              </span>
             </button>
           );
         })}
@@ -529,7 +550,7 @@ function MiniCalendar({
 
       {/* Selection hint */}
       {start && !end && (
-        <div style={{ fontSize: 11, opacity: 0.5, marginTop: 8, textAlign: "center" }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 8, textAlign: "center" }}>
           Tap a second date to set a range
         </div>
       )}
