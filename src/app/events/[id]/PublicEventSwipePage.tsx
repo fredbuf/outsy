@@ -297,34 +297,55 @@ export function PublicEventSwipePage(props: Props) {
       </div>
 
       {/* ── SEGMENTED CONTROL ─────────────────────────────────────────────── */}
-      <div style={{ padding: "16px 20px 4px" }}>
-        <div style={{
-          display: "flex",
-          background: "rgba(18,25,36,0.50)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 20,
-          padding: 3,
-        }}>
-          {(["about", "moments"] as const).map((t) => {
-            const active = (t === "about" && page === 0) || (t === "moments" && page === 1);
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setPage(t === "about" ? 0 : 1)}
-                style={{
-                  flex: 1, padding: "9px 0", borderRadius: 16,
-                  border: "none", fontWeight: 600, fontSize: 14,
-                  cursor: "pointer",
-                  background: active ? "#ffffff" : "transparent",
-                  color: active ? "#0b0f14" : "rgba(255,255,255,0.55)",
-                  transition: "background 0.15s, color 0.15s",
-                }}
-              >
-                {t === "about" ? "About" : "Moments"}
-              </button>
-            );
-          })}
+      <div style={{ display: "flex", justifyContent: "center", padding: "16px 20px 8px" }}>
+        <div style={{ position: "relative", display: "flex", gap: 6 }}>
+          {/* Sliding white pill indicator */}
+          <div aria-hidden="true" style={{
+            position: "absolute",
+            top: 0, left: 0,
+            width: 88, height: 22,
+            borderRadius: 20,
+            background: "#ffffff",
+            border: "1px solid rgba(255,255,255,0.12)",
+            transform: `translateX(${page === 0 ? 0 : 94}px)`,
+            transition: "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }} />
+          {/* About */}
+          <button
+            type="button"
+            onClick={() => setPage(0)}
+            style={{
+              width: 88, height: 22, borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "transparent",
+              fontWeight: 600, fontSize: 12,
+              cursor: "pointer",
+              color: page === 0 ? "#1f3659" : "#ffffff",
+              position: "relative", zIndex: 1,
+              transition: "color 0.2s",
+            }}
+          >
+            About
+          </button>
+          {/* Moments */}
+          <button
+            type="button"
+            onClick={() => setPage(1)}
+            style={{
+              width: 88, height: 22, borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "transparent",
+              fontWeight: 600, fontSize: 12,
+              cursor: "pointer",
+              color: page === 1 ? "#1f3659" : "#ffffff",
+              position: "relative", zIndex: 1,
+              transition: "color 0.2s",
+            }}
+          >
+            Moments
+          </button>
         </div>
       </div>
 
