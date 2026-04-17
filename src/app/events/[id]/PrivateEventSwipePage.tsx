@@ -255,30 +255,28 @@ export function PrivateEventSwipePage(props: Props) {
 
       {/* ── SEGMENTED CONTROL ─────────────────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "center", padding: "16px 20px 8px" }}>
-        {/* Relative container sized to fit both pills + gap */}
         <div style={{ position: "relative", display: "flex", gap: 6 }}>
           {/* Sliding white pill indicator */}
           <div aria-hidden="true" style={{
             position: "absolute",
             top: 0, left: 0,
-            width: 88, height: 22,
+            width: 101, height: 25,
             borderRadius: 20,
             background: "#ffffff",
             border: "1px solid rgba(255,255,255,0.12)",
-            transform: `translateX(${page === 0 ? 0 : 94}px)`,
+            transform: `translateX(${page === 0 ? 0 : 107}px)`,
             transition: "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)",
             pointerEvents: "none",
             zIndex: 0,
           }} />
-          {/* About */}
           <button
             type="button"
             onClick={() => setPage(0)}
             style={{
-              width: 88, height: 22, borderRadius: 20,
+              width: 101, height: 25, borderRadius: 20,
               border: "1px solid rgba(255,255,255,0.10)",
               background: "transparent",
-              fontWeight: 600, fontSize: 12,
+              fontWeight: page === 0 ? 700 : 600, fontSize: 12,
               cursor: "pointer",
               color: page === 0 ? "#1f3659" : "#ffffff",
               position: "relative", zIndex: 1,
@@ -287,15 +285,14 @@ export function PrivateEventSwipePage(props: Props) {
           >
             About
           </button>
-          {/* Moments */}
           <button
             type="button"
             onClick={() => setPage(1)}
             style={{
-              width: 88, height: 22, borderRadius: 20,
+              width: 101, height: 25, borderRadius: 20,
               border: "1px solid rgba(255,255,255,0.10)",
               background: "transparent",
-              fontWeight: 600, fontSize: 12,
+              fontWeight: page === 1 ? 700 : 600, fontSize: 12,
               cursor: "pointer",
               color: page === 1 ? "#1f3659" : "#ffffff",
               position: "relative", zIndex: 1,
@@ -308,10 +305,19 @@ export function PrivateEventSwipePage(props: Props) {
       </div>
 
       {/* ── CONTENT ───────────────────────────────────────────────────────── */}
-      <div style={{ ...cssVars }}>
+      <div style={{ overflow: "hidden" }}>
+        <div style={{
+          display: "flex",
+          alignItems: "flex-start",
+          width: "200%",
+          transform: `translateX(${page === 0 ? "0%" : "-50%"})`,
+          transition: "transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)",
+          willChange: "transform",
+          ...cssVars,
+        }}>
 
-        {/* ── ABOUT PANEL ─────────────────────────────────────────────── */}
-        {page === 0 && (
+          {/* ── ABOUT PANEL ─────────────────────────────────────────────── */}
+          <div style={{ width: "50%", boxSizing: "border-box" }}>
           <div style={{ padding: "16px 20px 48px" }}>
 
               {/* RSVP — guests only; hosts skip this bar */}
@@ -484,22 +490,23 @@ export function PrivateEventSwipePage(props: Props) {
               )}
 
           </div>
-        )}
+          </div>
 
-        {/* ── MOMENTS PANEL ───────────────────────────────────────────── */}
-        {page === 1 && (
-          <MomentsClient
-            embedded
-            eventId={id}
-            eventTitle={title}
-            creatorId={creatorId}
-            cohostIds={cohostIds}
-            guestsCanPost={guestsCanPost}
-            guestsCanReact={guestsCanReact}
-            initialMoments={initialMoments}
-          />
-        )}
+          {/* ── MOMENTS PANEL ─────────────────────────────────────────── */}
+          <div style={{ width: "50%", boxSizing: "border-box" }}>
+            <MomentsClient
+              embedded
+              eventId={id}
+              eventTitle={title}
+              creatorId={creatorId}
+              cohostIds={cohostIds}
+              guestsCanPost={guestsCanPost}
+              guestsCanReact={guestsCanReact}
+              initialMoments={initialMoments}
+            />
+          </div>
 
+        </div>
       </div>
 
     </main>
