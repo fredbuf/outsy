@@ -30,17 +30,19 @@ export type MomentMeta = {
 
 export type ActivityItem = {
   id: string;
-  type: "friend_request_received" | "friend_request_accepted" | "event_invite" | "moment_posted" | "cohost_invite";
+  type: "friend_request_received" | "friend_request_accepted" | "event_invite" | "moment_posted" | "moment_comment" | "rsvp_received" | "cohost_invite";
   actor: ActivityActor;
   entity_id: string | null;
   // friend_request_received: true while friendship is still pending
   friendshipPending: boolean;
-  // event_invite / cohost_invite: event details
+  // event_invite / cohost_invite / rsvp_received: event details
   event: ActivityEventSummary | null;
-  // moment_posted: event context from notification metadata
+  // moment_posted / moment_comment: event context from notification metadata
   momentMeta: MomentMeta | null;
   // cohost_invite: pending / accepted / declined
   cohostInviteStatus: "pending" | "accepted" | "declined" | null;
+  // rsvp_received: the RSVP response value
+  rsvpResponse: string | null;
   read: boolean;
   created_at: string;
 };
@@ -107,11 +109,11 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Batch fetch event details for event_invite and cohost_invite ──────────
+  // ── Batch fetch event details for event_invite, cohost_invite, rsvp_received ─
   const eventIds = [
     ...new Set(
       notifs
-        .filter((n) => (n.type === "event_invite" || n.type === "cohost_invite") && n.entity_id)
+        .filter((n) => (n.type === "event_invite" || n.type === "cohost_invite" || n.type === "rsvp_received") && n.entity_id)
         .map((n) => n.entity_id as string)
     ),
   ];
@@ -142,9 +144,9 @@ export async function GET(req: Request) {
     const entityId = n.entity_id as string | null;
     const metadata = (n.metadata ?? {}) as Record<string, unknown>;
 
-    // moment_posted: event context lives in notification metadata
+    // moment_posted / moment_comment: event context lives in notification metadata
     const momentMeta: MomentMeta | null =
-      n.type === "moment_posted" &&
+      (n.type === "moment_posted" || n.type === "moment_comment") &&
       typeof metadata.event_id === "string" &&
       typeof metadata.event_title === "string"
         ? { event_id: metadata.event_id, event_title: metadata.event_title }
@@ -159,6 +161,11 @@ export async function GET(req: Request) {
             : "pending")
         : null;
 
+    const rsvpResponse: string | null =
+      n.type === "rsvp_received" && typeof metadata.rsvp_response === "string"
+        ? metadata.rsvp_response
+        : null;
+
     return {
       id: n.id as string,
       type: n.type as ActivityItem["type"],
@@ -169,11 +176,12 @@ export async function GET(req: Request) {
           ? pendingSet.has(entityId)
           : false,
       event:
-        (n.type === "event_invite" || n.type === "cohost_invite") && entityId != null
+        (n.type === "event_invite" || n.type === "cohost_invite" || n.type === "rsvp_received") && entityId != null
           ? (eventsMap.get(entityId) ?? null)
           : null,
       momentMeta,
       cohostInviteStatus,
+      rsvpResponse,
       read: n.read as boolean,
       created_at: n.created_at as string,
     };

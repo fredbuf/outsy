@@ -6,6 +6,8 @@ export type NotificationType =
   | "friend_request_accepted"
   | "event_invite"
   | "moment_posted"
+  | "moment_comment"
+  | "rsvp_received"
   | "cohost_invite";
 
 export async function createNotification({

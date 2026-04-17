@@ -101,7 +101,7 @@ export async function POST(
   // Verify moment exists and comments are enabled
   const { data: moment } = await supabase
     .from("moments")
-    .select("id,event_id,comments_enabled")
+    .select("id,event_id,author_id,comments_enabled")
     .eq("id", momentId)
     .eq("event_id", eventId)
     .maybeSingle();
@@ -186,6 +186,27 @@ export async function POST(
     .select("display_name,avatar_url,username")
     .eq("id", user.id)
     .maybeSingle();
+
+  // Notify the moment author — unless they wrote their own comment.
+  const momentAuthorId = moment.author_id as string | null;
+  if (momentAuthorId && momentAuthorId !== user.id) {
+    try {
+      const eventTitle = (event as Record<string, unknown>).title as string | undefined;
+      await supabase.from("notifications").insert({
+        user_id: momentAuthorId,
+        type: "moment_comment",
+        actor_id: user.id,
+        entity_id: momentId,
+        metadata: {
+          event_id: eventId,
+          event_title: eventTitle ?? "",
+          comment_id: (newComment as { id: string }).id,
+        },
+      });
+    } catch {
+      // Non-critical
+    }
+  }
 
   return NextResponse.json({
     ok: true,

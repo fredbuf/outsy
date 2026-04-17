@@ -311,6 +311,92 @@ function MomentPostedRow({
   );
 }
 
+function MomentCommentRow({
+  item,
+  onRead,
+}: {
+  item: ActivityItem & { momentMeta: MomentMeta };
+  onRead: () => void;
+}) {
+  const actorName = item.actor.display_name ?? item.actor.username ?? "Someone";
+  const { event_id, event_title } = item.momentMeta;
+  // entity_id is the moment id; link opens the moment directly
+  const momentId = item.entity_id;
+  const href = momentId
+    ? `/events/${event_id}/moments?moment=${momentId}`
+    : `/events/${event_id}/moments`;
+
+  return (
+    <Link href={href} style={{ textDecoration: "none", color: "inherit" }} onClick={onRead}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 0", borderBottom: "1px solid var(--border)", cursor: "pointer",
+      }}>
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 14, lineHeight: 1.35,
+            overflow: "hidden", display: "-webkit-box",
+            WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          }}>
+            <span style={{ fontWeight: 600 }}>{actorName}</span>
+            {" commented on your moment in "}
+            <span style={{ fontWeight: 600 }}>{event_title}</span>
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 3 }}>{relativeTime(item.created_at)}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.3, flexShrink: 0 }}>
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </div>
+    </Link>
+  );
+}
+
+function RsvpReceivedRow({
+  item,
+  onRead,
+}: {
+  item: ActivityItem;
+  onRead: () => void;
+}) {
+  const actorName = item.actor.display_name ?? item.actor.username ?? "Someone";
+  const eventTitle = item.event?.title ?? "your event";
+  const eventId = item.entity_id;
+  const href = eventId ? `/events/${eventId}` : "/schedule";
+  const responseLabel =
+    item.rsvpResponse === "going" ? "is going"
+    : item.rsvpResponse === "maybe" ? "is interested"
+    : item.rsvpResponse === "cant_go" ? "can't go"
+    : "responded";
+
+  return (
+    <Link href={href} style={{ textDecoration: "none", color: "inherit" }} onClick={onRead}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 0", borderBottom: "1px solid var(--border)", cursor: "pointer",
+      }}>
+        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 14, lineHeight: 1.35,
+            overflow: "hidden", display: "-webkit-box",
+            WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+          }}>
+            <span style={{ fontWeight: 600 }}>{actorName}</span>
+            {` ${responseLabel} to `}
+            <span style={{ fontWeight: 600 }}>{eventTitle}</span>
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 3 }}>{relativeTime(item.created_at)}</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.3, flexShrink: 0 }}>
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </div>
+    </Link>
+  );
+}
+
 function CohostInviteRow({
   item,
   token,
@@ -534,6 +620,20 @@ function ActivityTab({
           row = (
             <MomentPostedRow
               item={item as ActivityItem & { momentMeta: MomentMeta }}
+              onRead={() => markRead(item.id)}
+            />
+          );
+        } else if (item.type === "moment_comment" && item.momentMeta) {
+          row = (
+            <MomentCommentRow
+              item={item as ActivityItem & { momentMeta: MomentMeta }}
+              onRead={() => markRead(item.id)}
+            />
+          );
+        } else if (item.type === "rsvp_received") {
+          row = (
+            <RsvpReceivedRow
+              item={item}
               onRead={() => markRead(item.id)}
             />
           );

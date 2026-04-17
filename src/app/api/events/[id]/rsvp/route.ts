@@ -63,10 +63,10 @@ export async function POST(
 
   const { id } = await params;
 
-  // Verify event exists
+  // Verify event exists and fetch host info for notifications
   const { data: event } = await supabase
     .from("events")
-    .select("id")
+    .select("id,title,creator_id,cohost_ids")
     .eq("id", id)
     .maybeSingle();
 
@@ -103,6 +103,31 @@ export async function POST(
       { ok: false, error: `RSVP failed: ${error.message}` },
       { status: 500 }
     );
+  }
+
+  // Notify the event creator and all cohosts — except the person who just RSVPed.
+  try {
+    const creatorId = event.creator_id as string | null;
+    const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
+    const recipients = new Set<string>([
+      ...(creatorId ? [creatorId] : []),
+      ...cohostIds,
+    ]);
+    recipients.delete(authUser.id); // don't notify yourself
+
+    if (recipients.size > 0) {
+      const eventTitle = event.title as string;
+      const rows = [...recipients].map((uid) => ({
+        user_id: uid,
+        type: "rsvp_received",
+        actor_id: authUser.id,
+        entity_id: id,
+        metadata: { event_id: id, event_title: eventTitle, rsvp_response: response },
+      }));
+      await supabase.from("notifications").insert(rows);
+    }
+  } catch {
+    // Non-critical
   }
 
   const counts = await getCounts(supabase, id);
