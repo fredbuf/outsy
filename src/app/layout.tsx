@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
 import { Header } from "./components/Header";
 import { BottomNav } from "./components/BottomNav";
+import { BottomNavProvider } from "./components/BottomNavContext";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -40,9 +41,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${jakarta.variable} antialiased`}>
         <AuthProvider>
-          <Header />
-          {children}
-          <BottomNav />
+          <BottomNavProvider>
+            <Header />
+            {children}
+            <BottomNav />
+          </BottomNavProvider>
         </AuthProvider>
       </body>
     </html>

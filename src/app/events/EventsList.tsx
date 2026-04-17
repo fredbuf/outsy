@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "../components/AuthProvider";
+import { useBottomNav } from "../components/BottomNavContext";
 
 const PAGE_SIZE = 50;
 
@@ -640,6 +641,13 @@ export function EventsList() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [thisWeekOpen, setThisWeekOpen] = useState(false);
+
+  const { hide: hideNav, show: showNav } = useBottomNav();
+  useEffect(() => {
+    if (filtersOpen) { hideNav(); } else { showNav(); }
+    return () => { showNav(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersOpen]);
   const [weekBounds] = useState(() => thisWeekBoundsIso());
 
   // Full event pool fetched when any explicit filter is active.

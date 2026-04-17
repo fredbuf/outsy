@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../components/AuthProvider";
+import { useBottomNav } from "../components/BottomNavContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -234,13 +235,18 @@ export default function ProfilePage() {
       .finally(() => setFetching(false));
   }, [authLoading, session?.access_token]);
 
+  const { hide: hideNav, show: showNav } = useBottomNav();
+
   useEffect(() => {
     document.body.style.overflow = (editOpen || activeSheet !== null || settingsOpen) ? "hidden" : "";
     document.body.classList.toggle("settings-open", settingsOpen);
+    if (editOpen || activeSheet !== null || settingsOpen) { hideNav(); } else { showNav(); }
     return () => {
       document.body.style.overflow = "";
       document.body.classList.remove("settings-open");
+      showNav();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editOpen, activeSheet, settingsOpen]);
 
   async function handleSignOut() {

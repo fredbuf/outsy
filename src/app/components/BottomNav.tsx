@@ -225,7 +225,9 @@ export function BottomNav() {
         position: "fixed",
         bottom: "max(16px, env(safe-area-inset-bottom, 16px))",
         left: "50%",
+        // base transform; data-hidden overrides via globals.css
         transform: "translateX(-50%)",
+        transition: "transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease",
         zIndex: 150,
         display: "flex",
         alignItems: "center",
