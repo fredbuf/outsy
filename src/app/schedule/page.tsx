@@ -904,35 +904,65 @@ export default function SchedulePage() {
         <h1 className="page-h1" style={{ fontSize: 28, fontWeight: 700 }}>Schedule</h1>
       </header>
 
-      {/* Segmented control */}
+      {/* Segmented control — matches Inbox design */}
       <div
         role="tablist"
         aria-label="Schedule views"
-        style={{ display: "flex", background: "var(--btn-bg)", borderRadius: 12, padding: 3, gap: 2, marginBottom: 28 }}
+        style={{
+          position: "relative",
+          display: "flex",
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          borderRadius: 9999,
+          overflow: "hidden",
+          marginBottom: 28,
+        }}
       >
-        {TABS.map(({ id, label }) => {
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={active}
-              type="button"
-              onClick={() => switchTab(id)}
-              style={{
-                flex: 1, padding: "8px 4px", borderRadius: 9, border: "none",
-                background: active ? "var(--background)" : "transparent",
-                fontWeight: active ? 700 : 400, fontSize: 13,
-                color: active ? "var(--accent)" : "inherit",
-                cursor: "pointer",
-                boxShadow: active ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
-                transition: "background 0.15s, color 0.15s, box-shadow 0.15s",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
+        {/* Sliding selection pill */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: "33.333%",
+            borderRadius: 9999,
+            background: "linear-gradient(135deg, rgba(94,168,255,0.20) 0%, rgba(37,99,235,0.26) 100%)",
+            boxShadow: "0 1px 8px rgba(37,99,235,0.12)",
+            transform: tab === "upcoming"
+              ? "translateX(0)"
+              : tab === "hosting"
+              ? "translateX(100%)"
+              : "translateX(200%)",
+            transition: "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)",
+            pointerEvents: "none",
+          }}
+        />
+        {TABS.map(({ id, label }) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            type="button"
+            onClick={() => switchTab(id)}
+            style={{
+              flex: 1,
+              position: "relative",
+              zIndex: 1,
+              padding: "10px 4px",
+              border: "none",
+              background: "transparent",
+              fontWeight: 600,
+              fontSize: 13,
+              color: tab === id ? "#ffffff" : "rgba(255,255,255,0.45)",
+              cursor: "pointer",
+              transition: "color 0.2s ease",
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* Panels */}
