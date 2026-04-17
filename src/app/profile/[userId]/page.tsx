@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { FriendshipButton } from "./FriendshipButton";
+import { BackButton } from "../../events/[id]/BackButton";
 
 // ── DB queries ────────────────────────────────────────────────────────────────
 
@@ -235,22 +236,48 @@ export default async function PublicProfilePage({
 
   return (
     <main
-      className="page-main"
+      className="page-main app-page"
       style={{
         maxWidth: 640,
         margin: "0 auto",
-        padding: "24px 16px 56px",
+        padding: "28px 16px 64px",
+        minHeight: "100dvh",
         display: "grid",
-        gap: 28,
-        background: "radial-gradient(ellipse 120% 60% at 50% -5%, rgba(124, 58, 237, 0.09) 0%, transparent 65%)",
+        gap: 36,
+        border: "1.5px solid rgba(255,255,255,0.10)",
+        boxShadow: "0 24px 64px 0 rgba(0,0,0,0.60)",
       }}
     >
-      <Link href="/events" style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}>
-        ← Back
-      </Link>
+      <div className="app-bg-gradient" aria-hidden="true" />
 
-      {/* ── Profile header ── */}
-      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8 }}>
+      {/* ── Identity block ── */}
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8, position: "relative" }}>
+
+        {/* Back button — top-left, liquid-glass */}
+        <BackButton
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            background: "var(--surface-raised)",
+            border: "1px solid var(--border-strong)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            cursor: "pointer",
+            color: "inherit",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          } as React.CSSProperties}
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </BackButton>
+
         {/* Avatar */}
         {profile.avatar_url ? (
           <img
@@ -279,24 +306,24 @@ export default async function PublicProfilePage({
 
         {/* Name + username */}
         <div style={{ textAlign: "center" }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em", margin: 0 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
             {displayName}
-          </h1>
+          </div>
           {profile.username && (
             <div style={{ fontSize: 14, opacity: 0.5, marginTop: 4 }}>@{profile.username}</div>
           )}
         </div>
 
-        {/* Add friend / Message button */}
+        {/* Friend / Message actions */}
         <FriendshipButton profileId={userId} profileUsername={profile.username} />
 
-        {/* Summary counters */}
+        {/* Summary counters — same card structure as own profile */}
         <div
           style={{
             display: "flex",
             width: "100%",
             maxWidth: 300,
-            marginTop: 4,
+            marginTop: 8,
             borderRadius: 14,
             overflow: "hidden",
             border: "1px solid var(--border)",

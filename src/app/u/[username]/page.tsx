@@ -3,9 +3,9 @@ import "server-only";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { FriendshipButton } from "@/app/profile/[userId]/FriendshipButton";
+import { BackButton } from "@/app/events/[id]/BackButton";
 import { PublicProfileCounters, type PublicEvent } from "./PublicProfileCounters";
 
 // ── DB queries ─────────────────────────────────────────────────────────────────
@@ -118,12 +118,34 @@ export default async function UserProfilePage({
       }}
     >
       <div className="app-bg-gradient" aria-hidden="true" />
-      <Link href="/events" style={{ opacity: 0.55, fontSize: 14, textDecoration: "none" }}>
-        ← Back
-      </Link>
 
       {/* ── Identity block — same structure as own profile ── */}
-      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8 }}>
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8, position: "relative" }}>
+
+        {/* Back button — top-left, liquid-glass */}
+        <BackButton
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            background: "var(--surface-raised)",
+            border: "1px solid var(--border-strong)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            cursor: "pointer",
+            color: "inherit",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          } as React.CSSProperties}
+        >
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </BackButton>
 
         {/* Avatar — 96px to match own profile */}
         <div style={{ width: 96, height: 96, flexShrink: 0 }}>
