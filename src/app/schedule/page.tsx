@@ -406,12 +406,12 @@ function CalendarGrid({
                   background: imgSrc
                     ? "transparent"
                     : isToday
-                    ? "linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)"
+                    ? "#2563E2"
                     : "transparent",
                   boxShadow: isSel
-                    ? "0 0 0 2.5px #a78bfa"
+                    ? "0 0 0 2.5px #2563E2"
                     : isToday && !imgSrc
-                    ? "0 4px 16px rgba(124,58,237,0.45)"
+                    ? "0 4px 16px rgba(37,99,226,0.40)"
                     : "none",
                 }}
               >
@@ -424,7 +424,7 @@ function CalendarGrid({
                         width: 36, height: 36,
                         objectFit: "cover", borderRadius: "50%",
                         display: "block",
-                        boxShadow: isSel ? "0 0 0 2.5px #a78bfa" : "none",
+                        boxShadow: isSel ? "0 0 0 2.5px #2563E2" : "none",
                       }}
                     />
                     {/* Gradient overlay for number readability */}
@@ -448,7 +448,7 @@ function CalendarGrid({
                       <span style={{
                         position: "absolute", bottom: -1, right: -1,
                         width: 15, height: 15, borderRadius: "50%",
-                        background: "#7c3aed",
+                        background: "#2563E2",
                         border: "1.5px solid rgba(12,9,18,0.92)",
                         fontSize: 8, fontWeight: 800,
                         color: "#fff",
@@ -466,7 +466,7 @@ function CalendarGrid({
                     color: isToday
                       ? "#fff"
                       : isSel
-                      ? "#a78bfa"
+                      ? "#2563E2"
                       : "rgba(234,232,228,0.72)",
                     lineHeight: 1,
                   }}>
