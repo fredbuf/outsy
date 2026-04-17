@@ -124,6 +124,9 @@ type Props = {
   initialMoments: MomentRow[];
   startAt: string;
   preview?: EventPreview;
+  previewMode?: boolean;
+  onPreviewBack?: () => void;
+  onPublish?: () => void;
 };
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -140,6 +143,9 @@ export function PublicEventSwipePage(props: Props) {
     guestsCanPost, guestsCanReact,
     initialMoments,
     startAt,
+    previewMode = false,
+    onPreviewBack,
+    onPublish,
   } = props;
 
   const [page, setPage] = useState(0); // 0 = about, 1 = moments
@@ -203,16 +209,19 @@ export function PublicEventSwipePage(props: Props) {
           display: "flex", alignItems: "center",
           zIndex: 2,
         }}>
-          <BackButton style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: 39, height: 39, borderRadius: "50%",
-            background: "rgba(18,25,36,0.50)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            cursor: "pointer", color: "#fff", flexShrink: 0,
-            touchAction: "manipulation",
-          } as React.CSSProperties}>
+          <BackButton
+            onClick={previewMode ? onPreviewBack : undefined}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 39, height: 39, borderRadius: "50%",
+              background: "rgba(18,25,36,0.50)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              cursor: "pointer", color: "#fff", flexShrink: 0,
+              touchAction: "manipulation",
+            } as React.CSSProperties}
+          >
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
@@ -233,7 +242,22 @@ export function PublicEventSwipePage(props: Props) {
             </span>
           </div>
 
-          <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} />
+          {previewMode ? (
+            <button
+              type="button"
+              onClick={onPublish}
+              style={{
+                height: 33, padding: "0 18px", borderRadius: 20,
+                background: "#ffffff", border: "none",
+                color: "#0b0f14", fontWeight: 700, fontSize: 13,
+                cursor: "pointer", flexShrink: 0,
+              }}
+            >
+              Publish
+            </button>
+          ) : (
+            <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} />
+          )}
         </div>
 
         {/* Gradient scrim + title / date / venue */}
@@ -369,6 +393,7 @@ export function PublicEventSwipePage(props: Props) {
                 initialCounts={rsvpCounts}
                 sourceUrl={sourceUrl}
                 visibility="public"
+                previewMode={previewMode}
               />
 
               {/* Attendees row */}

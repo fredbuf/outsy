@@ -7,6 +7,8 @@ import Link from "next/link";
 import Script from "next/script";
 import { useAuth } from "../../components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { PublicEventSwipePage } from "../[id]/PublicEventSwipePage";
+import { PrivateEventSwipePage } from "../[id]/PrivateEventSwipePage";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 type Visibility = "public" | "private";
@@ -78,6 +80,21 @@ function toLocalTimeStr(iso: string): string {
   const p = Object.fromEntries(parts.filter(x => x.type !== "literal").map(x => [x.type, x.value]));
   const h = p.hour === "24" ? "00" : p.hour;
   return `${h}:${p.minute}`;
+}
+
+function buildPreviewDateLines(startDate: string, startTime: string, allDay: boolean): { dateLine: string; timeLine: string | null } {
+  if (!startDate) return { dateLine: "", timeLine: null };
+  const [y, m, d] = startDate.split("-").map(Number);
+  const dt = allDay || !startTime
+    ? new Date(y, m - 1, d)
+    : (() => { const [h, min] = startTime.split(":").map(Number); return new Date(y, m - 1, d, h, min); })();
+  const dateStr = dt.toLocaleString("en-US", {
+    timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
+  });
+  const timeStr = allDay || !startTime ? null : dt.toLocaleString("en-US", {
+    timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
+  });
+  return { dateLine: dateStr, timeLine: timeStr };
 }
 
 export type EditEventData = {
@@ -751,211 +768,88 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // ── Preview mode ────────────────────────────────────────────────
   if (showPreview) {
-    const previewDarkVars = {
-      color: "#eae8e4",
-      "--background":     "rgba(18,25,36,0.55)",
-      "--foreground":     "#eae8e4",
-      "--border":         "rgba(255,255,255,0.10)",
-      "--border-strong":  "rgba(255,255,255,0.18)",
-      "--btn-bg":         "rgba(255,255,255,0.07)",
-      "--btn-bg-active":  "rgba(255,255,255,0.13)",
-      "--surface-subtle": "rgba(255,255,255,0.04)",
-      "--surface-raised": "rgba(255,255,255,0.09)",
-      "--accent":         "#5EA8FF",
-    } as React.CSSProperties;
+    const { dateLine: previewDateLine, timeLine: previewTimeLine } = buildPreviewDateLines(startDate, startTime, allDay);
+    const previewStartAt = startDate
+      ? (startTime ? `${startDate}T${startTime}:00` : `${startDate}T00:00:00`)
+      : new Date().toISOString();
+    const previewCreator = { display_name: displayName, avatar_url: avatarUrl, username: null };
+    const previewRsvpCounts = { going: 0, maybe: 0, cant_go: 0 };
 
-    const previewGlassCircle: React.CSSProperties = {
-      display: "flex", alignItems: "center", justifyContent: "center",
-      width: 39, height: 39, borderRadius: "50%",
-      background: "rgba(0,0,0,0.30)",
-      border: "1px solid rgba(255,255,255,0.16)",
-      color: "#fff", cursor: "pointer", flexShrink: 0,
-    };
+    if (isPrivate) {
+      const spotsLimited = spotsMode === "limited";
+      const spotsLimitNum = spotsLimited && spotsLimit.trim() ? parseInt(spotsLimit) : null;
+      const eventPrice = costAmount.trim() && parseFloat(costAmount) > 0 ? parseFloat(costAmount) : null;
+      const privateMapHref = privateLat && privateLng
+        ? `https://maps.google.com/?q=${privateLat},${privateLng}`
+        : null;
+      return (
+        <PrivateEventSwipePage
+          id="preview"
+          imageUrl={imagePreview}
+          title={title || "Event title"}
+          category={category}
+          source="preview"
+          creatorId={user?.id ?? null}
+          creator={previewCreator}
+          cohostIds={cohostIds}
+          cohostProfiles={cohostProfiles}
+          dateLine={previewDateLine}
+          timeLine={previewTimeLine}
+          privateMapHref={privateMapHref}
+          venueName={privatePlaceName || null}
+          description={description || null}
+          descriptionTitle={descriptionTitle || null}
+          spotsLimited={spotsLimited}
+          spotsLimit={spotsLimitNum}
+          eventPrice={eventPrice}
+          eventCurrency={costCurrency}
+          paymentMethod={eventPrice ? "interac" : null}
+          paymentContact={costPaymentContact.trim() || null}
+          rsvpDeadline={rsvpDeadline || null}
+          rsvpCounts={previewRsvpCounts}
+          attendees={[]}
+          guestsCanPost={false}
+          guestsCanReact={false}
+          initialMoments={[]}
+          previewMode
+          onPreviewBack={() => setShowPreview(false)}
+          onPublish={handlePublish}
+        />
+      );
+    }
 
     return (
-      <div style={{ position: "relative", zIndex: 1, minHeight: "100dvh", background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)", ...previewDarkVars }}>
-        {/* Hero */}
-        <div style={{ position: "relative", aspectRatio: "9/10", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="Cover"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          )}
-          {/* Overlay */}
-          <div
-            style={{
-              position: "absolute", inset: 0, pointerEvents: "none",
-              background: imagePreview
-                ? "linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 22%), linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)"
-                : "linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 18%), linear-gradient(to top, rgba(11,15,20,0.85) 0%, transparent 40%)",
-            }}
-          />
-
-          {/* Nav: Back left, Publish right */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px" }}>
-            <button
-              type="button"
-              aria-label="Back to editing"
-              style={previewGlassCircle}
-              onClick={() => setShowPreview(false)}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={handlePublish}
-              style={{
-                padding: "9px 20px", borderRadius: 20,
-                background: submitting ? "rgba(255,255,255,0.55)" : "#ffffff",
-                color: "#0b0f14",
-                fontWeight: 700, fontSize: 14, border: "none",
-                cursor: submitting ? "not-allowed" : "pointer",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              {submitting ? "Publishing…" : "Publish"}
-            </button>
-          </div>
-
-          {/* Bottom: title, date, location */}
-          <div
-            style={{
-              position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
-              padding: "90px 28px 40px",
-              textAlign: "center",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-            }}
-          >
-            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 800, lineHeight: 1.15, letterSpacing: "-0.02em", color: "#fff" }}>
-              {title || "Event title"}
-            </h1>
-            {dateLine && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: 500 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                  <rect x="3" y="4" width="18" height="18" rx="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                {dateLine}
-              </div>
-            )}
-            {locationLine && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "rgba(255,255,255,0.60)", fontSize: 14, fontWeight: 500 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-                {locationLine}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Lower preview section */}
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 16px 80px", ...previewDarkVars }}>
-          {/* Hosted by card */}
-          {user && (
-            <div
-              style={{
-                borderRadius: 18,
-                background: "rgba(18,25,36,0.50)",
-                border: "1px solid rgba(255,255,255,0.14)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-                padding: "16px 18px",
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt={displayName} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(displayName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                    {getInitials(displayName)}
-                  </div>
-                )}
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Organized by</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {[displayName, ...cohostProfiles.map(cp => cp.display_name ?? `@${cp.username}`)].join(" & ")}
-                  </div>
-                </div>
-              </div>
-              {description && (
-                <>
-                  <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "14px 0" }} />
-                  {descriptionTitle && (
-                    <p style={{ margin: "0 0 6px", fontSize: 15, fontWeight: 700 }}>{descriptionTitle}</p>
-                  )}
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.65, opacity: 0.75, whiteSpace: "pre-wrap" }}>{description}</p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Options chips row (private only) */}
-          {isPrivate && (() => {
-            const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0 ? `${spotsLimit} spots` : null;
-            const costLabel = costAmount.trim() && parseFloat(costAmount) > 0 ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}` : null;
-            const rsvpLabel = rsvpDeadline ? (() => {
-              const [y, m, d] = rsvpDeadline.split("-").map(Number);
-              return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-            })() : null;
-            if (!spotsLabel && !costLabel && !rsvpLabel) return null;
-            return (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                {spotsLabel && <span style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)", fontSize: 13, fontWeight: 600 }}>{spotsLabel}</span>}
-                {costLabel && <span style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)", fontSize: 13, fontWeight: 600 }}>{costLabel}</span>}
-                {rsvpLabel && <span style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.18)", fontSize: 13, fontWeight: 600 }}>RSVP by {rsvpLabel}</span>}
-              </div>
-            );
-          })()}
-
-          {/* RSVP placeholder */}
-          <div
-            style={{
-              borderRadius: 18,
-              background: "rgba(18,25,36,0.50)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              padding: "16px 18px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Going?</div>
-              <div style={{ fontSize: 12, opacity: 0.45 }}>0 attending</div>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["Going", "Maybe", "Can't"].map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  disabled
-                  style={{
-                    padding: "7px 14px", borderRadius: 20,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "transparent", color: "inherit",
-                    fontSize: 13, fontWeight: 500, cursor: "not-allowed", opacity: 0.55,
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {error && <p style={{ color: "#dc2626", fontSize: 13, margin: "16px 0 0" }}>{error}</p>}
-        </div>
-      </div>
+      <PublicEventSwipePage
+        id="preview"
+        imageUrl={imagePreview}
+        title={title || "Event title"}
+        category={category}
+        source="preview"
+        creatorId={user?.id ?? null}
+        creator={previewCreator}
+        cohostIds={cohostIds}
+        dateLine={previewDateLine}
+        timeLine={previewTimeLine}
+        mapHref="#"
+        venueName={venueName || null}
+        description={description || null}
+        descriptionTitle={descriptionTitle || null}
+        price={null}
+        isAnnounced={false}
+        rsvpCounts={previewRsvpCounts}
+        attendees={[]}
+        related={[]}
+        sourceUrl={sourceUrl || null}
+        guestsCanPost={false}
+        guestsCanReact={false}
+        initialMoments={[]}
+        startAt={previewStartAt}
+        previewMode
+        onPreviewBack={() => setShowPreview(false)}
+        onPublish={handlePublish}
+      />
     );
+
   }
 
   // ── Shared glass styles for on-canvas controls ──────────────────

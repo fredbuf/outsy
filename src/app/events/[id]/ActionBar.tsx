@@ -13,11 +13,13 @@ export function ActionBar({
   initialCounts,
   sourceUrl,
   visibility,
+  previewMode = false,
 }: {
   eventId: string;
   initialCounts: Counts;
   sourceUrl: string | null;
   visibility: "public" | "private";
+  previewMode?: boolean;
 }) {
   const { user, loading: authLoading, session } = useAuth();
   const [, setCounts] = useState<Counts>(initialCounts);
@@ -26,7 +28,7 @@ export function ActionBar({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!session?.access_token) return;
+    if (previewMode || !session?.access_token) return;
     setLoadingRsvp(true);
     fetch(`/api/events/${eventId}/rsvp`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
@@ -40,7 +42,7 @@ export function ActionBar({
       })
       .catch(() => {})
       .finally(() => setLoadingRsvp(false));
-  }, [eventId, session?.access_token]);
+  }, [eventId, session?.access_token, previewMode]);
 
   async function handleRsvp(r: RsvpResponse) {
     if (!session?.access_token || submitting) return;
@@ -68,7 +70,7 @@ export function ActionBar({
     window.dispatchEvent(new CustomEvent("outsy:open-signin"));
   }
 
-  const busy = submitting || loadingRsvp;
+  const busy = submitting || loadingRsvp || previewMode;
   const isPublic = visibility === "public";
   const hasTickets = isPublic && !!sourceUrl;
 
@@ -236,8 +238,8 @@ export function ActionBar({
         )}
       </div>
 
-      {/* Sign-in nudge — only shown to logged-out users */}
-      {!authLoading && !user && (
+      {/* Sign-in nudge — only shown to logged-out users, not in preview */}
+      {!previewMode && !authLoading && !user && (
         <p style={{ fontSize: 12, opacity: 0.45, textAlign: "center", margin: 0 }}>
           <button
             type="button"
