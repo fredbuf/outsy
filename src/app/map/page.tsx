@@ -1148,10 +1148,10 @@ export default function MapPage() {
       rotateControl: false,
       cameraControl: false,
       clickableIcons: false,
-      // styles applies the Outsy dark palette (raster maps only).
-      // mapId enables AdvancedMarkerElement for round image markers — when set
-      // the Google Maps vector renderer ignores `styles`, so we omit mapId
-      // entirely to force raster mode and ensure the custom dark theme applies.
+      // mapId enables AdvancedMarkerElement; styles applies the dark palette on
+      // raster maps (vector renderer ignores styles, so both are passed and each
+      // takes effect in its respective mode).
+      ...(MAP_ID ? { mapId: MAP_ID } : {}),
       styles: MAP_STYLES,
     });
 
@@ -1228,9 +1228,10 @@ export default function MapPage() {
     prevSelectedIdRef.current = null;
 
     // AdvancedMarkerElement requires a mapId on the Map instance.
-    // We omit mapId so the dark styles apply (vector maps ignore styles),
-    // so AdvancedMarker is always null here — we use legacy Marker everywhere.
-    const AdvancedMarker = null;
+    // Only available when MAP_ID is configured; otherwise falls back to legacy Marker.
+    const AdvancedMarker = MAP_ID
+      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
+      : null;
 
     filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
@@ -1285,14 +1286,28 @@ export default function MapPage() {
     if (typeof lat !== "number" || typeof lng !== "number") return;
     console.log("[map deep-link] placing marker at", lat, lng, deepLinkedEvent.title);
 
-    // AdvancedMarkerElement omitted (no mapId on map — see styles note above).
-    const marker = new google.maps.Marker({
-      map,
-      position: { lat, lng },
-      title: deepLinkedEvent.title,
-      icon: MARKER_DEFAULT,
-      zIndex: 1,
-    });
+    const AdvancedMarker = MAP_ID
+      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
+      : null;
+
+    let marker;
+    if (AdvancedMarker) {
+      marker = new AdvancedMarker({
+        map,
+        position: { lat, lng },
+        content: createMarkerEl(deepLinkedEvent.image_url, false, deepLinkedEvent.category_primary),
+        title: deepLinkedEvent.title,
+        zIndex: 1,
+      });
+    } else {
+      marker = new google.maps.Marker({
+        map,
+        position: { lat, lng },
+        title: deepLinkedEvent.title,
+        icon: MARKER_DEFAULT,
+        zIndex: 1,
+      });
+    }
     marker.addListener("click", () => {
       setSelected(deepLinkedEvent);
       map.panTo({ lat, lng });
