@@ -1073,43 +1073,48 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
               <div
                 style={{
+                  position: "relative",
                   display: "flex",
-                  background: "rgba(0,0,0,0.28)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  borderRadius: 20,
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  padding: 2, gap: 1,
-                  maxWidth: 200, width: "100%",
+                  width: 224, height: 33,
+                  background: "rgba(0,0,0,0.18)",
+                  backdropFilter: "blur(14px)",
+                  WebkitBackdropFilter: "blur(14px)",
+                  borderRadius: 200,
+                  overflow: "hidden",
+                  flexShrink: 0,
                 }}
               >
+                {/* Sliding active indicator */}
+                <div aria-hidden="true" style={{
+                  position: "absolute", top: 0,
+                  left: visibility === "public" ? 0 : 112,
+                  width: 112, height: 33,
+                  background: "rgba(255,255,255,0.07)",
+                  borderRadius: 200,
+                  transition: "left 0.2s cubic-bezier(0.25,0.46,0.45,0.94)",
+                  pointerEvents: "none",
+                }} />
                 {(["public", "private"] as const).map((v) => (
                   <button
                     key={v}
                     type="button"
                     onClick={() => setVisibility(v)}
                     style={{
-                      flex: 1, padding: "5px 10px", borderRadius: 18, border: "none",
-                      background: visibility === v ? "rgba(255,255,255,0.22)" : "transparent",
+                      width: 112, height: 33, border: "none",
+                      background: "transparent",
                       color: "#fff",
-                      fontSize: 12, fontWeight: visibility === v ? 600 : 400,
+                      fontSize: 13, fontWeight: 700,
                       cursor: "pointer",
                       display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                      transition: "background 0.15s",
+                      position: "relative", zIndex: 1, flexShrink: 0,
                     }}
                   >
-                    {v === "private" ? (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <rect x="3" y="11" width="18" height="11" rx="2" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                      </svg>
-                    ) : (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                      </svg>
-                    )}
-                    {v === "private" ? "Private" : "Public"}
+                    <img
+                      src={v === "public" ? "/Icons/IconPublic.svg" : "/Icons/IconPrivate.svg"}
+                      width="13" height="13" alt=""
+                      style={{ opacity: 0.9, flexShrink: 0 }}
+                    />
+                    {v === "public" ? "Public" : "Private"}
                   </button>
                 ))}
               </div>
@@ -1125,23 +1130,26 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               type="button"
               onClick={() => fileInputRef.current?.click()}
               style={{
-                position: "absolute", top: "50%", left: "50%",
-                transform: "translate(-50%, -55%)",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 9,
-                background: "rgba(255,255,255,0.07)",
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                border: "1.5px dashed rgba(255,255,255,0.25)",
-                borderRadius: 16, padding: "20px 32px",
-                color: "#fff", cursor: "pointer", zIndex: 5,
+                position: "absolute", top: "44%", left: "50%",
+                transform: "translate(-50%, -50%)",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
+                background: "none", border: "none", cursor: "pointer", zIndex: 5, padding: 0,
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.75 }}>Add background photo</span>
+              {/* Liquid glass ellipse */}
+              <div style={{
+                width: 72, height: 72,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.10)",
+                border: "1px solid rgba(255,255,255,0.22)",
+                backdropFilter: "blur(16px)",
+                WebkitBackdropFilter: "blur(16px)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+              }}>
+                <img src="/Icons/IconAddImage.svg" width="29" height="29" alt="" style={{ opacity: 0.85 }} />
+              </div>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", letterSpacing: "0.01em" }}>Add background image</span>
             </button>
           )}
 
@@ -1239,356 +1247,207 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         {/* ── Lower section ────────────────────────────────────────── */}
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
 
-          {/* ── Public-only: venue address + city + category + tickets ── */}
-          {!isPrivate && (
-            <div style={{ display: "grid", gap: 10, marginTop: 20 }}>
-              <div
-                className="col-stack"
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-              >
-                <input
-                  placeholder="Street address"
-                  value={venueAddress}
-                  onChange={(e) => setVenueAddress(e.target.value)}
-                  style={inputStyle}
-                />
-                <input
-                  placeholder="City"
-                  value={venueCity}
-                  onChange={(e) => setVenueCity(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-              <div
-                className="col-stack"
-                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
-              >
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Category)}
-                  style={inputStyle}
-                >
-                  <option value="concerts">Concerts</option>
-                  <option value="nightlife">Nightlife</option>
-                  <option value="arts_culture">Arts &amp; Culture</option>
-                  <option value="comedy">Comedy</option>
-                  <option value="sports">Sports</option>
-                  <option value="family">Family</option>
-                </select>
-                <input
-                  placeholder="Tickets / info link"
-                  value={sourceUrl}
-                  onChange={(e) => setSourceUrl(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* ── Hosted by ───────────────────────────────────────────── */}
+          {/* ── Organized by + description card ─────────────────────── */}
           {user && (
-            <>
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "18px 0",
-                borderBottom: "1px solid var(--border)",
-                marginTop: isPrivate ? 24 : 16,
+                marginTop: 16,
+                borderRadius: 20,
+                background: "rgba(18,25,36,0.14)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                overflow: "hidden",
               }}
             >
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={displayName}
-                  style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 34, height: 34, borderRadius: "50%",
-                    background: getAvatarColor(displayName),
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, fontWeight: 700, color: "#fff",
-                    flexShrink: 0, userSelect: "none",
-                  }}
-                >
-                  {getInitials(displayName)}
+              {/* Organized by section — centered */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 16px 0", gap: 8 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#f5f7fa" }}>Organized by</p>
+                {/* Host + cohosts avatars row */}
+                <div style={{ display: "flex", alignItems: "center", gap: -6 }}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt={displayName} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(displayName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}>
+                      {getInitials(displayName)}
+                    </div>
+                  )}
+                  {isPrivate && cohostProfiles.map((cp) => (
+                    cp.avatar_url ? (
+                      <img key={cp.id} src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }} />
+                    ) : (
+                      <div key={cp.id} style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }}>
+                        {getInitials(cp.display_name)}
+                      </div>
+                    )
+                  ))}
                 </div>
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Hosted by</div>
-                <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {displayName}
-                </div>
-              </div>
-              {isPrivate ? (
-                <button
-                  type="button"
-                  onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
-                  style={{
-                    padding: "5px 12px", borderRadius: 8,
-                    border: "1px solid var(--border-strong)",
-                    background: "transparent", cursor: "pointer",
-                    fontSize: 12, color: "inherit", flexShrink: 0,
-                  }}
-                >
-                  + Cohost
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  title="Coming soon"
-                  style={{
-                    padding: "5px 12px", borderRadius: 8,
-                    border: "1px solid var(--border-strong)",
-                    background: "transparent", cursor: "not-allowed",
-                    fontSize: 12, opacity: 0.35, color: "inherit", flexShrink: 0,
-                  }}
-                >
-                  + Cohost
-                </button>
-              )}
-            </div>
-
-            {/* Selected co-host rows (one per selected cohost) */}
-            {isPrivate && cohostProfiles.map((cp) => (
-              <div
-                key={cp.id}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "12px 0",
-                  borderBottom: "1px solid var(--border)",
-                }}
-              >
-                {cp.avatar_url ? (
-                  <img
-                    src={cp.avatar_url}
-                    alt={cp.display_name ?? ""}
-                    style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                  />
-                ) : (
-                  <div
+                {/* + cohost button */}
+                {isPrivate ? (
+                  <button
+                    type="button"
+                    onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
                     style={{
-                      width: 34, height: 34, borderRadius: "50%",
-                      background: getAvatarColor(cp.display_name),
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 700, color: "#fff",
-                      flexShrink: 0, userSelect: "none",
+                      height: 17, padding: "0 12px", borderRadius: 10, border: "none",
+                      background: "rgba(255,255,255,0.05)",
+                      cursor: "pointer", fontSize: 9, fontWeight: 700, color: "#fff",
+                      marginBottom: 4,
                     }}
                   >
-                    {getInitials(cp.display_name)}
+                    + cohost
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Coming soon"
+                    style={{
+                      height: 17, padding: "0 12px", borderRadius: 10, border: "none",
+                      background: "rgba(255,255,255,0.05)",
+                      cursor: "not-allowed", fontSize: 9, fontWeight: 700, color: "#fff", opacity: 0.35,
+                      marginBottom: 4,
+                    }}
+                  >
+                    + cohost
+                  </button>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 16px" }} />
+
+              {/* Description — white button or expanded editor */}
+              <div
+                onBlur={(e) => {
+                  const container = e.currentTarget;
+                  if (container.contains(e.relatedTarget as Node | null)) return;
+                  setTimeout(() => {
+                    if (container.contains(document.activeElement)) return;
+                    if (!description && !descriptionTitle) setDescriptionOpen(false);
+                  }, 0);
+                }}
+              >
+                {descriptionOpen || description ? (
+                  <div style={{ padding: "12px 16px 16px" }}>
+                    <input
+                      type="text"
+                      placeholder="Section title (optional)"
+                      value={descriptionTitle}
+                      onChange={(e) => setDescriptionTitle(e.target.value)}
+                      style={{
+                        display: "block", width: "100%", boxSizing: "border-box",
+                        padding: "0 0 8px", border: "none",
+                        fontSize: 15, fontWeight: 600,
+                        background: "transparent", color: "inherit",
+                        outline: "none", fontFamily: "inherit",
+                        borderBottom: "1px solid var(--border)",
+                        marginBottom: 8,
+                      }}
+                    />
+                    <textarea
+                      autoFocus={descriptionOpen && !description}
+                      placeholder="What's this event about?"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={4}
+                      style={{
+                        display: "block", width: "100%", boxSizing: "border-box",
+                        padding: 0, border: "none",
+                        fontSize: 15, background: "transparent", color: "inherit",
+                        resize: "vertical", outline: "none",
+                        fontFamily: "inherit", lineHeight: 1.6,
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ padding: "10px 16px 16px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setDescriptionOpen(true)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        width: "100%", height: 33,
+                        background: "#ffffff", border: "none", borderRadius: 10,
+                        cursor: "pointer", color: "#1f2b39", fontSize: 13, fontWeight: 700,
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Add a description
+                    </button>
                   </div>
                 )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 11, opacity: 0.45, marginBottom: 2 }}>Co-host</div>
-                  <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {cp.display_name ?? `@${cp.username}`}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCohostIds((prev) => prev.filter((id) => id !== cp.id));
-                    setCohostProfiles((prev) => prev.filter((p) => p.id !== cp.id));
-                  }}
-                  aria-label={`Remove ${cp.display_name ?? "co-host"}`}
-                  style={{
-                    width: 26, height: 26, borderRadius: "50%",
-                    border: "none", background: "var(--surface-raised)",
-                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "inherit", opacity: 0.55, flexShrink: 0,
-                  }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
               </div>
-            ))}
-            </>
+            </div>
           )}
 
-          {/* ── Optional options carousel (private only) ─────────────── */}
+          {/* ── Public-only: category + tickets ─────────────────────── */}
+          {!isPrivate && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as Category)}
+                style={inputStyle}
+              >
+                <option value="concerts">Concerts</option>
+                <option value="nightlife">Nightlife</option>
+                <option value="arts_culture">Arts &amp; Culture</option>
+                <option value="comedy">Comedy</option>
+                <option value="sports">Sports</option>
+                <option value="family">Family</option>
+              </select>
+              <input
+                placeholder="Tickets / info link"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          {/* ── Options chips (private only) ────────────────────────── */}
           {isPrivate && (() => {
             const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
-              ? `${spotsLimit} spots`
-              : null;
+              ? `${spotsLimit} spots` : null;
             const costLabel = costAmount.trim() && parseFloat(costAmount) > 0
-              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}`
-              : null;
-            const rsvpLabel = rsvpDeadline
-              ? (() => {
-                  const [y, m, d] = rsvpDeadline.split("-").map(Number);
-                  return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-                })()
-              : null;
+              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}` : null;
+            const rsvpLabel = rsvpDeadline ? (() => {
+              const [y, m, d] = rsvpDeadline.split("-").map(Number);
+              return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+            })() : null;
 
             const chipBase: React.CSSProperties = {
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "8px 16px", borderRadius: 20, flexShrink: 0,
-              cursor: "pointer", fontSize: 13, fontWeight: 500,
-              color: "inherit", background: "transparent",
+              display: "flex", alignItems: "center", gap: 5,
+              height: 30, padding: "0 12px", borderRadius: 999, flexShrink: 0,
+              cursor: "pointer", fontSize: 12, fontWeight: 500,
+              color: "#8c98a8", background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.10)",
               fontFamily: "inherit",
             };
 
             return (
-              <div
-                className="cep-options"
-                style={{
-                  display: "flex", gap: 8,
-                  overflowX: "auto",
-                  padding: "14px 0 2px",
-                  scrollbarWidth: "none",
-                }}
-              >
-                {/* Spots chip */}
-                <button
-                  type="button"
-                  onClick={() => setOptionSheet("spots")}
-                  style={{
-                    ...chipBase,
-                    border: `1px solid ${spotsLabel ? "var(--border-strong)" : "var(--border)"}`,
-                    background: spotsLabel ? "var(--surface-raised)" : "transparent",
-                    fontWeight: spotsLabel ? 600 : 500,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
+              <div className="cep-options" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "12px 0 2px", scrollbarWidth: "none" }}>
+                <button type="button" onClick={() => setOptionSheet("spots")}
+                  style={{ ...chipBase, color: spotsLabel ? "#fff" : "#8c98a8", background: spotsLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
+                  <img src="/Icons/IconSpots.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {spotsLabel ?? "Spots"}
                 </button>
-
-                {/* Cost chip */}
-                <button
-                  type="button"
-                  onClick={() => setOptionSheet("cost")}
-                  style={{
-                    ...chipBase,
-                    border: `1px solid ${costLabel ? "var(--border-strong)" : "var(--border)"}`,
-                    background: costLabel ? "var(--surface-raised)" : "transparent",
-                    fontWeight: costLabel ? 600 : 500,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z" />
-                    <path d="M13 5v2M13 17v2M13 11v2" />
-                  </svg>
+                <button type="button" onClick={() => setOptionSheet("cost")}
+                  style={{ ...chipBase, color: costLabel ? "#fff" : "#8c98a8", background: costLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
+                  <img src="/Icons/IconCost.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {costLabel ?? "Cost"}
                 </button>
-
-                {/* RSVP by chip */}
-                <button
-                  type="button"
-                  onClick={() => setOptionSheet("rsvp")}
-                  style={{
-                    ...chipBase,
-                    border: `1px solid ${rsvpLabel ? "var(--border-strong)" : "var(--border)"}`,
-                    background: rsvpLabel ? "var(--surface-raised)" : "transparent",
-                    fontWeight: rsvpLabel ? 600 : 500,
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
+                <button type="button" onClick={() => setOptionSheet("rsvp")}
+                  style={{ ...chipBase, color: rsvpLabel ? "#fff" : "#8c98a8", background: rsvpLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
+                  <img src="/Icons/IconRSVPby.svg" width="13" height="13" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {rsvpLabel ? `RSVP by ${rsvpLabel}` : "RSVP by"}
                 </button>
               </div>
             );
           })()}
 
-          {/* ── Description ─────────────────────────────────────────── */}
-          <div
-            style={{
-              marginTop: 10,
-              borderRadius: 14,
-              border: "1px solid var(--border)",
-              background: "var(--background)",
-              overflow: "hidden",
-            }}
-            onBlur={(e) => {
-              // Collapse the description block when focus leaves it entirely.
-              // We must NOT collapse when focus moves between children (e.g. from
-              // the textarea to the optional title input above it) — that was the
-              // original bug: textarea.onBlur fired before the title <input> could
-              // receive focus, unmounting it mid-tap.
-              //
-              // Capture currentTarget now; React nullifies it after the handler returns.
-              const container = e.currentTarget;
-              // relatedTarget is the element that is about to receive focus.
-              // If it's still inside this block, keep the section open.
-              if (container.contains(e.relatedTarget as Node | null)) return;
-              // Mobile Safari sometimes delivers relatedTarget: null even when
-              // focus is moving to a sibling input. Re-check after focus settles.
-              setTimeout(() => {
-                if (container.contains(document.activeElement)) return;
-                if (!description && !descriptionTitle) setDescriptionOpen(false);
-              }, 0);
-            }}
-          >
-            {descriptionOpen || description ? (
-              <>
-                {/* Optional title */}
-                <input
-                  type="text"
-                  placeholder="Section title (optional)"
-                  value={descriptionTitle}
-                  onChange={(e) => setDescriptionTitle(e.target.value)}
-                  style={{
-                    display: "block", width: "100%", boxSizing: "border-box",
-                    padding: "14px 16px 10px", border: "none",
-                    fontSize: 16, fontWeight: 600,
-                    background: "transparent", color: "inherit",
-                    outline: "none", fontFamily: "inherit",
-                  }}
-                />
-                <div style={{ height: 1, background: "var(--border)", margin: "0 16px" }} />
-                <textarea
-                  autoFocus={descriptionOpen && !description}
-                  placeholder="What's this event about?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  style={{
-                    display: "block", width: "100%", boxSizing: "border-box",
-                    padding: "10px 16px 14px", border: "none",
-                    fontSize: 16, background: "transparent", color: "inherit",
-                    resize: "vertical", outline: "none",
-                    fontFamily: "inherit", lineHeight: 1.6,
-                  }}
-                />
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setDescriptionOpen(true)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  width: "100%", padding: "14px 16px",
-                  background: "transparent", border: "none",
-                  cursor: "pointer", textAlign: "left", color: "inherit",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.45 }}>
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                </svg>
-                <span style={{ fontSize: 14, opacity: 0.35, fontWeight: 400 }}>Add a description</span>
-              </button>
-            )}
-          </div>
-
           {error && (
             <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 0 0" }}>{error}</p>
           )}
 
-          {/* ── Submit ──────────────────────────────────────────────── */}
+          {/* ── Submit / Preview button ──────────────────────────────── */}
           {isEditMode ? (
             <button
               type="submit"
@@ -1605,28 +1464,26 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               {submitting ? "Saving…" : "Save changes"}
             </button>
           ) : (
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={() => setShowPreview(true)}
-              style={{
-                display: "block", width: "100%", marginTop: 20,
-                padding: "14px", borderRadius: 12, border: "none",
-                fontWeight: 700, fontSize: 15,
-                background: !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
-                color: !canSubmit ? "inherit" : "var(--background)",
-                cursor: !canSubmit ? "not-allowed" : "pointer",
-              }}
-            >
-              Preview
-            </button>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16, paddingBottom: 16 }}>
+              <button
+                type="button"
+                disabled={!canSubmit}
+                onClick={() => setShowPreview(true)}
+                style={{
+                  height: 30, padding: "0 22px",
+                  borderRadius: 999,
+                  background: !canSubmit ? "rgba(255,255,255,0.35)" : "#ffffff",
+                  color: "#435c7a",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  fontWeight: 500, fontSize: 12,
+                  cursor: !canSubmit ? "not-allowed" : "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Preview
+              </button>
+            </div>
           )}
-
-          <p style={{ fontSize: 12, opacity: 0.4, textAlign: "center", margin: "12px 0 0" }}>
-            {isPrivate
-              ? "Accessible only by direct link — not in the public feed."
-              : "Will appear in the public feed after review."}
-          </p>
         </div>
       </form>
 
