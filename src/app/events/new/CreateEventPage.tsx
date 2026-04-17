@@ -202,6 +202,78 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+function DateTimeCalendar({ value, onChange }: { value: string; onChange: (iso: string) => void }) {
+  const [year, setYear] = useState(() => {
+    const d = value ? new Date(value + "T00:00:00") : new Date();
+    return d.getFullYear();
+  });
+  const [month, setMonth] = useState(() => {
+    const d = value ? new Date(value + "T00:00:00") : new Date();
+    return d.getMonth();
+  });
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = [
+    ...(Array(firstWeekday).fill(null) as null[]),
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const d = i + 1;
+      return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }),
+  ];
+  function prevMonth() {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  }
+  const monthLabel = new Date(year, month, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button type="button" onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.9)", padding: "0 8px", lineHeight: 1 }}>‹</button>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{monthLabel}</span>
+        <button type="button" onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.9)", padding: "0 8px", lineHeight: 1 }}>›</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
+        {["S","M","T","W","T","F","S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.55)", padding: "2px 0" }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {cells.map((iso, i) => {
+          if (!iso) return <div key={`e-${i}`} />;
+          const isSelected = iso === value;
+          const isToday = iso === todayIso;
+          const isPast = iso < todayIso;
+          return (
+            <button
+              key={iso}
+              type="button"
+              onClick={() => onChange(iso)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 0", border: "none", cursor: "pointer", background: "transparent", borderRadius: 4 }}
+            >
+              <span style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: 34, height: 34, borderRadius: "50%",
+                fontSize: 13, fontWeight: isSelected ? 700 : 400,
+                background: isSelected ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
+                color: isSelected ? "#fff" : isPast ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.85)",
+                border: isToday && !isSelected ? "1.5px solid rgba(94,168,255,0.55)" : "none",
+                boxSizing: "border-box", flexShrink: 0,
+              }}>
+                {new Date(iso + "T00:00:00").getDate()}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CreateEventPage({ editData }: { editData?: EditEventData } = {}) {
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
@@ -255,6 +327,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [showEndTime, setShowEndTime] = useState(() => Boolean(editData?.end_at));
   const [allDay, setAllDay] = useState(false);
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const [dateClosing, setDateClosing] = useState(false);
+  const [timezone, setTimezone] = useState("America/Toronto");
 
   // Image
   // imageFile holds metadata (name, type) for display/validation only.
@@ -438,6 +512,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       if (imagePreview) URL.revokeObjectURL(imagePreview);
     };
   }, [imagePreview]);
+
+  function closeDateSheet() {
+    setDateClosing(true);
+    setTimeout(() => { setDateSheetOpen(false); setDateClosing(false); }, 250);
+  }
 
   function handleImageChange(file: File | null) {
     if (imagePreview && imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
@@ -2148,171 +2227,202 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 400,
-            background: "rgba(0,0,0,0.45)",
+            background: "rgba(0,0,0,0.50)",
             display: "flex", alignItems: "flex-end",
           }}
-          onClick={(e) => e.target === e.currentTarget && setDateSheetOpen(false)}
+          onClick={(e) => e.target === e.currentTarget && closeDateSheet()}
         >
           <div
+            className={dateClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
             style={{
               width: "100%",
-              background: "#111110",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
               borderRadius: "22px 22px 0 0",
               maxHeight: "90vh", overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
-            {/* Drag handle */}
+            {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.40)" }} />
             </div>
 
-            {/* Header: X left · title center · Done right */}
-            <div style={{ display: "flex", alignItems: "center", padding: "14px 20px 8px" }}>
+            {/* Header: 3-column grid — X | title+summary | ✓ */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "40px 1fr 40px", alignItems: "center",
+              padding: "12px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)",
+            }}>
               <button
                 type="button"
-                onClick={() => setDateSheetOpen(false)}
+                onClick={closeDateSheet}
                 aria-label="Close"
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: 34, height: 34, borderRadius: "50%",
-                  background: "var(--btn-bg)", border: "none",
-                  cursor: "pointer", color: "inherit", flexShrink: 0,
+                  background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.14)",
+                  cursor: "pointer", color: "rgba(255,255,255,0.80)",
                 }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
-                Date &amp; time
-              </span>
-              <button
-                type="button"
-                onClick={() => setDateSheetOpen(false)}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 15, fontWeight: 600, color: "var(--accent)",
-                  padding: "4px 0", flexShrink: 0,
-                }}
-              >
-                Done
-              </button>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>Date &amp; time</div>
+                {dateLine && (
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.50)", marginTop: 2 }}>{dateLine}</div>
+                )}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={closeDateSheet}
+                  aria-label="Confirm"
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 34, height: 34, borderRadius: "50%",
+                    background: "rgba(94,168,255,0.15)", border: "1px solid rgba(94,168,255,0.30)",
+                    cursor: "pointer", color: "#5EA8FF",
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <div style={{ padding: "8px 20px 16px", display: "grid", gap: 0 }}>
+            <div style={{ padding: "16px 20px 0" }}>
               <div style={{ maxWidth: 460, margin: "0 auto", width: "100%" }}>
 
-              {/* Divider */}
-              <div style={{ height: 1, background: "var(--border)", margin: "8px 0 20px" }} />
-
-              {/* All day row */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48, paddingBottom: 20, borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontSize: 16, fontWeight: 500 }}>All day</span>
-                <button
-                  type="button"
-                  onClick={() => setAllDay((v) => !v)}
-                  aria-pressed={allDay}
-                  style={{
-                    width: 51, height: 31, borderRadius: 16, border: "none", cursor: "pointer",
-                    background: allDay ? "var(--accent)" : "var(--btn-bg-active)",
-                    position: "relative", transition: "background 0.2s", flexShrink: 0,
+                {/* Start date calendar */}
+                <DateTimeCalendar
+                  value={startDate}
+                  onChange={(iso) => {
+                    setStartDate(iso);
+                    if (!endDate || iso > endDate) setEndDate(iso);
                   }}
-                >
-                  <span style={{
-                    position: "absolute", top: 4, left: allDay ? 24 : 4,
-                    width: 23, height: 23, borderRadius: "50%",
-                    background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                    transition: "left 0.18s",
-                  }} />
-                </button>
-              </div>
+                />
 
-              {/* START section */}
-              <div style={{ display: "grid", gap: 8, paddingTop: 20 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.4 }}>
-                  Start
-                </span>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (!endDate) setEndDate(e.target.value);
+                {/* Divider */}
+                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "16px 0" }} />
+
+                {/* All day toggle */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
+                  <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>All day</span>
+                  <button
+                    type="button"
+                    onClick={() => setAllDay((v) => !v)}
+                    aria-pressed={allDay}
+                    style={{
+                      width: 51, height: 31, borderRadius: 16, border: "none", cursor: "pointer",
+                      background: allDay ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "rgba(255,255,255,0.12)",
+                      position: "relative", transition: "background 0.2s", flexShrink: 0,
                     }}
-                    style={{ flex: 1, padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, boxSizing: "border-box", minWidth: 0 }}
-                  />
-                  {!allDay && (
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      style={{ width: 112, flexShrink: 0, padding: "11px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, boxSizing: "border-box" }}
-                    />
-                  )}
+                  >
+                    <span style={{
+                      position: "absolute", top: 4, left: allDay ? 24 : 4,
+                      width: 23, height: 23, borderRadius: "50%",
+                      background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                      transition: "left 0.18s",
+                    }} />
+                  </button>
                 </div>
-              </div>
 
-              {/* Add end time / END section */}
-              {!showEndTime ? (
-                <button
-                  type="button"
-                  onClick={() => setShowEndTime(true)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    background: "none", border: "none", borderTop: "1px solid var(--border)",
-                    padding: "20px 0 4px", cursor: "pointer", color: "var(--accent)",
-                    fontFamily: "inherit", fontSize: 15, fontWeight: 500,
-                    width: "100%", textAlign: "left", marginTop: 20,
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  Add end time
-                </button>
-              ) : (
-                <div style={{ display: "grid", gap: 8, paddingTop: 20, borderTop: "1px solid var(--border)", marginTop: 20 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.4 }}>
-                      End
-                    </span>
+                {/* Start time (hidden when all day) */}
+                {!allDay && (
+                  <>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 0" }} />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
+                      <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>Start time</span>
+                      <input
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* End date section */}
+                {!showEndTime ? (
+                  <>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 0" }} />
                     <button
                       type="button"
-                      onClick={() => { setShowEndTime(false); setEndDate(""); setEndTime(""); }}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#ef4444", fontFamily: "inherit", fontWeight: 500, padding: 0 }}
+                      onClick={() => setShowEndTime(true)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, width: "100%",
+                        background: "none", border: "none", cursor: "pointer",
+                        padding: "16px 0", color: "#5EA8FF", fontFamily: "inherit",
+                        fontSize: 15, fontWeight: 500, textAlign: "left",
+                      }}
                     >
-                      Remove
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      Add end date
                     </button>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "12px 0 14px" }} />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>End date</span>
+                      <button
+                        type="button"
+                        onClick={() => { setShowEndTime(false); setEndDate(""); setEndTime(""); }}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", fontFamily: "inherit", fontWeight: 500, padding: 0 }}
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <input
                       type="date"
                       value={endDate}
+                      min={startDate || undefined}
                       onChange={(e) => setEndDate(e.target.value)}
-                      style={{ flex: 1, padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, boxSizing: "border-box", minWidth: 0 }}
+                      style={{ padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.07)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
                     />
                     {!allDay && (
-                      <input
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        style={{ width: 112, flexShrink: 0, padding: "11px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 15, boxSizing: "border-box" }}
-                      />
+                      <>
+                        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 0" }} />
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
+                          <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>End time</span>
+                          <input
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => setEndTime(e.target.value)}
+                            style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
+                          />
+                        </div>
+                      </>
                     )}
-                  </div>
-                </div>
-              )}
+                  </>
+                )}
 
-              {/* Done button */}
-              <button
-                type="button"
-                onClick={() => setDateSheetOpen(false)}
-                style={{ padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}
-              >
-                Done
-              </button>
+                {/* Timezone row */}
+                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "8px 0" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48, paddingBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                    <span style={{ fontSize: 14, color: "rgba(255,255,255,0.60)" }}>{timezone}</span>
+                  </div>
+                  {timezone !== "America/Toronto" && (
+                    <button
+                      type="button"
+                      onClick={() => setTimezone("America/Toronto")}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "rgba(255,255,255,0.35)", fontFamily: "inherit", padding: 0 }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
               </div>
             </div>
           </div>
