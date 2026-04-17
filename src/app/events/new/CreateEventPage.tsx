@@ -498,11 +498,25 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        // Use pre-read Blob bytes (avoids stale iOS WebKit File URL at upload time).
-        // Fall back to original File if bytes weren't read yet (e.g. very fast submit).
-        const uploadBlob = imageBytes ?? imageFile;
+        let uploadBlob: Blob;
+        if (imageBytes) {
+          uploadBlob = imageBytes;
+        } else {
+          try {
+            const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(r.result as ArrayBuffer);
+              r.onerror = () => reject(r.error ?? new Error("FileReader failed"));
+              r.readAsArrayBuffer(imageFile);
+            });
+            uploadBlob = new Blob([buf], { type: imageFile.type });
+          } catch (readerErr) {
+            throw new Error(`[bytes] ${readerErr instanceof Error ? readerErr.message : String(readerErr)}`);
+          }
+        }
+        const ext = imageFile.type === "image/png" ? "png" : imageFile.type === "image/webp" ? "webp" : "jpg";
         const fd = new FormData();
-        fd.append("file", new File([uploadBlob], imageFile.name, { type: imageFile.type }));
+        fd.append("file", new File([uploadBlob], `upload.${ext}`, { type: imageFile.type }));
         const uploadRes = await fetch("/api/events/upload-image", {
           method: "POST",
           headers: authHeader,
@@ -596,17 +610,67 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        // Use pre-read Blob bytes (avoids stale iOS WebKit File URL at upload time).
-        // Fall back to original File if bytes weren't read yet (e.g. very fast submit).
-        const uploadBlob = imageBytes ?? imageFile;
-        const fd = new FormData();
-        fd.append("file", new File([uploadBlob], imageFile.name, { type: imageFile.type }));
-        const uploadRes = await fetch("/api/events/upload-image", {
-          method: "POST",
-          headers: authHeader,
-          body: fd,
-        });
-        const uploadJson = await uploadRes.json();
+        // ── Step 1: resolve bytes ────────────────────────────────────────────
+        // imageBytes is pre-read at selection time to avoid stale iOS WebKit File URLs.
+        // If FileReader hadn't finished yet, read synchronously now.
+        let uploadBlob: Blob;
+        if (imageBytes) {
+          uploadBlob = imageBytes;
+        } else {
+          try {
+            const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(r.result as ArrayBuffer);
+              r.onerror = () => reject(r.error ?? new Error("FileReader failed"));
+              r.readAsArrayBuffer(imageFile);
+            });
+            uploadBlob = new Blob([buf], { type: imageFile.type });
+          } catch (readerErr) {
+            throw new Error(`[bytes] ${readerErr instanceof Error ? readerErr.message : String(readerErr)}`);
+          }
+        }
+
+        // ── Step 2: construct File with sanitized filename ───────────────────
+        // Use a safe synthetic filename — iOS photo names can contain characters
+        // that trigger WebKit URL pattern validation inside FormData serialisation.
+        const ext = imageFile.type === "image/png" ? "png" : imageFile.type === "image/webp" ? "webp" : "jpg";
+        const safeFilename = `upload.${ext}`;
+        let uploadFile: File;
+        try {
+          uploadFile = new File([uploadBlob], safeFilename, { type: imageFile.type });
+        } catch (fileErr) {
+          throw new Error(`[file-construct] ${fileErr instanceof Error ? fileErr.message : String(fileErr)}`);
+        }
+
+        // ── Step 3: append to FormData ───────────────────────────────────────
+        let fd: FormData;
+        try {
+          fd = new FormData();
+          fd.append("file", uploadFile);
+        } catch (fdErr) {
+          throw new Error(`[fd-append] ${fdErr instanceof Error ? fdErr.message : String(fdErr)}`);
+        }
+
+        // ── Step 4: fetch ────────────────────────────────────────────────────
+        let uploadRes: Response;
+        try {
+          uploadRes = await fetch("/api/events/upload-image", {
+            method: "POST",
+            headers: authHeader,
+            body: fd,
+          });
+        } catch (fetchErr) {
+          throw new Error(`[fetch] ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+        }
+
+        // ── Step 5: parse response ───────────────────────────────────────────
+        let uploadJson: { ok?: boolean; url?: string; error?: string };
+        try {
+          uploadJson = await uploadRes.json();
+        } catch (parseErr) {
+          throw new Error(`[parse] ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`);
+        }
+
         if (!uploadRes.ok || !uploadJson?.ok) {
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
