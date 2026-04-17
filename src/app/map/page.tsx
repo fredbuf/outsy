@@ -30,7 +30,7 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0d1219" }] },
   { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#101824" }] },
   // Parks — barely perceptible teal tint to distinguish open space
-  { featureType: "poi.park", elementType: "geometry",           stylers: [{ color: "#0a1510" }] },
+  { featureType: "poi.park", elementType: "geometry",           stylers: [{ color: "#0b1220" }] },
   { featureType: "poi.park", elementType: "labels.text.fill",   stylers: [{ color: "#243d30" }] },
   { featureType: "poi.park", elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
   // POIs — all icons off, business hidden, text nearly invisible
@@ -40,8 +40,8 @@ const MAP_STYLES: google.maps.MapTypeStyle[] = [
   // Roads — muted (#1F2937 per spec) with hierarchy
   { featureType: "road",          elementType: "geometry",           stylers: [{ color: "#1f2937" }] },
   { featureType: "road",          elementType: "geometry.stroke",    stylers: [{ color: "#141e2b" }] },
-  { featureType: "road.arterial", elementType: "geometry",           stylers: [{ color: "#243042" }] },
-  { featureType: "road.highway",  elementType: "geometry",           stylers: [{ color: "#2a3a52" }] },
+  { featureType: "road.arterial", elementType: "geometry",           stylers: [{ color: "#273549" }] },
+  { featureType: "road.highway",  elementType: "geometry",           stylers: [{ color: "#334155" }] },
   { featureType: "road.highway",  elementType: "geometry.stroke",    stylers: [{ color: "#1f2d40" }] },
   { featureType: "road",          elementType: "labels.text.fill",   stylers: [{ color: "#435c7a" }] },
   { featureType: "road",          elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
@@ -1148,9 +1148,11 @@ export default function MapPage() {
       rotateControl: false,
       cameraControl: false,
       clickableIcons: false,
-      // mapId is needed for AdvancedMarkerElement (round image markers).
-      // styles is used when no mapId is set; on vector maps it is ignored.
-      ...(MAP_ID ? { mapId: MAP_ID } : { styles: MAP_STYLES }),
+      // styles applies the Outsy dark palette (raster maps only).
+      // mapId enables AdvancedMarkerElement for round image markers — when set
+      // the Google Maps vector renderer ignores `styles`, so we omit mapId
+      // entirely to force raster mode and ensure the custom dark theme applies.
+      styles: MAP_STYLES,
     });
 
     mapRef.current = map;
@@ -1226,10 +1228,9 @@ export default function MapPage() {
     prevSelectedIdRef.current = null;
 
     // AdvancedMarkerElement requires a mapId on the Map instance.
-    // Only enable it when MAP_ID is configured; otherwise fall back to legacy Marker.
-    const AdvancedMarker = MAP_ID
-      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
-      : null;
+    // We omit mapId so the dark styles apply (vector maps ignore styles),
+    // so AdvancedMarker is always null here — we use legacy Marker everywhere.
+    const AdvancedMarker = null;
 
     filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
@@ -1284,28 +1285,14 @@ export default function MapPage() {
     if (typeof lat !== "number" || typeof lng !== "number") return;
     console.log("[map deep-link] placing marker at", lat, lng, deepLinkedEvent.title);
 
-    const AdvancedMarker = MAP_ID
-      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
-      : null;
-
-    let marker;
-    if (AdvancedMarker) {
-      marker = new AdvancedMarker({
-        map,
-        position: { lat, lng },
-        content: createMarkerEl(deepLinkedEvent.image_url, false, deepLinkedEvent.category_primary),
-        title: deepLinkedEvent.title,
-        zIndex: 1,
-      });
-    } else {
-      marker = new google.maps.Marker({
-        map,
-        position: { lat, lng },
-        title: deepLinkedEvent.title,
-        icon: MARKER_DEFAULT,
-        zIndex: 1,
-      });
-    }
+    // AdvancedMarkerElement omitted (no mapId on map — see styles note above).
+    const marker = new google.maps.Marker({
+      map,
+      position: { lat, lng },
+      title: deepLinkedEvent.title,
+      icon: MARKER_DEFAULT,
+      zIndex: 1,
+    });
     marker.addListener("click", () => {
       setSelected(deepLinkedEvent);
       map.panTo({ lat, lng });
