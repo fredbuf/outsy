@@ -385,15 +385,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       return;
     }
     setError(null);
+    setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
-    // iOS Safari: photo library File references can become stale after navigation.
-    // Read bytes into memory immediately so the File is backed by an ArrayBuffer,
-    // not by an expiring internal media URL.
-    file.arrayBuffer().then((buf) => {
-      setImageFile(new File([buf], file.name, { type: file.type }));
-    }).catch(() => {
-      setImageFile(file); // fallback: keep original reference
-    });
   }
 
   function handleVenueNameChange(value: string) {
@@ -582,14 +575,33 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
+        // Re-read bytes via FileReader in case the File reference has staled (iOS Safari).
+        let uploadFile: File;
+        try {
+          const buf = await new Promise<ArrayBuffer>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as ArrayBuffer);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(imageFile);
+          });
+          uploadFile = new File([buf], imageFile.name, { type: imageFile.type });
+        } catch {
+          uploadFile = imageFile;
+        }
         const fd = new FormData();
-        fd.append("file", imageFile);
-        const uploadRes = await fetch("/api/events/upload-image", {
-          method: "POST",
-          headers: authHeader,
-          body: fd,
-        });
-        const uploadJson = await uploadRes.json();
+        fd.append("file", uploadFile);
+        let uploadRes: Response;
+        let uploadJson: { ok?: boolean; url?: string; error?: string };
+        try {
+          uploadRes = await fetch("/api/events/upload-image", {
+            method: "POST",
+            headers: authHeader,
+            body: fd,
+          });
+          uploadJson = await uploadRes.json();
+        } catch (uploadErr) {
+          throw new Error(`[upload] ${uploadErr instanceof Error ? uploadErr.message : String(uploadErr)}`);
+        }
         if (!uploadRes.ok || !uploadJson?.ok) {
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
@@ -634,12 +646,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             sourceUrl: sourceUrl.trim() || null,
           };
 
-      const res = await fetch("/api/events/submit", {
-        method: "POST",
-        headers: { "content-type": "application/json", ...authHeader },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
+      let res: Response;
+      let json: { ok?: boolean; eventId?: string; error?: string };
+      try {
+        res = await fetch("/api/events/submit", {
+          method: "POST",
+          headers: { "content-type": "application/json", ...authHeader },
+          body: JSON.stringify(payload),
+        });
+        json = await res.json();
+      } catch (submitErr) {
+        throw new Error(`[submit] ${submitErr instanceof Error ? submitErr.message : String(submitErr)}`);
+      }
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error ?? "Could not create event.");
       }
