@@ -352,19 +352,10 @@ export function PrivateEventSwipePage(props: Props) {
       </div>
 
       {/* ── CONTENT ───────────────────────────────────────────────────────── */}
-      <div style={{ overflow: "hidden" }}>
-        <div style={{
-          display: "flex",
-          alignItems: "flex-start",
-          width: "200%",
-          transform: `translateX(${page === 0 ? "0%" : "-50%"})`,
-          transition: "transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94)",
-          willChange: "transform",
-          ...cssVars,
-        }}>
+      <div style={cssVars as React.CSSProperties}>
 
           {/* ── ABOUT PANEL ─────────────────────────────────────────────── */}
-          <div style={{ width: "50%", boxSizing: "border-box" }}>
+          <div style={{ display: page === 0 ? "block" : "none" }}>
           <div style={{ padding: "16px 20px 48px" }}>
 
               {/* RSVP — guests only; hosts skip this bar */}
@@ -541,7 +532,7 @@ export function PrivateEventSwipePage(props: Props) {
           </div>
 
           {/* ── MOMENTS PANEL ─────────────────────────────────────────── */}
-          <div style={{ width: "50%", boxSizing: "border-box" }}>
+          <div style={{ display: page === 1 ? "block" : "none" }}>
             <MomentsClient
               embedded
               eventId={id}
@@ -554,7 +545,6 @@ export function PrivateEventSwipePage(props: Props) {
             />
           </div>
 
-        </div>
       </div>
 
     </main>
