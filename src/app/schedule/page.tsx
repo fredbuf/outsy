@@ -284,6 +284,7 @@ const MONTH_NAMES = [
 function CalendarGrid({
   year,
   month,
+  slideDir,
   eventsByDate,
   selectedDate,
   onSelectDate,
@@ -292,6 +293,7 @@ function CalendarGrid({
 }: {
   year: number;
   month: number;   // 0-indexed
+  slideDir: "prev" | "next" | null;
   eventsByDate: Map<string, UserEvent[]>;
   selectedDate: string | null;
   onSelectDate: (key: string | null) => void;
@@ -301,7 +303,47 @@ function CalendarGrid({
   const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth    = new Date(year, month + 1, 0).getDate();
   const todayKey       = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
-  const touchStartX    = useRef<number | null>(null);
+
+  // Touch gesture state — all in refs so no re-renders during gesture
+  const calDivRef    = useRef<HTMLDivElement>(null);
+  const touchStartX  = useRef<number | null>(null);
+  const touchStartY  = useRef<number | null>(null);
+  const touchLockedH = useRef(false); // true once horizontal intent confirmed
+
+  // Attach touchmove with { passive: false } so we can call preventDefault()
+  // and prevent the page from scrolling while a horizontal swipe is in progress.
+  // React 17+ uses passive listeners by default, so we must do this imperatively.
+  useEffect(() => {
+    const el = calDivRef.current;
+    if (!el) return;
+
+    function onTouchMove(e: TouchEvent) {
+      if (touchStartX.current === null) return;
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - (touchStartY.current ?? 0);
+
+      if (!touchLockedH.current) {
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        if (absDx > 10 && absDx > absDy * 1.4) {
+          // Confirmed horizontal intent — lock the gesture
+          touchLockedH.current = true;
+        } else if (absDy > 10) {
+          // Vertical intent detected — abort swipe, allow normal scroll
+          touchStartX.current = null;
+          touchStartY.current = null;
+          return;
+        }
+      }
+
+      if (touchLockedH.current) {
+        e.preventDefault(); // block vertical scroll while swiping horizontally
+      }
+    }
+
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
 
   // Build flat cell array: null = empty leading cell, number = day-of-month
   const cells: (number | null)[] = [
@@ -314,20 +356,33 @@ function CalendarGrid({
   }
 
   function handleTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
+    touchStartX.current  = e.touches[0].clientX;
+    touchStartY.current  = e.touches[0].clientY;
+    touchLockedH.current = false;
   }
 
   function handleTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
+    if (touchStartX.current === null || !touchLockedH.current) {
+      touchStartX.current  = null;
+      touchStartY.current  = null;
+      touchLockedH.current = false;
+      return;
+    }
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (Math.abs(dx) < 48) return;
+    touchStartX.current  = null;
+    touchStartY.current  = null;
+    touchLockedH.current = false;
+    if (Math.abs(dx) < 48) return; // threshold: ignore tiny accidental drags
     if (dx < 0) onNext(); else onPrev();
   }
 
+  // CSS animation class applied to month label + day grid on each month change
+  const slideClass = slideDir === "next" ? "cal-slide-next" : slideDir === "prev" ? "cal-slide-prev" : "";
+  const monthKey   = year * 12 + month;
+
   return (
-    <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      {/* Month navigation */}
+    <div ref={calDivRef} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+      {/* Month navigation — chevrons stay static; label slides with the month */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <button
           type="button"
@@ -342,7 +397,8 @@ function CalendarGrid({
         >
           <ChevronLeft />
         </button>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>
+        {/* Animated month label — remounts on month change to trigger slide */}
+        <span key={`label-${monthKey}`} className={slideClass} style={{ fontWeight: 700, fontSize: 16 }}>
           {MONTH_NAMES[month]} {year}
         </span>
         <button
@@ -359,6 +415,9 @@ function CalendarGrid({
           <ChevronRight />
         </button>
       </div>
+
+      {/* Animated grid — remounts on month change to trigger slide */}
+      <div key={`grid-${monthKey}`} className={slideClass}>
 
       {/* Weekday headers */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 8 }}>
@@ -479,6 +538,7 @@ function CalendarGrid({
           );
         })}
       </div>
+      </div>{/* end animated grid wrapper */}
     </div>
   );
 }
@@ -512,8 +572,9 @@ export default function SchedulePage() {
 
   // ── Calendar UI state ────────────────────────────────────────────────────────
   const now = new Date();
-  const [calYear,  setCalYear]  = useState(now.getFullYear());
-  const [calMonth, setCalMonth] = useState(now.getMonth());    // 0-indexed
+  const [calYear,     setCalYear]     = useState(now.getFullYear());
+  const [calMonth,    setCalMonth]    = useState(now.getMonth());    // 0-indexed
+  const [calSlideDir, setCalSlideDir] = useState<"prev" | "next" | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // 14-day cutoff for the Upcoming tab — computed once at mount via useState
@@ -644,11 +705,13 @@ export default function SchedulePage() {
 
   // ── Calendar navigation ───────────────────────────────────────────────────────
   function prevMonth() {
+    setCalSlideDir("prev");
     if (calMonth === 0) { setCalYear((y) => y - 1); setCalMonth(11); }
     else                  setCalMonth((m) => m - 1);
     setSelectedDate(null);
   }
   function nextMonth() {
+    setCalSlideDir("next");
     if (calMonth === 11) { setCalYear((y) => y + 1); setCalMonth(0); }
     else                   setCalMonth((m) => m + 1);
     setSelectedDate(null);
@@ -753,6 +816,7 @@ export default function SchedulePage() {
           <CalendarGrid
             year={calYear}
             month={calMonth}
+            slideDir={calSlideDir}
             eventsByDate={eventsByDate}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}

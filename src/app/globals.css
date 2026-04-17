@@ -171,6 +171,20 @@ body.settings-open .bottom-nav {
   transform: scale(0.93);
 }
 
+/* ── Schedule calendar month-slide animations ───────────────────────────── */
+@keyframes cal-from-right {
+  from { transform: translateX(26px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes cal-from-left {
+  from { transform: translateX(-26px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+/* next month enters from the right */
+.cal-slide-next { animation: cal-from-right 0.24s ease-out forwards; }
+/* prev month enters from the left */
+.cal-slide-prev { animation: cal-from-left  0.24s ease-out forwards; }
+
 /* ── Skeleton pulse ─────────────────────────────────────────────────────── */
 @keyframes sk-pulse {
   0%, 100% { opacity: 1; }
