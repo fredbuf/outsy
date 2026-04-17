@@ -505,18 +505,35 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        // imageBytes must be set — canSubmit is gated on imageBytesReady so this
-        // path is only reachable once FileReader has finished. Never fall back to
-        // the raw File; on iOS WebKit the File's internal media URL expires after
-        // navigation and causes fetch() to silently return a status-0 error Response.
         if (!imageBytes) throw new Error("Image not ready. Please wait a moment and try again.");
-        console.log("[upload] sending raw binary blob, size:", imageBytes.size, "type:", imageFile.type);
-        const uploadRes = await fetch("/api/events/upload-image", {
-          method: "POST",
-          headers: { ...authHeader, "content-type": imageFile.type },
-          body: imageBytes,
-        });
-        const uploadJson = await uploadRes.json();
+        let uploadBuffer: ArrayBuffer;
+        try {
+          uploadBuffer = await imageBytes.arrayBuffer();
+        } catch (bufErr) {
+          throw new Error(`[blob-to-buf] ${bufErr instanceof Error ? bufErr.message : String(bufErr)}`);
+        }
+        let uploadRes: Response;
+        try {
+          uploadRes = await fetch("/api/events/upload-image", {
+            method: "POST",
+            headers: { ...authHeader, "content-type": imageFile.type },
+            body: uploadBuffer,
+          });
+        } catch (fetchErr) {
+          throw new Error(`[fetch] ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+        }
+        let rawText: string;
+        try {
+          rawText = await uploadRes.text();
+        } catch (textErr) {
+          throw new Error(`[response-text] ${textErr instanceof Error ? textErr.message : String(textErr)}`);
+        }
+        let uploadJson: { ok?: boolean; url?: string; error?: string };
+        try {
+          uploadJson = JSON.parse(rawText);
+        } catch {
+          throw new Error(`[json-parse] server returned: ${rawText.slice(0, 200)}`);
+        }
         if (!uploadRes.ok || !uploadJson?.ok) {
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
@@ -605,13 +622,54 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       let imageUrl: string | null = null;
       if (imageFile) {
         if (!imageBytes) throw new Error("Image not ready. Please wait a moment and try again.");
-        console.log("[upload] sending raw binary blob, size:", imageBytes.size, "type:", imageFile.type);
-        const uploadRes = await fetch("/api/events/upload-image", {
-          method: "POST",
-          headers: { ...authHeader, "content-type": imageFile.type },
-          body: imageBytes,
-        });
-        const uploadJson = await uploadRes.json();
+
+        // Convert Blob → ArrayBuffer before passing to fetch.
+        // Passing a Blob body can still trigger WebKit's internal URL serialisation
+        // (same failure mode as FormData/File). ArrayBuffer is pure heap memory with
+        // no URL reference, so WebKit can't choke on an expired media URL.
+        let uploadBuffer: ArrayBuffer;
+        try {
+          uploadBuffer = await imageBytes.arrayBuffer();
+        } catch (bufErr) {
+          throw new Error(`[blob-to-buf] ${bufErr instanceof Error ? bufErr.message : String(bufErr)}`);
+        }
+
+        console.log("[upload] imageBytes exists:", !!imageBytes,
+          "size:", imageBytes.size,
+          "type:", imageFile.type,
+          "bufferByteLength:", uploadBuffer.byteLength,
+          "url:", "/api/events/upload-image",
+          "headers:", { "content-type": imageFile.type, hasAuth: !!authHeader.Authorization });
+
+        let uploadRes: Response;
+        try {
+          uploadRes = await fetch("/api/events/upload-image", {
+            method: "POST",
+            headers: { ...authHeader, "content-type": imageFile.type },
+            body: uploadBuffer,
+          });
+        } catch (fetchErr) {
+          throw new Error(`[fetch] ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+        }
+
+        console.log("[upload] response status:", uploadRes.status, "type:", uploadRes.type, "url:", uploadRes.url);
+
+        // Read body as text first so we can see it even if JSON.parse fails
+        let rawText: string;
+        try {
+          rawText = await uploadRes.text();
+        } catch (textErr) {
+          throw new Error(`[response-text] ${textErr instanceof Error ? textErr.message : String(textErr)}`);
+        }
+        console.log("[upload] raw response text:", rawText);
+
+        let uploadJson: { ok?: boolean; url?: string; error?: string };
+        try {
+          uploadJson = JSON.parse(rawText);
+        } catch {
+          throw new Error(`[json-parse] server returned: ${rawText.slice(0, 200)}`);
+        }
+
         if (!uploadRes.ok || !uploadJson?.ok) {
           throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
