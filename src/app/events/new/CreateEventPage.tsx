@@ -385,8 +385,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       return;
     }
     setError(null);
-    setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+    // iOS Safari: photo library File references can become stale after navigation.
+    // Read bytes into memory immediately so the File is backed by an ArrayBuffer,
+    // not by an expiring internal media URL.
+    file.arrayBuffer().then((buf) => {
+      setImageFile(new File([buf], file.name, { type: file.type }));
+    }).catch(() => {
+      setImageFile(file); // fallback: keep original reference
+    });
   }
 
   function handleVenueNameChange(value: string) {
@@ -568,22 +575,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     setError(null);
     setSubmitting(true);
 
-    // Pre-flight diagnostic log
-    console.log("[handlePublish] START", {
-      title,
-      startAt,
-      endAt,
-      visibility,
-      sourceUrl,
-      rsvpDeadline,
-      hasImage: !!imageFile,
-      imageName: imageFile?.name,
-      imageType: imageFile?.type,
-      imageSize: imageFile?.size,
-      hasToken: !!session?.access_token,
-      isPrivate,
-    });
-
     try {
       const authHeader: Record<string, string> = session?.access_token
         ? { Authorization: `Bearer ${session.access_token}` }
@@ -591,25 +582,16 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
       let imageUrl: string | null = null;
       if (imageFile) {
-        let uploadJson: { ok?: boolean; url?: string; error?: string } = {};
-        try {
-          const fd = new FormData();
-          fd.append("file", imageFile);
-          console.log("[handlePublish] uploading image…");
-          const uploadRes = await fetch("/api/events/upload-image", {
-            method: "POST",
-            headers: authHeader,
-            body: fd,
-          });
-          uploadJson = await uploadRes.json();
-          console.log("[handlePublish] upload result", uploadRes.status, uploadJson);
-          if (!uploadRes.ok || !uploadJson?.ok) {
-            throw new Error(uploadJson?.error ?? "Image upload failed.");
-          }
-        } catch (uploadErr) {
-          const uploadMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-          console.error("[handlePublish] UPLOAD STEP threw", uploadErr);
-          throw new Error(`[upload] ${uploadMsg}`);
+        const fd = new FormData();
+        fd.append("file", imageFile);
+        const uploadRes = await fetch("/api/events/upload-image", {
+          method: "POST",
+          headers: authHeader,
+          body: fd,
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson?.ok) {
+          throw new Error(uploadJson?.error ?? "Image upload failed.");
         }
         imageUrl = uploadJson.url as string;
       }
@@ -652,42 +634,24 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             sourceUrl: sourceUrl.trim() || null,
           };
 
-      console.log("[handlePublish] PAYLOAD", JSON.stringify(payload, null, 2));
-
-      let res: Response;
-      let json: { ok?: boolean; eventId?: string; error?: string };
-      try {
-        res = await fetch("/api/events/submit", {
-          method: "POST",
-          headers: { "content-type": "application/json", ...authHeader },
-          body: JSON.stringify(payload),
-        });
-        json = await res.json();
-        console.log("[handlePublish] submit result", res.status, json);
-      } catch (submitErr) {
-        const submitMsg = submitErr instanceof Error ? submitErr.message : String(submitErr);
-        console.error("[handlePublish] SUBMIT STEP threw", submitErr);
-        throw new Error(`[submit] ${submitMsg}`);
-      }
-
+      const res = await fetch("/api/events/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...authHeader },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error ?? "Could not create event.");
       }
 
-      try {
-        if (isPrivate) {
-          router.push(`/events/${json.eventId}`);
-        } else {
-          setShowPreview(false);
-          setPublicSubmitted(true);
-        }
-      } catch (navErr) {
-        const navMsg = navErr instanceof Error ? navErr.message : String(navErr);
-        console.error("[handlePublish] NAV STEP threw", navErr);
-        throw new Error(`[nav] ${navMsg}`);
+      if (isPrivate) {
+        router.push(`/events/${json.eventId}`);
+      } else {
+        setShowPreview(false);
+        setPublicSubmitted(true);
       }
     } catch (err) {
-      console.error("[handlePublish] CAUGHT", err);
+      console.error("[handlePublish]", err);
       setError(err instanceof Error ? err.message : "Could not create event.");
     } finally {
       setSubmitting(false);
