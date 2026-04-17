@@ -1233,20 +1233,6 @@ export default function SocialPage() {
             pointerEvents: "none",
           }}
         />
-        {/* Thin centre divider — sits above the sliding bg, below text */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: "18%",
-            bottom: "18%",
-            left: "50%",
-            width: 1,
-            background: "rgba(255,255,255,0.08)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
         {(["activity", "messages"] as Tab[]).map((t) => (
           <button
             key={t}
