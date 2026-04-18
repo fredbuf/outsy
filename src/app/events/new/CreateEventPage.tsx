@@ -535,7 +535,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [privateLat, setPrivateLat] = useState<number | null>(() => editData?.venue_lat ?? null);
   const [privateLng, setPrivateLng] = useState<number | null>(() => editData?.venue_lng ?? null);
   const [privatePlaceId, setPrivatePlaceId] = useState<string | null>(null);
-  const [geoLoading, setGeoLoading] = useState(false);
+
   const [mapsReady, setMapsReady] = useState(false);
   const [category, setCategory] = useState<Category>(
     () => (editData?.category_primary as Category) ?? "concerts"
@@ -607,6 +607,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Location sheet
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
+  const [locationClosing, setLocationClosing] = useState(false);
+  const [privateAptSuite, setPrivateAptSuite] = useState(() =>
+    editData?.visibility === "private" ? "" : ""
+  );
 
   // Submit state
   const [submitting, setSubmitting] = useState(false);
@@ -659,11 +663,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || cohostSheetOpen || optionSheet !== null) ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || optionSheet !== null) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen, locationSheetOpen, cohostSheetOpen, optionSheet]);
+  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, optionSheet]);
 
   // Fetch host profile
   useEffect(() => {
@@ -794,6 +798,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   function closeDateSheet() {
     setDateClosing(true);
     setTimeout(() => { setDateSheetOpen(false); setDateClosing(false); }, 250);
+  }
+
+  function closeLocationSheet() {
+    setLocationClosing(true);
+    setTimeout(() => { setLocationSheetOpen(false); setLocationClosing(false); }, 250);
   }
 
   function defaultEndTime(start: string): string {
@@ -971,7 +980,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             ...basePayload,
             category: "concerts",
             venueName: privatePlaceName.trim() || privateAddress.trim() || "",
-            venueAddress: privateAddress.trim() || "",
+            venueAddress: [privateAddress.trim(), privateAptSuite.trim()].filter(Boolean).join(", ") || "",
             venueCity: "Montréal",
             venueId: null,
             sourceUrl: null,
@@ -1054,7 +1063,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             ...basePayload,
             category: "concerts",
             venueName: privatePlaceName.trim() || privateAddress.trim() || "",
-            venueAddress: privateAddress.trim() || "",
+            venueAddress: [privateAddress.trim(), privateAptSuite.trim()].filter(Boolean).join(", ") || "",
             venueCity: "Montréal",
             venueId: null,
             sourceUrl: null,
@@ -2162,146 +2171,55 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       {/* Hidden attribution node required by PlacesService */}
       <div ref={placesServiceDivRef} aria-hidden style={{ display: "none" }} />
 
-      {locationSheetOpen && (
+      {(locationSheetOpen || locationClosing) && (
         <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 400,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex", alignItems: "flex-end",
-          }}
-          onClick={(e) => e.target === e.currentTarget && setLocationSheetOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => e.target === e.currentTarget && closeLocationSheet()}
         >
           <div
+            className={locationClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
             style={{
               width: "100%",
-              height: "92dvh",
-              background: "#111110",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
               borderRadius: "22px 22px 0 0",
+              maxHeight: "92vh",
               display: "flex",
               flexDirection: "column",
-              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
-            {/* Drag handle */}
-            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)" }} />
+            {/* Grab handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
 
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", padding: "10px 20px 8px", flexShrink: 0 }}>
+            {/* Header — 3-column grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
               <button
                 type="button"
-                onClick={() => setLocationSheetOpen(false)}
+                onClick={closeLocationSheet}
                 aria-label="Close"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 34, height: 34, borderRadius: "50%",
-                  background: "var(--btn-bg)", border: "none",
-                  cursor: "pointer", color: "inherit", flexShrink: 0,
-                }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)", cursor: "pointer", color: "rgba(255,255,255,0.78)" }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Location</span>
-              <button
-                type="button"
-                onClick={() => setLocationSheetOpen(false)}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 15, fontWeight: 600, color: "var(--accent)",
-                  padding: "4px 0", flexShrink: 0,
-                }}
-              >
-                Done
-              </button>
+              <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>Location</div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={closeLocationSheet}
+                  aria-label="Confirm"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(94,168,255,0.14)", border: "1px solid rgba(94,168,255,0.28)", cursor: "pointer", color: "#5EA8FF" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </button>
+              </div>
             </div>
 
-            {/* ── Display name (private events only) — sticky, above search bar ── */}
-            {isPrivate && (
-              <div style={{ padding: "0 16px 8px", flexShrink: 0 }}>
-                <div style={{ height: 1, background: "var(--border)", marginBottom: 10 }} />
-                <input
-                  ref={privatePlaceNameInputRef}
-                  placeholder="Display name (optional)"
-                  value={privatePlaceName}
-                  onChange={(e) => {
-                    setPrivatePlaceName(e.target.value);
-                    privatePlaceNameRef.current = e.target.value;
-                  }}
-                  style={{
-                    width: "100%", boxSizing: "border-box",
-                    padding: "11px 14px", borderRadius: 12,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface-subtle)",
-                    color: "inherit", fontSize: 16, fontFamily: "inherit",
-                    outline: "none",
-                  }}
-                />
-                {/* Confirmed address pill — shown only after a place has been picked */}
-                {privateAddress ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: "0 2px" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.38 }} aria-hidden>
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                      <circle cx="12" cy="10" r="3" />
-                    </svg>
-                    <span style={{ fontSize: 13, opacity: 0.42, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
-                      {privateAddress}
-                    </span>
-                    {/* Let user clear the confirmed address */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPrivateAddress("");
-                        setPrivateLat(null);
-                        setPrivateLng(null);
-                        setPrivatePlaceId(null);
-                        setLocationQuery("");
-                        setPlacePredictions([]);
-                      }}
-                      aria-label="Clear address"
-                      style={{
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        width: 18, height: 18, borderRadius: "50%",
-                        background: "rgba(255,255,255,0.10)",
-                        border: "none", cursor: "pointer",
-                        flexShrink: 0, color: "inherit", opacity: 0.6,
-                      }}
-                    >
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <p style={{ fontSize: 12, opacity: 0.30, margin: "6px 2px 0", padding: 0 }}>
-                    How the venue name appears on your event
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Search bar — sticky, below display name field */}
-            <div style={{ padding: isPrivate ? "0 16px 10px" : "4px 16px 10px", flexShrink: 0 }}>
-              {isPrivate && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
-                  <span style={{ fontSize: 11, opacity: 0.32, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase", flexShrink: 0 }}>Address search</span>
-                  <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
-                </div>
-              )}
-              <div
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "0 14px", height: 48,
-                  borderRadius: 14,
-                  background: "var(--surface-raised)",
-                  border: "1px solid var(--border-strong)",
-                }}
-              >
-                {/* Search icon */}
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.40 }} aria-hidden>
+            {/* Address search — primary input, always visible */}
+            <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 14px", height: 50, borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
                   <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input
@@ -2311,7 +2229,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   onChange={(e) => {
                     if (isPrivate) {
                       setLocationQuery(e.target.value);
-                      // Clear confirmed geo data while user is actively typing a new address
                       setPrivateLat(null);
                       setPrivateLng(null);
                       setPrivatePlaceId(null);
@@ -2319,210 +2236,134 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       handleVenueNameChange(e.target.value);
                     }
                   }}
-                  style={{
-                    flex: 1, background: "none", border: "none", outline: "none",
-                    fontSize: 16, color: "inherit", fontFamily: "inherit",
-                  }}
+                  style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 16, color: "#fff", fontFamily: "inherit" }}
                 />
-                {/* Clear button */}
                 {(isPrivate ? locationQuery : venueName) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (isPrivate) {
-                        setLocationQuery("");
-                        setPlacePredictions([]);
-                      } else {
-                        handleVenueNameChange("");
-                      }
-                    }}
+                    onClick={() => { if (isPrivate) { setLocationQuery(""); setPlacePredictions([]);} else { handleVenueNameChange(""); } }}
                     aria-label="Clear search"
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      width: 22, height: 22, borderRadius: "50%",
-                      background: "rgba(255,255,255,0.14)",
-                      border: "none", cursor: "pointer",
-                      flexShrink: 0, color: "inherit",
-                    }}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "none", cursor: "pointer", flexShrink: 0, color: "inherit" }}
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
-                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                   </button>
                 )}
               </div>
             </div>
 
             {/* Scrollable results list */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 32px" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "8px 8px 0" }}>
 
-              {/* ── "Use current location" row (private only) ── */}
-              {isPrivate && (
-                <button
-                  type="button"
-                  disabled={geoLoading || !mapsReady}
-                  className="cep-loc-row"
-                  onClick={() => {
-                    if (!navigator.geolocation || !mapsReady) return;
-                    setGeoLoading(true);
-                    navigator.geolocation.getCurrentPosition(
-                      (pos) => {
-                        const lat = pos.coords.latitude;
-                        const lng = pos.coords.longitude;
-                        setPrivateLat(lat);
-                        setPrivateLng(lng);
-                        const geocoder = new google.maps.Geocoder();
-                        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-                          if (status === "OK" && results?.[0]) {
-                            setPrivateAddress(results[0].formatted_address);
-                            setPrivatePlaceId(results[0].place_id ?? null);
-                            setLocationQuery(results[0].formatted_address);
-                          } else {
-                            const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                            setPrivateAddress(fallback);
-                            setLocationQuery(fallback);
-                          }
-                          if (!privatePlaceNameRef.current.trim()) setPrivatePlaceName("Current location");
-                          setGeoLoading(false);
-                          setLocationSheetOpen(false);
-                        });
-                      },
-                      () => setGeoLoading(false),
-                      { timeout: 10000 },
-                    );
-                  }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    width: "100%", padding: "10px 12px",
-                    background: "none", border: "none", borderRadius: 14,
-                    cursor: geoLoading ? "wait" : "pointer",
-                    textAlign: "left", fontFamily: "inherit", color: "inherit",
-                    opacity: geoLoading ? 0.6 : 1, marginBottom: 2,
-                  }}
-                >
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 12,
-                    background: "var(--accent-subtle)",
-                    border: "1px solid var(--border)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0, color: "var(--accent)",
-                  }}>
-                    <svg aria-hidden width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2 L4.5 20.5 L12 17 L19.5 20.5 Z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 600 }}>
-                      {geoLoading ? "Getting location…" : "Use current location"}
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Divider between geo row and predictions */}
-              {isPrivate && placePredictions.length > 0 && (
-                <div style={{ height: 1, background: "var(--border)", margin: "6px 12px 6px" }} />
-              )}
-
-              {/* ── Google Places predictions (private) ── */}
+              {/* Google Places predictions (private) */}
               {isPrivate && placePredictions.map((pred) => (
                 <button
                   key={pred.place_id}
                   type="button"
                   className="cep-loc-row"
                   onClick={() => selectPlacePrediction(pred)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    width: "100%", padding: "10px 12px",
-                    background: "none", border: "none", borderRadius: 14,
-                    cursor: "pointer",
-                    textAlign: "left", fontFamily: "inherit", color: "inherit",
-                    marginBottom: 2,
-                  }}
+                  style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "10px 12px", background: "none", border: "none", borderRadius: 14, cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: "inherit", marginBottom: 2 }}
                 >
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 12,
-                    background: "var(--surface-raised)",
-                    border: "1px solid var(--border)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0, color: "rgba(255,255,255,0.38)",
-                  }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "rgba(255,255,255,0.38)" }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                      <circle cx="12" cy="10" r="3" />
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                     </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {pred.structured_formatting.main_text}
-                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pred.structured_formatting.main_text}</div>
                     {pred.structured_formatting.secondary_text && (
-                      <div style={{ fontSize: 13, opacity: 0.42, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {pred.structured_formatting.secondary_text}
-                      </div>
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pred.structured_formatting.secondary_text}</div>
                     )}
                   </div>
                 </button>
               ))}
 
-              {/* ── Internal venue suggestions (public) ── */}
+              {/* Internal venue suggestions (public) */}
               {!isPrivate && suggestions.map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   className="cep-loc-row"
-                  onClick={() => { selectVenue(v); setLocationSheetOpen(false); }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    width: "100%", padding: "10px 12px",
-                    background: "none", border: "none", borderRadius: 14,
-                    cursor: "pointer",
-                    textAlign: "left", fontFamily: "inherit", color: "inherit",
-                    marginBottom: 2,
-                  }}
+                  onClick={() => { selectVenue(v); closeLocationSheet(); }}
+                  style={{ display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "10px 12px", background: "none", border: "none", borderRadius: 14, cursor: "pointer", textAlign: "left", fontFamily: "inherit", color: "inherit", marginBottom: 2 }}
                 >
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 12,
-                    background: "var(--surface-raised)",
-                    border: "1px solid var(--border)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0, color: "rgba(255,255,255,0.38)",
-                  }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.10)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "rgba(255,255,255,0.38)" }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                      <circle cx="12" cy="10" r="3" />
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                     </svg>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {v.name}
-                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</div>
                     {(v.address_line1 || v.city) && (
-                      <div style={{ fontSize: 13, opacity: 0.42, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {[v.address_line1, v.city].filter(Boolean).join(", ")}
-                      </div>
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[v.address_line1, v.city].filter(Boolean).join(", ")}</div>
                     )}
                   </div>
                 </button>
               ))}
 
-              {/* Empty state hints */}
-              {isPrivate && !locationQuery.trim() && !geoLoading && (
-                <p style={{ fontSize: 13, opacity: 0.32, textAlign: "center", padding: "32px 20px 0", margin: 0 }}>
+              {/* Empty state */}
+              {isPrivate && !locationQuery.trim() && (
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "28px 20px 0", margin: 0 }}>
                   Search for a venue, address, or neighbourhood
                 </p>
               )}
               {isPrivate && locationQuery.trim() && placePredictions.length === 0 && !placesSearching && (
-                <p style={{ fontSize: 13, opacity: 0.32, textAlign: "center", padding: "32px 20px 0", margin: 0 }}>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "28px 20px 0", margin: 0 }}>
                   No results — try a different search
                 </p>
               )}
               {!isPrivate && !venueName.trim() && (
-                <p style={{ fontSize: 13, opacity: 0.32, textAlign: "center", padding: "32px 20px 0", margin: 0 }}>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "28px 20px 0", margin: 0 }}>
                   Start typing to search venues
                 </p>
               )}
             </div>
+
+            {/* Progressive reveal — shown after an address is confirmed (private) */}
+            {isPrivate && privateAddress && (
+              <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
+                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 16 }} />
+
+                {/* Confirmed address pill */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 2px", marginBottom: 14 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{privateAddress}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setPrivateAddress(""); setPrivateLat(null); setPrivateLng(null); setPrivatePlaceId(null); setLocationQuery(""); setPlacePredictions([]);}}
+                    aria-label="Clear address"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", background: "rgba(255,255,255,0.10)", border: "none", cursor: "pointer", flexShrink: 0, color: "rgba(255,255,255,0.60)" }}
+                  >
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </div>
+
+                {/* Display name field */}
+                <div style={{ marginBottom: 10 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 7px" }}>Display name</p>
+                  <input
+                    ref={privatePlaceNameInputRef}
+                    placeholder="How the venue name appears on your event"
+                    value={privatePlaceName}
+                    onChange={(e) => { setPrivatePlaceName(e.target.value); privatePlaceNameRef.current = e.target.value; }}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", outline: "none" }}
+                  />
+                </div>
+
+                {/* Apt / Suite / Floor field */}
+                <div style={{ marginBottom: 6 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 7px" }}>Apt / Suite / Floor <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span></p>
+                  <input
+                    placeholder="e.g. Unit 4B, 3rd floor"
+                    value={privateAptSuite}
+                    onChange={(e) => setPrivateAptSuite(e.target.value)}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", outline: "none" }}
+                  />
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
