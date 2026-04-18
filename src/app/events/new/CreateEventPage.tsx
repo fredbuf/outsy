@@ -609,6 +609,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   // Location sheet
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const [locationClosing, setLocationClosing] = useState(false);
+  // Tracks the visual viewport height so the sheet never extends above the keyboard
+  const [locationSheetVH, setLocationSheetVH] = useState<number | null>(null);
   const [privateAptSuite, setPrivateAptSuite] = useState(() =>
     editData?.visibility === "private" ? "" : ""
   );
@@ -709,6 +711,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       setTimeout(() => locationSearchInputRef.current?.focus(), 350);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSheetOpen]);
+
+  // Visual viewport height tracking — keeps the sheet capped to what's actually visible
+  // when the keyboard opens (vh / dvh are unreliable on iOS for this purpose).
+  useEffect(() => {
+    if (!locationSheetOpen) { setLocationSheetVH(null); return; }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setLocationSheetVH(vv.height);
+    update();
+    vv.addEventListener("resize", update);
+    return () => vv.removeEventListener("resize", update);
   }, [locationSheetOpen]);
 
   // Debounced Google Places predictions
@@ -2186,11 +2200,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               width: "100%",
               background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
               borderRadius: "22px 22px 0 0",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+              // Two-zone layout: top zone is pinned, bottom zone scrolls.
+              // maxHeight is driven by the visual viewport so the sheet never overflows
+              // above the screen when the keyboard is open (92vh uses the layout viewport
+              // which doesn't shrink on iOS, causing the header to disappear upward).
+              maxHeight: locationSheetVH ? `${locationSheetVH - 8}px` : "92vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
             }}
           >
+            {/* ── Pinned top zone: grab handle + header + search input ── */}
+            <div style={{ flexShrink: 0 }}>
             {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
@@ -2253,6 +2274,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 )}
               </div>
             </div>
+            </div>{/* end pinned top zone */}
+
+            {/* ── Scrollable bottom zone: results + progressive reveal + clear ── */}
+            <div style={{ flex: 1, overflowY: "auto", minHeight: 0, paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
 
             {/* Results list */}
             <div style={{ padding: "8px 8px 0" }}>
@@ -2396,6 +2421,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               </div>
             )}
 
+            </div>{/* end scrollable bottom zone */}
           </div>
         </div>
       )}
