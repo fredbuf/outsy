@@ -206,9 +206,9 @@ const inputStyle: React.CSSProperties = {
 type CalEvent = { type: "hosting" | "going" | "interested"; image_url: string | null; title: string };
 
 // ── WheelColumn: single drag-to-scroll column ────────────────────────────
-const WHEEL_ITEM_H = 26;   // 26px rows (~40% smaller than original 44)
-const WHEEL_VISIBLE = 5;
-const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE; // 130
+const WHEEL_ITEM_H = 30;   // 30px per row
+const WHEEL_VISIBLE = 3;   // only 3 rows visible → 90px total
+const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE; // 90
 
 function WheelColumn({
   items,
@@ -276,7 +276,7 @@ function WheelColumn({
             <div key={i} style={{
               height: WHEEL_ITEM_H,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: dist === 0 ? 16 : dist === 1 ? 12 : 10,
+              fontSize: dist === 0 ? 17 : 11,
               fontWeight: dist === 0 ? 700 : 400,
               color: dist === 0 ? "rgba(255,255,255,0.95)" : dist === 1 ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.12)",
               transition: "font-size 0.12s, color 0.12s",
@@ -428,19 +428,18 @@ function DatePickerCalendar({
       {/* Day grid */}
       <div key={`grid-${monthKey}`} className={slideClass} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
         {cells.map((iso, i) => {
-          if (!iso) return <div key={`e-${i}`} style={{ height: 52 }} />;
+          if (!iso) return <div key={`e-${i}`} style={{ height: 56 }} />;
           const isStart = iso === start;
           const isEnd = iso === end;
           const inRange = hasRange && iso > start && iso < end;
           const isToday = iso === todayIso;
           const isPast = iso < todayIso;
 
-          // Sort by priority: hosting → going → interested
+          // Pick the single highest-priority event thumbnail
           const dayEvents = (eventDotMap[iso] ?? [])
             .slice()
             .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
-          const count = dayEvents.length;
-          const imgSrc = count > 0 ? dayEvents[0].image_url : null;
+          const imgSrc = dayEvents.length > 0 ? dayEvents[0].image_url : null;
 
           // Half-fill range background on start/end cells
           let bg: string;
@@ -449,65 +448,43 @@ function DatePickerCalendar({
           else if (isEnd && hasRange)   bg = `linear-gradient(to left,  transparent 50%, ${rangeBg} 50%)`;
           else bg = "transparent";
 
-          const CIRCLE = 34; // px — diameter of the date circle
+          const CIRCLE = 34;  // date circle diameter
+          const THUMB  = 16;  // thumbnail diameter
 
           return (
             <button
               key={iso}
               type="button"
               onClick={() => onDayTap(iso)}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2, paddingBottom: 4, border: "none", cursor: "pointer", background: bg, padding: 0 }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "3px 0 4px", border: "none", cursor: "pointer", background: bg, height: 56, boxSizing: "border-box" }}
             >
-              {/* Date circle — shows thumbnail image when events exist */}
+              {/* Date circle — number only, selection styling */}
               <div style={{
                 position: "relative",
                 width: CIRCLE, height: CIRCLE, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
-                background: imgSrc ? "transparent" : isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
-                boxShadow: isStart || isEnd ? "0 0 0 2.5px #3B82F6" : "none",
-                overflow: "hidden",
+                background: isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
               }}>
-                {imgSrc ? (
-                  <>
-                    <img src={imgSrc} alt="" style={{ width: CIRCLE, height: CIRCLE, objectFit: "cover", borderRadius: "50%", display: "block", opacity: isPast ? 0.45 : 1 }} />
-                    {/* Gradient overlay for number readability */}
-                    <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(to bottom, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)", pointerEvents: "none" }} />
-                    {/* Day number */}
-                    <span style={{ position: "absolute", fontSize: 12, fontWeight: 700, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,0.85)", lineHeight: 1 }}>
-                      {new Date(iso + "T00:00:00").getDate()}
-                    </span>
-                    {/* Selection ring (rendered as box-shadow on img, handled above) */}
-                    {(isStart || isEnd) && (
-                      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "inset 0 0 0 2.5px #3B82F6", pointerEvents: "none" }} />
-                    )}
-                    {/* Multi-event badge */}
-                    {count > 1 && (
-                      <span style={{
-                        position: "absolute", bottom: -1, right: -1,
-                        width: 14, height: 14, borderRadius: "50%",
-                        background: "#2563E2", border: "1.5px solid rgba(11,15,20,0.92)",
-                        fontSize: 7, fontWeight: 800, color: "#fff",
-                        display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
-                      }}>
-                        {count}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span style={{
-                    fontSize: 13,
-                    fontWeight: isStart || isEnd || isToday ? 700 : 400,
-                    color: isStart || isEnd ? "#fff" : isToday ? "#5EA8FF" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
-                    lineHeight: 1,
-                  }}>
-                    {new Date(iso + "T00:00:00").getDate()}
-                  </span>
-                )}
-                {/* Today ring when no event image and not selected */}
-                {isToday && !isStart && !isEnd && !imgSrc && (
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isStart || isEnd || isToday ? 700 : 400,
+                  color: isStart || isEnd ? "#fff" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
+                  lineHeight: 1,
+                }}>
+                  {new Date(iso + "T00:00:00").getDate()}
+                </span>
+                {/* Today ring */}
+                {isToday && !isStart && !isEnd && (
                   <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "inset 0 0 0 1.5px rgba(94,168,255,0.55)", pointerEvents: "none" }} />
                 )}
+              </div>
+
+              {/* Single event thumbnail — 16px circle, bottom-center */}
+              <div style={{ width: THUMB, height: THUMB, borderRadius: "50%", overflow: "hidden", flexShrink: 0, opacity: isPast ? 0.5 : 1 }}>
+                {imgSrc ? (
+                  <img src={imgSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                ) : null}
               </div>
             </button>
           );
@@ -574,6 +551,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     editData?.end_at ? toLocalTimeStr(editData.end_at) : ""
   );
   const [allDay, setAllDay] = useState(false);
+  const [addEndTime, setAddEndTime] = useState(() => Boolean(editData?.end_at));
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [dateClosing, setDateClosing] = useState(false);
   const timezone = "America/Toronto";
@@ -806,6 +784,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     setTimeout(() => { setDateSheetOpen(false); setDateClosing(false); }, 250);
   }
 
+  function defaultEndTime(start: string): string {
+    if (!start) return "22:00";
+    const [h, m] = start.split(":").map(Number);
+    const total = (h * 60 + (m || 0) + 120) % (24 * 60);
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  }
+
   function handleDayTap(iso: string) {
     // If no start yet, or a complete range already exists → start fresh
     if (!startDate || (startDate && endDate)) {
@@ -923,10 +908,14 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const startAt = startDate
     ? `${startDate}T${allDay ? "00:00" : startTime || "00:00"}`
     : "";
-  const endAt =
-    endDate && endDate !== startDate
-      ? `${endDate}T${allDay ? "00:00" : endTime || "00:00"}`
-      : "";
+  const endAt = (() => {
+    if (allDay) return endDate && endDate !== startDate ? `${endDate}T00:00` : "";
+    if (addEndTime && startDate) {
+      const eDate = endDate && endDate !== startDate ? endDate : startDate;
+      return `${eDate}T${endTime || defaultEndTime(startTime)}`;
+    }
+    return endDate && endDate !== startDate ? `${endDate}T${endTime || "00:00"}` : "";
+  })();
 
   // True once FileReader has finished reading the selected image into memory.
   // Upload must never fall back to the raw File — gate submission until ready.
@@ -2600,18 +2589,37 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     {/* Time pickers — hidden when all-day */}
                     {!allDay && (
                       <>
-                        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 14px" }} />
-                        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 10px" }}>
-                          {endDate && endDate !== startDate ? "Start time" : "Time"}
+                        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 10px" }} />
+                        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 8px" }}>
+                          Start time
                         </p>
                         <WheelTimePicker value={startTime || "20:00"} onChange={setStartTime} />
 
-                        {/* End time — only shown when a range is selected */}
-                        {endDate && endDate !== startDate && (
+                        {/* Add end time toggle */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 44, marginTop: 6 }}>
+                          <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>Add end time</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !addEndTime;
+                              setAddEndTime(next);
+                              if (next && !endTime) setEndTime(defaultEndTime(startTime || "20:00"));
+                            }}
+                            aria-pressed={addEndTime}
+                            style={{ width: 51, height: 31, borderRadius: 16, border: "none", cursor: "pointer", background: addEndTime ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "rgba(255,255,255,0.12)", position: "relative", transition: "background 0.2s", flexShrink: 0 }}
+                          >
+                            <span style={{ position: "absolute", top: 4, left: addEndTime ? 24 : 4, width: 23, height: 23, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", transition: "left 0.18s" }} />
+                          </button>
+                        </div>
+
+                        {/* End time picker */}
+                        {addEndTime && (
                           <>
-                            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "14px 0" }} />
-                            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 10px" }}>End time</p>
-                            <WheelTimePicker value={endTime || "23:00"} onChange={setEndTime} />
+                            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 8px" }}>End time</p>
+                            <WheelTimePicker
+                              value={endTime || defaultEndTime(startTime || "20:00")}
+                              onChange={setEndTime}
+                            />
                           </>
                         )}
                       </>
@@ -2629,7 +2637,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       </div>
                       <button
                         type="button"
-                        onClick={() => { setStartDate(""); setEndDate(""); setStartTime(""); setEndTime(""); setAllDay(false); }}
+                        onClick={() => { setStartDate(""); setEndDate(""); setStartTime(""); setEndTime(""); setAllDay(false); setAddEndTime(false); }}
                         style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.50)", fontFamily: "inherit", padding: "5px 12px" }}
                       >
                         Clear
