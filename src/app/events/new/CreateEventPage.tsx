@@ -202,13 +202,13 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-// ── Calendar event indicator type ────────────────────────────────────────
-type CalDot = { type: "going" | "interested" | "hosting"; avatar_url: string | null; display_name: string | null };
+// ── Calendar event thumbnail type ────────────────────────────────────────
+type CalEvent = { type: "hosting" | "going" | "interested"; image_url: string | null; title: string };
 
 // ── WheelColumn: single drag-to-scroll column ────────────────────────────
-const WHEEL_ITEM_H = 30;   // reduced from 44 (~32% smaller)
+const WHEEL_ITEM_H = 26;   // 26px rows (~40% smaller than original 44)
 const WHEEL_VISIBLE = 5;
-const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE; // 150
+const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE; // 130
 
 function WheelColumn({
   items,
@@ -276,7 +276,7 @@ function WheelColumn({
             <div key={i} style={{
               height: WHEEL_ITEM_H,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: dist === 0 ? 18 : dist === 1 ? 13 : 10,
+              fontSize: dist === 0 ? 16 : dist === 1 ? 12 : 10,
               fontWeight: dist === 0 ? 700 : 400,
               color: dist === 0 ? "rgba(255,255,255,0.95)" : dist === 1 ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.12)",
               transition: "font-size 0.12s, color 0.12s",
@@ -326,11 +326,7 @@ function WheelTimePicker({ value, onChange }: { value: string; onChange: (v: str
 }
 
 // ── DatePickerCalendar ────────────────────────────────────────────────────
-const CAL_DOT_RING: Record<CalDot["type"], string> = {
-  going:      "#3B82F6",
-  interested: "#f59e0b",
-  hosting:    "rgba(255,255,255,0.50)",
-};
+const TYPE_ORDER: Record<CalEvent["type"], number> = { hosting: 0, going: 1, interested: 2 };
 
 function DatePickerCalendar({
   start, end, onDayTap, eventDotMap,
@@ -338,7 +334,7 @@ function DatePickerCalendar({
   start: string;
   end: string;
   onDayTap: (iso: string) => void;
-  eventDotMap: Record<string, CalDot[]>;
+  eventDotMap: Record<string, CalEvent[]>;
 }) {
   const [year, setYear] = useState(() => {
     const d = start ? new Date(start + "T00:00:00") : new Date();
@@ -439,13 +435,12 @@ function DatePickerCalendar({
           const isToday = iso === todayIso;
           const isPast = iso < todayIso;
 
-          // Sort dots: hosting > going > interested, cap at 2 visible + overflow count
-          const allDots = (eventDotMap[iso] ?? []).sort((a, b) => {
-            const order = { hosting: 0, going: 1, interested: 2 };
-            return order[a.type] - order[b.type];
-          });
-          const visibleDots = allDots.slice(0, 2);
-          const overflowCount = allDots.length - visibleDots.length;
+          // Sort by priority: hosting → going → interested
+          const dayEvents = (eventDotMap[iso] ?? [])
+            .slice()
+            .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type]);
+          const count = dayEvents.length;
+          const imgSrc = count > 0 ? dayEvents[0].image_url : null;
 
           // Half-fill range background on start/end cells
           let bg: string;
@@ -454,63 +449,65 @@ function DatePickerCalendar({
           else if (isEnd && hasRange)   bg = `linear-gradient(to left,  transparent 50%, ${rangeBg} 50%)`;
           else bg = "transparent";
 
-          const AV = 13; // avatar diameter in px
+          const CIRCLE = 34; // px — diameter of the date circle
 
           return (
             <button
               key={iso}
               type="button"
               onClick={() => onDayTap(iso)}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 54, border: "none", cursor: "pointer", background: bg, padding: 0, gap: 2 }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2, paddingBottom: 4, border: "none", cursor: "pointer", background: bg, padding: 0 }}
             >
-              <span style={{
+              {/* Date circle — shows thumbnail image when events exist */}
+              <div style={{
+                position: "relative",
+                width: CIRCLE, height: CIRCLE, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                width: 34, height: 34, borderRadius: "50%",
-                fontSize: 13,
-                fontWeight: isStart || isEnd ? 700 : 400,
-                background: isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
-                color: isStart || isEnd ? "#fff" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
-                border: isToday && !isStart && !isEnd ? "1.5px solid rgba(94,168,255,0.55)" : "none",
-                boxSizing: "border-box", flexShrink: 0,
+                flexShrink: 0,
+                background: imgSrc ? "transparent" : isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
+                boxShadow: isStart || isEnd ? "0 0 0 2.5px #3B82F6" : "none",
+                overflow: "hidden",
               }}>
-                {new Date(iso + "T00:00:00").getDate()}
-              </span>
-
-              {/* Avatar stack (or empty spacer to keep grid rows uniform) */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: AV, overflow: "visible" }}>
-                {visibleDots.length > 0 ? (
+                {imgSrc ? (
                   <>
-                    {visibleDots.map((dot, vi) => (
-                      <div
-                        key={vi}
-                        style={{
-                          width: AV, height: AV, borderRadius: "50%",
-                          marginLeft: vi === 0 ? 0 : -(AV * 0.32),
-                          zIndex: visibleDots.length - vi,
-                          position: "relative",
-                          border: `1.5px solid ${CAL_DOT_RING[dot.type]}`,
-                          background: dot.avatar_url ? "transparent" : getAvatarColor(dot.display_name),
-                          overflow: "hidden",
-                          boxSizing: "border-box",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {dot.avatar_url ? (
-                          <img src={dot.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        ) : (
-                          <span style={{ display: "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", fontSize: 5, fontWeight: 700, color: "#fff", userSelect: "none", lineHeight: 1 }}>
-                            {getInitials(dot.display_name)}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                    {overflowCount > 0 && (
-                      <span style={{ fontSize: 7, fontWeight: 700, color: "rgba(255,255,255,0.40)", marginLeft: 2, lineHeight: 1, flexShrink: 0 }}>
-                        +{overflowCount}
+                    <img src={imgSrc} alt="" style={{ width: CIRCLE, height: CIRCLE, objectFit: "cover", borderRadius: "50%", display: "block", opacity: isPast ? 0.45 : 1 }} />
+                    {/* Gradient overlay for number readability */}
+                    <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(to bottom, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)", pointerEvents: "none" }} />
+                    {/* Day number */}
+                    <span style={{ position: "absolute", fontSize: 12, fontWeight: 700, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,0.85)", lineHeight: 1 }}>
+                      {new Date(iso + "T00:00:00").getDate()}
+                    </span>
+                    {/* Selection ring (rendered as box-shadow on img, handled above) */}
+                    {(isStart || isEnd) && (
+                      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "inset 0 0 0 2.5px #3B82F6", pointerEvents: "none" }} />
+                    )}
+                    {/* Multi-event badge */}
+                    {count > 1 && (
+                      <span style={{
+                        position: "absolute", bottom: -1, right: -1,
+                        width: 14, height: 14, borderRadius: "50%",
+                        background: "#2563E2", border: "1.5px solid rgba(11,15,20,0.92)",
+                        fontSize: 7, fontWeight: 800, color: "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1,
+                      }}>
+                        {count}
                       </span>
                     )}
                   </>
-                ) : null}
+                ) : (
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: isStart || isEnd || isToday ? 700 : 400,
+                    color: isStart || isEnd ? "#fff" : isToday ? "#5EA8FF" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
+                    lineHeight: 1,
+                  }}>
+                    {new Date(iso + "T00:00:00").getDate()}
+                  </span>
+                )}
+                {/* Today ring when no event image and not selected */}
+                {isToday && !isStart && !isEnd && !imgSrc && (
+                  <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "inset 0 0 0 1.5px rgba(94,168,255,0.55)", pointerEvents: "none" }} />
+                )}
               </div>
             </button>
           );
@@ -580,7 +577,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [dateClosing, setDateClosing] = useState(false);
   const timezone = "America/Toronto";
-  const [eventDotMap, setEventDotMap] = useState<Record<string, CalDot[]>>({});
+  const [eventDotMap, setEventDotMap] = useState<Record<string, CalEvent[]>>({});
 
   // Image
   // imageFile holds metadata (name, type) for display/validation only.
@@ -758,46 +755,44 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // (click-outside for venue suggestions handled by the sheet backdrop)
 
-  // Fetch event avatars for calendar when sheet opens
+  // Fetch event thumbnails for calendar when sheet opens
   useEffect(() => {
     if (!dateSheetOpen || !user) return;
     const sb = supabaseBrowser();
-    const selfAvatar = hostProfile?.avatar_url ?? null;
-    const selfName   = hostProfile?.display_name ?? null;
-    async function fetchDots() {
-      type RsvpRow = { response: string; events: { start_at: string } | { start_at: string }[] | null };
-      const { data: rsvpRows } = await sb
-        .from("rsvps")
-        .select("response, events(start_at)")
-        .eq("user_id", user!.id)
-        .in("response", ["going", "maybe"]);
-      const { data: hostedRows } = await sb
-        .from("events")
-        .select("start_at")
-        .eq("host_id", user!.id)
-        .gte("start_at", new Date().toISOString());
-      const map: Record<string, CalDot[]> = {};
+    async function fetchEvents() {
+      type RsvpRow = {
+        response: string;
+        events: { start_at: string; title: string; image_url: string | null } |
+                { start_at: string; title: string; image_url: string | null }[] | null;
+      };
+      const [{ data: rsvpRows }, { data: hostedRows }] = await Promise.all([
+        sb.from("rsvps")
+          .select("response, events(start_at, title, image_url)")
+          .eq("user_id", user!.id)
+          .in("response", ["going", "maybe"]),
+        sb.from("events")
+          .select("start_at, title, image_url")
+          .eq("host_id", user!.id)
+          .gte("start_at", new Date().toISOString()),
+      ]);
+      const map: Record<string, CalEvent[]> = {};
       for (const row of (rsvpRows ?? []) as RsvpRow[]) {
         const ev = Array.isArray(row.events) ? row.events[0] : row.events;
         if (!ev?.start_at) continue;
         const d = ev.start_at.slice(0, 10);
         if (!map[d]) map[d] = [];
-        const t: CalDot["type"] = row.response === "going" ? "going" : "interested";
-        if (!map[d].some(e => e.type === t)) {
-          map[d].push({ type: t, avatar_url: selfAvatar, display_name: selfName });
-        }
+        const t: CalEvent["type"] = row.response === "going" ? "going" : "interested";
+        map[d].push({ type: t, image_url: ev.image_url, title: ev.title });
       }
-      for (const row of ((hostedRows ?? []) as { start_at: string }[])) {
+      for (const row of ((hostedRows ?? []) as { start_at: string; title: string; image_url: string | null }[])) {
         const d = row.start_at.slice(0, 10);
         if (!map[d]) map[d] = [];
-        if (!map[d].some(e => e.type === "hosting")) {
-          map[d].push({ type: "hosting", avatar_url: selfAvatar, display_name: selfName });
-        }
+        map[d].push({ type: "hosting", image_url: row.image_url, title: row.title });
       }
       setEventDotMap(map);
     }
-    fetchDots();
-  }, [dateSheetOpen, user, hostProfile]);
+    fetchEvents();
+  }, [dateSheetOpen, user]);
 
   // Revoke object URL on unmount
   useEffect(() => {
