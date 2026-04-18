@@ -45,20 +45,28 @@ function getAvatarColor(name: string | null): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
-function formatDateLine(startDate: string, startTime: string, allDay: boolean): string {
+function fmtDateShort(isoDate: string): string {
+  const [y, mo, d] = isoDate.split("-").map(Number);
+  return new Date(y, mo - 1, d).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
+}
+function fmtTimeShort(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function formatDateLine(
+  startDate: string, startTime: string, allDay: boolean,
+  endDate?: string, endTime?: string, addEndTime?: boolean,
+): string {
   if (!startDate) return "";
-  const [year, month, day] = startDate.split("-").map(Number);
-  const d =
-    allDay || !startTime
-      ? new Date(year, month - 1, day)
-      : (() => {
-          const [h, m] = startTime.split(":").map(Number);
-          return new Date(year, month - 1, day, h, m);
-        })();
-  const dateStr = d.toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
-  if (allDay || !startTime) return dateStr;
-  const timeStr = d.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true });
-  return `${dateStr} · ${timeStr}`;
+  const startStr = fmtDateShort(startDate);
+  const hasRange = endDate && endDate !== startDate;
+  const dateStr = hasRange ? `${startStr} → ${fmtDateShort(endDate!)}` : startStr;
+  if (allDay) return `${dateStr} · All day`;
+  if (!startTime) return dateStr;
+  const tStart = fmtTimeShort(startTime);
+  if (addEndTime && endTime) return `${dateStr} · ${tStart}–${fmtTimeShort(endTime)}`;
+  return `${dateStr} · ${tStart}`;
 }
 
 function toLocalDateStr(iso: string): string {
@@ -428,7 +436,7 @@ function DatePickerCalendar({
       {/* Day grid */}
       <div key={`grid-${monthKey}`} className={slideClass} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
         {cells.map((iso, i) => {
-          if (!iso) return <div key={`e-${i}`} style={{ height: 56 }} />;
+          if (!iso) return <div key={`e-${i}`} />;
           const isStart = iso === start;
           const isEnd = iso === end;
           const inRange = hasRange && iso > start && iso < end;
@@ -448,43 +456,47 @@ function DatePickerCalendar({
           else if (isEnd && hasRange)   bg = `linear-gradient(to left,  transparent 50%, ${rangeBg} 50%)`;
           else bg = "transparent";
 
-          const CIRCLE = 34;  // date circle diameter
-          const THUMB  = 16;  // thumbnail diameter
+          const CIRCLE = 36;
 
           return (
             <button
               key={iso}
               type="button"
               onClick={() => onDayTap(iso)}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "3px 0 4px", border: "none", cursor: "pointer", background: bg, height: 56, boxSizing: "border-box" }}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 2, paddingBottom: 4, border: "none", cursor: "pointer", background: bg }}
             >
-              {/* Date circle — number only, selection styling */}
               <div style={{
                 position: "relative",
                 width: CIRCLE, height: CIRCLE, borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
-                background: isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
+                background: imgSrc ? "transparent" : isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
+                boxShadow: isStart || isEnd ? "0 0 0 2.5px #3B82F6" : "none",
               }}>
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: isStart || isEnd || isToday ? 700 : 400,
-                  color: isStart || isEnd ? "#fff" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
-                  lineHeight: 1,
-                }}>
-                  {new Date(iso + "T00:00:00").getDate()}
-                </span>
-                {/* Today ring */}
-                {isToday && !isStart && !isEnd && (
+                {imgSrc ? (
+                  <>
+                    <img src={imgSrc} alt="" style={{ width: CIRCLE, height: CIRCLE, objectFit: "cover", borderRadius: "50%", display: "block", opacity: isPast ? 0.45 : 1 }} />
+                    <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(to bottom, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.44) 100%)", pointerEvents: "none" }} />
+                    <span style={{ position: "absolute", fontSize: 12, fontWeight: 700, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,0.85)", lineHeight: 1 }}>
+                      {new Date(iso + "T00:00:00").getDate()}
+                    </span>
+                    {(isStart || isEnd) && (
+                      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "inset 0 0 0 2.5px #3B82F6", pointerEvents: "none" }} />
+                    )}
+                  </>
+                ) : (
+                  <span style={{
+                    fontSize: 13,
+                    fontWeight: isStart || isEnd || isToday ? 700 : 400,
+                    color: isStart || isEnd ? "#fff" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
+                    lineHeight: 1,
+                  }}>
+                    {new Date(iso + "T00:00:00").getDate()}
+                  </span>
+                )}
+                {isToday && !isStart && !isEnd && !imgSrc && (
                   <div style={{ position: "absolute", inset: 0, borderRadius: "50%", boxShadow: "inset 0 0 0 1.5px rgba(94,168,255,0.55)", pointerEvents: "none" }} />
                 )}
-              </div>
-
-              {/* Single event thumbnail — 16px circle, bottom-center */}
-              <div style={{ width: THUMB, height: THUMB, borderRadius: "50%", overflow: "hidden", flexShrink: 0, opacity: isPast ? 0.5 : 1 }}>
-                {imgSrc ? (
-                  <img src={imgSrc} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                ) : null}
               </div>
             </button>
           );
@@ -921,7 +933,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   // Upload must never fall back to the raw File — gate submission until ready.
   const imageBytesReady = !imageFile || imageBytes !== null;
   const canSubmit = Boolean(title.trim() && startDate && imageBytesReady);
-  const dateLine = formatDateLine(startDate, startTime, allDay);
+  const dateLine = formatDateLine(startDate, startTime, allDay, endDate, endTime, addEndTime);
   const locationLine = isPrivate ? (privatePlaceName || privateAddress) : venueName;
 
   const fallbackName =

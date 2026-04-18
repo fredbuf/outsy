@@ -267,9 +267,17 @@ export default async function EventPage({
     const dateLine = startD.toLocaleString("en-US", {
       timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
     });
-    const timeLine = isUnknownTime ? null : startD.toLocaleString("en-US", {
+    const startTimeStr = isUnknownTime ? null : startD.toLocaleString("en-US", {
       timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
     });
+    const endAtPriv = (event as { end_at?: string | null }).end_at ?? null;
+    const timeLine = (() => {
+      if (!startTimeStr) return null;
+      if (!endAtPriv) return startTimeStr;
+      const endD = new Date(endAtPriv);
+      const endTimeStr = endD.toLocaleString("en-US", { timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true });
+      return `${startTimeStr}–${endTimeStr}`;
+    })();
 
     const privatePreview: EventPreview = {
       imageUrl: (event.image_url as string | null) ?? null,
@@ -333,9 +341,17 @@ export default async function EventPage({
   const dateLine = pubStartD.toLocaleString("en-US", {
     timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
   });
-  const timeLine = pubIsUnknownTime ? null : pubStartD.toLocaleString("en-US", {
+  const pubStartTimeStr = pubIsUnknownTime ? null : pubStartD.toLocaleString("en-US", {
     timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
   });
+  const endAtPub = (event as { end_at?: string | null }).end_at ?? null;
+  const timeLine = (() => {
+    if (!pubStartTimeStr) return null;
+    if (!endAtPub) return pubStartTimeStr;
+    const endD = new Date(endAtPub);
+    const endTimeStr = endD.toLocaleString("en-US", { timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true });
+    return `${pubStartTimeStr}–${endTimeStr}`;
+  })();
   const initialMoments = await fetchMomentsForEvent(id);
 
   return (
