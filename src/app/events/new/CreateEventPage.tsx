@@ -202,74 +202,281 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-function DateTimeCalendar({ value, onChange }: { value: string; onChange: (iso: string) => void }) {
+// ── WheelColumn: single drag-to-scroll column ────────────────────────────
+const WHEEL_ITEM_H = 44;
+const WHEEL_VISIBLE = 5;
+const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE; // 220
+
+function WheelColumn({
+  items,
+  selectedIndex,
+  onSelect,
+}: {
+  items: string[];
+  selectedIndex: number;
+  onSelect: (i: number) => void;
+}) {
+  const [dragDelta, setDragDelta] = useState(0);
+  const isDraggingRef = useRef(false);
+  const pointerStartY = useRef(0);
+
+  const baseTranslate = WHEEL_H / 2 - WHEEL_ITEM_H / 2 - selectedIndex * WHEEL_ITEM_H;
+  const rawTranslate = baseTranslate + dragDelta;
+  const minT = WHEEL_H / 2 - WHEEL_ITEM_H / 2 - (items.length - 1) * WHEEL_ITEM_H;
+  const maxT = WHEEL_H / 2 - WHEEL_ITEM_H / 2;
+  const clampedTranslate = Math.max(minT, Math.min(maxT, rawTranslate));
+  const visualIndex = Math.round((WHEEL_H / 2 - WHEEL_ITEM_H / 2 - clampedTranslate) / WHEEL_ITEM_H);
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    pointerStartY.current = e.clientY;
+    isDraggingRef.current = true;
+    setDragDelta(0);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isDraggingRef.current) return;
+    setDragDelta(e.clientY - pointerStartY.current);
+  }
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    const delta = e.clientY - pointerStartY.current;
+    const indexDelta = Math.round(-delta / WHEEL_ITEM_H);
+    const newIndex = Math.max(0, Math.min(items.length - 1, selectedIndex + indexDelta));
+    onSelect(newIndex);
+    setDragDelta(0);
+  }
+  function onPointerCancel() {
+    isDraggingRef.current = false;
+    setDragDelta(0);
+  }
+
+  return (
+    <div
+      style={{ flex: 1, position: "relative", overflow: "hidden", height: WHEEL_H, userSelect: "none", cursor: "ns-resize", touchAction: "none" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+    >
+      {/* Selection highlight band */}
+      <div style={{ position: "absolute", top: WHEEL_H / 2 - WHEEL_ITEM_H / 2, left: 4, right: 4, height: WHEEL_ITEM_H, background: "rgba(94,168,255,0.10)", borderRadius: 8, pointerEvents: "none", zIndex: 1 }} />
+      {/* Top fade */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: WHEEL_H / 2 - WHEEL_ITEM_H / 2, background: "linear-gradient(to bottom, rgba(11,15,20,0.96) 0%, transparent 100%)", pointerEvents: "none", zIndex: 2 }} />
+      {/* Bottom fade */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: WHEEL_H / 2 - WHEEL_ITEM_H / 2, background: "linear-gradient(to top, rgba(11,15,20,0.96) 0%, transparent 100%)", pointerEvents: "none", zIndex: 2 }} />
+      {/* Items */}
+      <div style={{ transform: `translateY(${clampedTranslate}px)`, transition: dragDelta !== 0 ? "none" : "transform 0.22s cubic-bezier(0.4,0,0.2,1)", willChange: "transform" }}>
+        {items.map((item, i) => {
+          const dist = Math.abs(i - visualIndex);
+          return (
+            <div key={i} style={{
+              height: WHEEL_ITEM_H,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: dist === 0 ? 22 : dist === 1 ? 17 : 13,
+              fontWeight: dist === 0 ? 700 : 400,
+              color: dist === 0 ? "rgba(255,255,255,0.95)" : dist === 1 ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.12)",
+              transition: "font-size 0.12s, color 0.12s",
+              letterSpacing: dist === 0 ? "-0.02em" : "0",
+            }}>
+              {item}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── WheelTimePicker ───────────────────────────────────────────────────────
+const HOUR_ITEMS  = ["12","1","2","3","4","5","6","7","8","9","10","11"];
+const MIN_ITEMS   = ["00","15","30","45"];
+const PERIOD_ITEMS = ["AM","PM"];
+
+function WheelTimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const parsed = value.match(/^(\d{1,2}):(\d{2})$/);
+  const h24 = parsed ? parseInt(parsed[1]) : 20;
+  const minVal = parsed ? parseInt(parsed[2]) : 0;
+  const isPM = h24 >= 12;
+  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+  const hourIndex = h12 === 12 ? 0 : h12;
+  const minuteIndex = Math.min(3, Math.round(minVal / 15) % 4);
+  const periodIndex = isPM ? 1 : 0;
+
+  function buildTime(hIdx: number, mIdx: number, pIdx: number): string {
+    const h12v = hIdx === 0 ? 12 : hIdx;
+    const m = mIdx * 15;
+    const pm = pIdx === 1;
+    const h24v = pm ? (h12v === 12 ? 12 : h12v + 12) : (h12v === 12 ? 0 : h12v);
+    return `${String(h24v).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  return (
+    <div style={{ display: "flex", height: WHEEL_H, borderRadius: 14, overflow: "hidden", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      <WheelColumn items={HOUR_ITEMS}   selectedIndex={hourIndex}   onSelect={(i) => onChange(buildTime(i, minuteIndex, periodIndex))} />
+      <div style={{ width: 1, background: "rgba(255,255,255,0.07)", alignSelf: "stretch" }} />
+      <WheelColumn items={MIN_ITEMS}    selectedIndex={minuteIndex} onSelect={(i) => onChange(buildTime(hourIndex, i, periodIndex))} />
+      <div style={{ width: 1, background: "rgba(255,255,255,0.07)", alignSelf: "stretch" }} />
+      <WheelColumn items={PERIOD_ITEMS} selectedIndex={periodIndex} onSelect={(i) => onChange(buildTime(hourIndex, minuteIndex, i))} />
+    </div>
+  );
+}
+
+// ── DatePickerCalendar ────────────────────────────────────────────────────
+function DatePickerCalendar({
+  start, end, onDayTap, eventDotMap,
+}: {
+  start: string;
+  end: string;
+  onDayTap: (iso: string) => void;
+  eventDotMap: Record<string, string[]>;
+}) {
   const [year, setYear] = useState(() => {
-    const d = value ? new Date(value + "T00:00:00") : new Date();
+    const d = start ? new Date(start + "T00:00:00") : new Date();
     return d.getFullYear();
   });
   const [month, setMonth] = useState(() => {
-    const d = value ? new Date(value + "T00:00:00") : new Date();
+    const d = start ? new Date(start + "T00:00:00") : new Date();
     return d.getMonth();
   });
+  const [slideDir, setSlideDir] = useState<"prev" | "next" | null>(null);
+
+  const calRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchLockedH = useRef(false);
+
+  // Imperative passive:false listener so we can preventDefault on horizontal swipe
+  useEffect(() => {
+    const el = calRef.current;
+    if (!el) return;
+    function onTouchMove(e: TouchEvent) {
+      if (touchStartX.current === null) return;
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - (touchStartY.current ?? 0);
+      if (!touchLockedH.current) {
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.4) touchLockedH.current = true;
+        else if (Math.abs(dy) > 10) { touchStartX.current = null; return; }
+      }
+      if (touchLockedH.current) e.preventDefault();
+    }
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
+
+  function goToPrev() {
+    setSlideDir("prev");
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  }
+  function goToNext() {
+    setSlideDir("next");
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  }
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchLockedH.current = false;
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - (touchStartY.current ?? 0);
+    touchStartX.current = null;
+    touchStartY.current = null;
+    touchLockedH.current = false;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if (dx < 0) goToNext(); else goToPrev();
+  }
+
   const todayIso = new Date().toLocaleDateString("en-CA");
   const firstWeekday = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: (string | null)[] = [
     ...(Array(firstWeekday).fill(null) as null[]),
     ...Array.from({ length: daysInMonth }, (_, i) => {
-      const d = i + 1;
-      return `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      return `${year}-${String(month + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
     }),
   ];
-  function prevMonth() {
-    if (month === 0) { setYear(y => y - 1); setMonth(11); }
-    else setMonth(m => m - 1);
-  }
-  function nextMonth() {
-    if (month === 11) { setYear(y => y + 1); setMonth(0); }
-    else setMonth(m => m + 1);
-  }
+
+  const monthKey = year * 12 + month;
+  const slideClass = slideDir === "next" ? "cal-slide-next" : slideDir === "prev" ? "cal-slide-prev" : "";
   const monthLabel = new Date(year, month, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+  const hasRange = Boolean(start && end && end !== start && end > start);
+  const rangeBg = "rgba(37,99,235,0.16)";
+
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <button type="button" onClick={prevMonth} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.9)", padding: "0 8px", lineHeight: 1 }}>‹</button>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.9)" }}>{monthLabel}</span>
-        <button type="button" onClick={nextMonth} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.9)", padding: "0 8px", lineHeight: 1 }}>›</button>
+    <div ref={calRef} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* Month header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <button type="button" onClick={goToPrev} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.65)", padding: "4px 10px", lineHeight: 1 }}>‹</button>
+        <span key={`lbl-${monthKey}`} className={slideClass} style={{ display: "inline-block", fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>{monthLabel}</span>
+        <button type="button" onClick={goToNext} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.65)", padding: "4px 10px", lineHeight: 1 }}>›</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 2 }}>
+      {/* Weekday labels */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 2 }}>
         {["S","M","T","W","T","F","S"].map((d, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.55)", padding: "2px 0" }}>{d}</div>
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", padding: "2px 0" }}>{d}</div>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+      {/* Day grid */}
+      <div key={`grid-${monthKey}`} className={slideClass} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
         {cells.map((iso, i) => {
-          if (!iso) return <div key={`e-${i}`} />;
-          const isSelected = iso === value;
+          if (!iso) return <div key={`e-${i}`} style={{ height: 52 }} />;
+          const isStart = iso === start;
+          const isEnd = iso === end;
+          const inRange = hasRange && iso > start && iso < end;
           const isToday = iso === todayIso;
           const isPast = iso < todayIso;
+          const dots = (eventDotMap[iso] ?? []).slice(0, 3);
+
+          // Half-fill range background on start/end cells
+          let bg: string;
+          if (inRange) bg = rangeBg;
+          else if (isStart && hasRange) bg = `linear-gradient(to right, transparent 50%, ${rangeBg} 50%)`;
+          else if (isEnd && hasRange)   bg = `linear-gradient(to left,  transparent 50%, ${rangeBg} 50%)`;
+          else bg = "transparent";
+
           return (
             <button
               key={iso}
               type="button"
-              onClick={() => onChange(iso)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "3px 0", border: "none", cursor: "pointer", background: "transparent", borderRadius: 4 }}
+              onClick={() => onDayTap(iso)}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 52, border: "none", cursor: "pointer", background: bg, padding: 0, gap: 2 }}
             >
               <span style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: 34, height: 34, borderRadius: "50%",
-                fontSize: 13, fontWeight: isSelected ? 700 : 400,
-                background: isSelected ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
-                color: isSelected ? "#fff" : isPast ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.85)",
-                border: isToday && !isSelected ? "1.5px solid rgba(94,168,255,0.55)" : "none",
+                fontSize: 13,
+                fontWeight: isStart || isEnd ? 700 : 400,
+                background: isStart || isEnd ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
+                color: isStart || isEnd ? "#fff" : inRange ? "rgba(255,255,255,0.90)" : isPast ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.85)",
+                border: isToday && !isStart && !isEnd ? "1.5px solid rgba(94,168,255,0.55)" : "none",
                 boxSizing: "border-box", flexShrink: 0,
               }}>
                 {new Date(iso + "T00:00:00").getDate()}
               </span>
+              {/* Event dots */}
+              <div style={{ display: "flex", gap: 2, height: 5, alignItems: "center" }}>
+                {dots.map((type) => (
+                  <div key={type} style={{
+                    width: 4, height: 4, borderRadius: "50%",
+                    background: type === "going" ? "#3B82F6" : type === "interested" ? "#f59e0b" : "rgba(255,255,255,0.65)",
+                    flexShrink: 0,
+                  }} />
+                ))}
+              </div>
             </button>
           );
         })}
       </div>
+      {/* Range hint */}
+      {start && !end && (
+        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", textAlign: "center", margin: "8px 0 0" }}>
+          Tap a second date to set a range
+        </p>
+      )}
     </div>
   );
 }
@@ -324,11 +531,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [endTime, setEndTime] = useState(() =>
     editData?.end_at ? toLocalTimeStr(editData.end_at) : ""
   );
-  const [showEndTime, setShowEndTime] = useState(() => Boolean(editData?.end_at));
   const [allDay, setAllDay] = useState(false);
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [dateClosing, setDateClosing] = useState(false);
-  const [timezone, setTimezone] = useState("America/Toronto");
+  const timezone = "America/Toronto";
+  const [eventDotMap, setEventDotMap] = useState<Record<string, string[]>>({});
 
   // Image
   // imageFile holds metadata (name, type) for display/validation only.
@@ -506,6 +713,41 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // (click-outside for venue suggestions handled by the sheet backdrop)
 
+  // Fetch event dots for calendar when sheet opens
+  useEffect(() => {
+    if (!dateSheetOpen || !user) return;
+    const sb = supabaseBrowser();
+    async function fetchDots() {
+      type RsvpRow = { response: string; events: { start_at: string } | { start_at: string }[] | null };
+      const { data: rsvpRows } = await sb
+        .from("rsvps")
+        .select("response, events(start_at)")
+        .eq("user_id", user!.id)
+        .in("response", ["going", "maybe"]);
+      const { data: hostedRows } = await sb
+        .from("events")
+        .select("start_at")
+        .eq("host_id", user!.id)
+        .gte("start_at", new Date().toISOString());
+      const map: Record<string, string[]> = {};
+      for (const row of (rsvpRows ?? []) as RsvpRow[]) {
+        const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+        if (!ev?.start_at) continue;
+        const d = ev.start_at.slice(0, 10);
+        if (!map[d]) map[d] = [];
+        const t = row.response === "going" ? "going" : "interested";
+        if (!map[d].includes(t)) map[d].push(t);
+      }
+      for (const row of ((hostedRows ?? []) as { start_at: string }[])) {
+        const d = row.start_at.slice(0, 10);
+        if (!map[d]) map[d] = [];
+        if (!map[d].includes("hosting")) map[d].push("hosting");
+      }
+      setEventDotMap(map);
+    }
+    fetchDots();
+  }, [dateSheetOpen, user]);
+
   // Revoke object URL on unmount
   useEffect(() => {
     return () => {
@@ -516,6 +758,23 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   function closeDateSheet() {
     setDateClosing(true);
     setTimeout(() => { setDateSheetOpen(false); setDateClosing(false); }, 250);
+  }
+
+  function handleDayTap(iso: string) {
+    // If no start yet, or a complete range already exists → start fresh
+    if (!startDate || (startDate && endDate)) {
+      setStartDate(iso);
+      setEndDate("");
+      return;
+    }
+    // Have start, no end → set end date
+    if (iso === startDate) return; // tap same = stay single day
+    if (iso < startDate) {
+      setEndDate(startDate);
+      setStartDate(iso);
+    } else {
+      setEndDate(iso);
+    }
   }
 
   function handleImageChange(file: File | null) {
@@ -619,7 +878,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     ? `${startDate}T${allDay ? "00:00" : startTime || "00:00"}`
     : "";
   const endAt =
-    showEndTime && endDate
+    endDate && endDate !== startDate
       ? `${endDate}T${allDay ? "00:00" : endTime || "00:00"}`
       : "";
 
@@ -881,7 +1140,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setStartTime("");
               setEndDate("");
               setEndTime("");
-              setShowEndTime(false);
               setAllDay(false);
               setPrivatePlaceName("");
               setPrivateAddress("");
@@ -2225,11 +2483,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       {/* ── Date / Time bottom sheet ────────────────────────────────── */}
       {dateSheetOpen && (
         <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 400,
-            background: "rgba(0,0,0,0.50)",
-            display: "flex", alignItems: "flex-end",
-          }}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end" }}
           onClick={(e) => e.target === e.currentTarget && closeDateSheet()}
         >
           <div
@@ -2238,190 +2492,105 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               width: "100%",
               background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
               borderRadius: "22px 22px 0 0",
-              maxHeight: "90vh", overflowY: "auto",
+              maxHeight: "92vh", overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
             {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.40)" }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
 
-            {/* Header: 3-column grid — X | title+summary | ✓ */}
-            <div style={{
-              display: "grid", gridTemplateColumns: "40px 1fr 40px", alignItems: "center",
-              padding: "12px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.08)",
-            }}>
-              <button
-                type="button"
-                onClick={closeDateSheet}
-                aria-label="Close"
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  width: 34, height: 34, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.14)",
-                  cursor: "pointer", color: "rgba(255,255,255,0.80)",
-                }}
+            {/* Header — 3-column grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <button type="button" onClick={closeDateSheet} aria-label="Close"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)", cursor: "pointer", color: "rgba(255,255,255,0.78)" }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>Date &amp; time</div>
-                {dateLine && (
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.50)", marginTop: 2 }}>{dateLine}</div>
-                )}
+                {dateLine && <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>{dateLine}</div>}
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={closeDateSheet}
-                  aria-label="Confirm"
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: 34, height: 34, borderRadius: "50%",
-                    background: "rgba(94,168,255,0.15)", border: "1px solid rgba(94,168,255,0.30)",
-                    cursor: "pointer", color: "#5EA8FF",
-                  }}
+                <button type="button" onClick={closeDateSheet} aria-label="Confirm"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(94,168,255,0.14)", border: "1px solid rgba(94,168,255,0.28)", cursor: "pointer", color: "#5EA8FF" }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </button>
               </div>
             </div>
 
-            <div style={{ padding: "16px 20px 0" }}>
-              <div style={{ maxWidth: 460, margin: "0 auto", width: "100%" }}>
+            {/* Body */}
+            <div style={{ padding: "20px 20px 0" }}>
+              <div style={{ maxWidth: 460, margin: "0 auto" }}>
 
-                {/* Start date calendar */}
-                <DateTimeCalendar
-                  value={startDate}
-                  onChange={(iso) => {
-                    setStartDate(iso);
-                    if (!endDate || iso > endDate) setEndDate(iso);
-                  }}
+                {/* Calendar */}
+                <DatePickerCalendar
+                  start={startDate}
+                  end={endDate}
+                  onDayTap={handleDayTap}
+                  eventDotMap={eventDotMap}
                 />
 
-                {/* Divider */}
-                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "16px 0" }} />
-
-                {/* All day toggle */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
-                  <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>All day</span>
-                  <button
-                    type="button"
-                    onClick={() => setAllDay((v) => !v)}
-                    aria-pressed={allDay}
-                    style={{
-                      width: 51, height: 31, borderRadius: 16, border: "none", cursor: "pointer",
-                      background: allDay ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "rgba(255,255,255,0.12)",
-                      position: "relative", transition: "background 0.2s", flexShrink: 0,
-                    }}
-                  >
-                    <span style={{
-                      position: "absolute", top: 4, left: allDay ? 24 : 4,
-                      width: 23, height: 23, borderRadius: "50%",
-                      background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
-                      transition: "left 0.18s",
-                    }} />
-                  </button>
-                </div>
-
-                {/* Start time (hidden when all day) */}
-                {!allDay && (
+                {/* Progressive disclosure — time controls only after date selected */}
+                {startDate && (
                   <>
-                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 0" }} />
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
-                      <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>Start time</span>
-                      <input
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
-                      />
-                    </div>
-                  </>
-                )}
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "20px 0 16px" }} />
 
-                {/* End date section */}
-                {!showEndTime ? (
-                  <>
-                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 0" }} />
-                    <button
-                      type="button"
-                      onClick={() => setShowEndTime(true)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10, width: "100%",
-                        background: "none", border: "none", cursor: "pointer",
-                        padding: "16px 0", color: "#5EA8FF", fontFamily: "inherit",
-                        fontSize: 15, fontWeight: 500, textAlign: "left",
-                      }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      Add end date
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "12px 0 14px" }} />
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>End date</span>
+                    {/* All-day toggle */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48, marginBottom: 4 }}>
+                      <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>All day</span>
                       <button
                         type="button"
-                        onClick={() => { setShowEndTime(false); setEndDate(""); setEndTime(""); }}
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", fontFamily: "inherit", fontWeight: 500, padding: 0 }}
+                        onClick={() => setAllDay(v => !v)}
+                        aria-pressed={allDay}
+                        style={{ width: 51, height: 31, borderRadius: 16, border: "none", cursor: "pointer", background: allDay ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "rgba(255,255,255,0.12)", position: "relative", transition: "background 0.2s", flexShrink: 0 }}
                       >
-                        Remove
+                        <span style={{ position: "absolute", top: 4, left: allDay ? 24 : 4, width: 23, height: 23, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.25)", transition: "left 0.18s" }} />
                       </button>
                     </div>
-                    <input
-                      type="date"
-                      value={endDate}
-                      min={startDate || undefined}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      style={{ padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.07)", color: "inherit", fontSize: 15, width: "100%", boxSizing: "border-box" }}
-                    />
+
+                    {/* Time pickers — hidden when all-day */}
                     {!allDay && (
                       <>
-                        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 0" }} />
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48 }}>
-                          <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>End time</span>
-                          <input
-                            type="time"
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                            style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", boxSizing: "border-box" }}
-                          />
-                        </div>
+                        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "4px 0 14px" }} />
+                        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 10px" }}>
+                          {endDate && endDate !== startDate ? "Start time" : "Time"}
+                        </p>
+                        <WheelTimePicker value={startTime || "20:00"} onChange={setStartTime} />
+
+                        {/* End time — only shown when a range is selected */}
+                        {endDate && endDate !== startDate && (
+                          <>
+                            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "14px 0" }} />
+                            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 10px" }}>End time</p>
+                            <WheelTimePicker value={endTime || "23:00"} onChange={setEndTime} />
+                          </>
+                        )}
                       </>
                     )}
+
+                    {/* Timezone + Clear */}
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "16px 0 0" }} />
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48, paddingBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.38)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.50)" }}>{timezone}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setStartDate(""); setEndDate(""); setStartTime(""); setEndTime(""); setAllDay(false); }}
+                        style={{ background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.50)", fontFamily: "inherit", padding: "5px 12px" }}
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </>
                 )}
-
-                {/* Timezone row */}
-                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "8px 0" }} />
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48, paddingBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                    </svg>
-                    <span style={{ fontSize: 14, color: "rgba(255,255,255,0.60)" }}>{timezone}</span>
-                  </div>
-                  {timezone !== "America/Toronto" && (
-                    <button
-                      type="button"
-                      onClick={() => setTimezone("America/Toronto")}
-                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "rgba(255,255,255,0.35)", fontFamily: "inherit", padding: 0 }}
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
 
               </div>
             </div>
