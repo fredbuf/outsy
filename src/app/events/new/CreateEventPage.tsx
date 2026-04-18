@@ -597,6 +597,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const placesServiceDivRef = useRef<HTMLDivElement>(null);
   const locationQueryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const privatePlaceNameInputRef = useRef<HTMLInputElement>(null);
+  const locationSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Description expand
   const [descriptionOpen, setDescriptionOpen] = useState(() => Boolean(editData?.description));
@@ -698,11 +699,14 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
   }, [mapsReady]);
 
-  // Seed locationQuery from the stored address when the sheet opens
+  // Seed locationQuery from the stored address when the sheet opens, then focus after animation
   useEffect(() => {
     if (locationSheetOpen) {
       setLocationQuery(privateAddress || "");
       setPlacePredictions([]);
+      // Delay focus until after the sheet open animation (250ms) to prevent iOS keyboard
+      // from firing before the layout is stable, which scrolls the sheet out of view.
+      setTimeout(() => locationSearchInputRef.current?.focus(), 350);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationSheetOpen]);
@@ -2183,18 +2187,17 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
               borderRadius: "22px 22px 0 0",
               maxHeight: "92vh",
-              display: "flex",
-              flexDirection: "column",
+              overflowY: "auto",
               paddingBottom: "max(32px, env(safe-area-inset-bottom))",
             }}
           >
             {/* Grab handle */}
-            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
 
             {/* Header — 3-column grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <button
                 type="button"
                 onClick={closeLocationSheet}
@@ -2217,13 +2220,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             </div>
 
             {/* Address search — primary input, always visible */}
-            <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
+            <div style={{ padding: "16px 16px 0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 14px", height: 50, borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)" }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
                   <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input
-                  autoFocus
+                  ref={locationSearchInputRef}
                   placeholder={isPrivate ? "Search for an address or place…" : "Search venues…"}
                   value={isPrivate ? locationQuery : venueName}
                   onChange={(e) => {
@@ -2251,8 +2254,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               </div>
             </div>
 
-            {/* Scrollable results list */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 8px 0" }}>
+            {/* Results list */}
+            <div style={{ padding: "8px 8px 0" }}>
 
               {/* Google Places predictions (private) */}
               {isPrivate && placePredictions.map((pred) => (
@@ -2320,7 +2323,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
             {/* Progressive reveal — shown after an address is confirmed (private) */}
             {isPrivate && privateAddress && (
-              <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
+              <div style={{ padding: "16px 16px 0" }}>
                 <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 16 }} />
 
                 {/* Confirmed address pill */}
@@ -2361,6 +2364,35 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", outline: "none" }}
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Clear button — visible when a location has been selected */}
+            {(isPrivate ? Boolean(privateAddress || privatePlaceName || privateAptSuite) : Boolean(venueName || venueId)) && (
+              <div style={{ padding: "20px 16px 0", display: "flex", justifyContent: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isPrivate) {
+                      setPrivateAddress("");
+                      setPrivatePlaceName("");
+                      privatePlaceNameRef.current = "";
+                      setPrivateAptSuite("");
+                      setPrivateLat(null);
+                      setPrivateLng(null);
+                      setPrivatePlaceId(null);
+                      setLocationQuery("");
+                      setPlacePredictions([]);
+                    } else {
+                      setVenueId(null);
+                      setVenueName("");
+                      setSuggestions([]);
+                    }
+                  }}
+                  style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.38)", background: "none", border: "none", cursor: "pointer", padding: "6px 16px", fontFamily: "inherit", letterSpacing: "0.01em" }}
+                >
+                  Clear location
+                </button>
               </div>
             )}
 
