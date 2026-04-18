@@ -598,6 +598,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const locationQueryDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const privatePlaceNameInputRef = useRef<HTMLInputElement>(null);
   const locationSearchInputRef = useRef<HTMLInputElement>(null);
+  const descriptionTitleInputRef = useRef<HTMLInputElement>(null);
 
   // Description expand
   const [descriptionOpen, setDescriptionOpen] = useState(() => Boolean(editData?.description));
@@ -700,6 +701,14 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     if (!mapsReady) return;
     autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
   }, [mapsReady]);
+
+  // Focus the description title field when the description section expands
+  useEffect(() => {
+    if (descriptionOpen) {
+      // setTimeout 0 lets React finish rendering the newly mounted input before focusing
+      setTimeout(() => descriptionTitleInputRef.current?.focus(), 0);
+    }
+  }, [descriptionOpen]);
 
   // Seed locationQuery from the stored address when the sheet opens, then focus after animation
   useEffect(() => {
@@ -1699,6 +1708,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 {descriptionOpen || description ? (
                   <div style={{ padding: "14px 18px 18px" }}>
                     <input
+                      ref={descriptionTitleInputRef}
                       type="text"
                       placeholder="Section title (optional)"
                       value={descriptionTitle}
@@ -1706,7 +1716,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       style={{
                         display: "block", width: "100%", boxSizing: "border-box",
                         padding: "0 0 10px", border: "none",
-                        fontSize: 16, fontWeight: 600,
+                        fontSize: 16, fontWeight: 600, textAlign: "center",
                         background: "transparent", color: "inherit",
                         outline: "none", fontFamily: "inherit",
                         borderBottom: "1px solid var(--border)",
@@ -1714,7 +1724,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       }}
                     />
                     <textarea
-                      autoFocus={descriptionOpen && !description}
                       placeholder="What's this event about?"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
@@ -1723,7 +1732,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                         display: "block", width: "100%", boxSizing: "border-box",
                         padding: 0, border: "none",
                         fontSize: 16, background: "transparent", color: "inherit",
-                        resize: "vertical", outline: "none",
+                        resize: "vertical", outline: "none", textAlign: "center",
                         fontFamily: "inherit", lineHeight: 1.6,
                       }}
                     />
