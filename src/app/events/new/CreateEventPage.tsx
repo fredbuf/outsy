@@ -512,6 +512,162 @@ function DatePickerCalendar({
   );
 }
 
+// ── RsvpCalendar ─────────────────────────────────────────────────────────────
+// Simple single-date picker constrained to [minIso, maxIso].
+// Highlights the valid window (today → eventDate) with a subtle fill band.
+function RsvpCalendar({
+  selected, onSelect, minIso, maxIso,
+}: {
+  selected: string;
+  onSelect: (iso: string) => void;
+  minIso: string;       // today — earliest selectable
+  maxIso: string | null; // event start date — latest selectable (null = unconstrained)
+}) {
+  const initDate = selected ? new Date(selected + "T00:00:00") : new Date();
+  const [year, setYear] = useState(initDate.getFullYear());
+  const [month, setMonth] = useState(initDate.getMonth());
+  const [slideDir, setSlideDir] = useState<"prev" | "next" | null>(null);
+
+  const rsvpCalRef = useRef<HTMLDivElement>(null);
+  const rsvpTouchStartX = useRef<number | null>(null);
+  const rsvpTouchStartY = useRef<number | null>(null);
+  const rsvpTouchLockedH = useRef(false);
+
+  useEffect(() => {
+    const el = rsvpCalRef.current;
+    if (!el) return;
+    function onTouchMove(e: TouchEvent) {
+      if (rsvpTouchStartX.current === null) return;
+      const dx = e.touches[0].clientX - rsvpTouchStartX.current;
+      const dy = e.touches[0].clientY - (rsvpTouchStartY.current ?? 0);
+      if (!rsvpTouchLockedH.current) {
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.4) rsvpTouchLockedH.current = true;
+        else if (Math.abs(dy) > 10) { rsvpTouchStartX.current = null; return; }
+      }
+      if (rsvpTouchLockedH.current) e.preventDefault();
+    }
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
+
+  function goToPrev() {
+    setSlideDir("prev");
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  }
+  function goToNext() {
+    setSlideDir("next");
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  }
+  function onTouchStart(e: React.TouchEvent) {
+    rsvpTouchStartX.current = e.touches[0].clientX;
+    rsvpTouchStartY.current = e.touches[0].clientY;
+    rsvpTouchLockedH.current = false;
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (rsvpTouchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - rsvpTouchStartX.current;
+    const dy = e.changedTouches[0].clientY - (rsvpTouchStartY.current ?? 0);
+    rsvpTouchStartX.current = null;
+    rsvpTouchStartY.current = null;
+    rsvpTouchLockedH.current = false;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    if (dx < 0) goToNext(); else goToPrev();
+  }
+
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (string | null)[] = [
+    ...(Array(firstWeekday).fill(null) as null[]),
+    ...Array.from({ length: daysInMonth }, (_, i) =>
+      `${year}-${String(month + 1).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`
+    ),
+  ];
+
+  const monthKey = year * 12 + month;
+  const slideClass = slideDir === "next" ? "cal-slide-next" : slideDir === "prev" ? "cal-slide-prev" : "";
+  const monthLabel = new Date(year, month, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  // Valid window: today → maxIso (if set)
+  const windowEnd = maxIso ?? "";
+
+  return (
+    <div ref={rsvpCalRef} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* Month header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <button type="button" onClick={goToPrev} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.65)", padding: "4px 10px", lineHeight: 1 }}>‹</button>
+        <span key={`rlbl-${monthKey}`} className={slideClass} style={{ display: "inline-block", fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>{monthLabel}</span>
+        <button type="button" onClick={goToNext} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, color: "rgba(255,255,255,0.65)", padding: "4px 10px", lineHeight: 1 }}>›</button>
+      </div>
+      {/* Weekday labels */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 2 }}>
+        {["S","M","T","W","T","F","S"].map((d, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", padding: "2px 0" }}>{d}</div>
+        ))}
+      </div>
+      {/* Day grid */}
+      <div key={`rgrid-${monthKey}`} className={slideClass} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+        {cells.map((iso, i) => {
+          if (!iso) return <div key={`re-${i}`} />;
+
+          const isSelected = iso === selected;
+          const isToday = iso === todayIso;
+          const isTooEarly = iso < minIso;
+          const isTooLate = windowEnd ? iso > windowEnd : false;
+          const isDisabled = isTooEarly || isTooLate;
+
+          // Highlight the valid RSVP window (today → eventDate, exclusive of endpoints)
+          const inWindow = windowEnd && iso > todayIso && iso < windowEnd;
+          // Half-fill band on the window boundaries (today = right half, eventDate = left half)
+          const isWindowStart = iso === todayIso && windowEnd;
+          const isWindowEnd = windowEnd && iso === windowEnd;
+          const windowBg = "rgba(94,168,255,0.10)";
+
+          let cellBg = "transparent";
+          if (inWindow) cellBg = windowBg;
+          else if (isWindowStart) cellBg = `linear-gradient(to right, transparent 50%, ${windowBg} 50%)`;
+          else if (isWindowEnd) cellBg = `linear-gradient(to left, transparent 50%, ${windowBg} 50%)`;
+
+          const CIRCLE = 34;
+          return (
+            <button
+              key={iso}
+              type="button"
+              disabled={isDisabled}
+              onClick={() => !isDisabled && onSelect(iso)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center",
+                paddingTop: 2, paddingBottom: 4,
+                border: "none", cursor: isDisabled ? "default" : "pointer",
+                background: cellBg,
+                opacity: isDisabled ? 0.28 : 1,
+              }}
+            >
+              <div style={{
+                width: CIRCLE, height: CIRCLE, borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: isSelected ? "linear-gradient(135deg, #5EA8FF 0%, #3B82F6 100%)" : "transparent",
+                boxShadow: isSelected ? "0 0 0 2.5px #3B82F6" : isToday && !isSelected ? "inset 0 0 0 1.5px rgba(94,168,255,0.55)" : "none",
+              }}>
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isSelected || isToday ? 700 : 400,
+                  color: isSelected ? "#fff" : inWindow ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.82)",
+                  lineHeight: 1,
+                }}>
+                  {new Date(iso + "T00:00:00").getDate()}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CreateEventPage({ editData }: { editData?: EditEventData } = {}) {
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
@@ -673,6 +829,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [rsvpDeadline, setRsvpDeadline] = useState(() =>
     editData?.rsvp_deadline ?? ""
   );
+  const [rsvpClosing, setRsvpClosing] = useState(false);
+  const [rsvpDraft, setRsvpDraft] = useState("");
 
   // In edit mode, fetch profiles for pre-existing cohosts so they appear in the UI
   useEffect(() => {
@@ -689,11 +847,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || spotsClosing || costClosing || optionSheet !== null) ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || spotsClosing || costClosing || rsvpClosing || optionSheet !== null) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, spotsClosing, costClosing, optionSheet]);
+  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, spotsClosing, costClosing, rsvpClosing, optionSheet]);
 
   // Fetch host profile
   useEffect(() => {
@@ -1856,7 +2014,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   <img src="/Icons/IconCost.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {costLabel ?? "Cost"}
                 </button>
-                <button type="button" onClick={() => setOptionSheet("rsvp")}
+                <button type="button" onClick={() => { setRsvpDraft(rsvpDeadline); setOptionSheet("rsvp"); }}
                   style={{ ...chipBase, color: rsvpLabel ? "#fff" : "#8c98a8", background: rsvpLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
                   <img src="/Icons/IconRSVPby.svg" width="13" height="13" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {rsvpLabel ? `RSVP by ${rsvpLabel}` : "RSVP by"}
@@ -2324,40 +2482,94 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       )}
 
       {/* RSVP by sheet */}
-      {optionSheet === "rsvp" && (
+      {(optionSheet === "rsvp" || rsvpClosing) && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
-          onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setRsvpClosing(true);
+            setTimeout(() => { setOptionSheet(null); setRsvpClosing(false); }, 250);
+          }}
         >
-          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+          <div
+            className={rsvpClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
+            style={{
+              width: "100%",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              borderRadius: "22px 22px 0 0",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+            }}
+          >
+            {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
-              <button type="button" onClick={() => setOptionSheet(null)} aria-label="Close" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+
+            {/* Header — 3-column grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setRsvpClosing(true);
+                  setTimeout(() => { setOptionSheet(null); setRsvpClosing(false); }, 250);
+                }}
+                aria-label="Close"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)", cursor: "pointer", color: "rgba(255,255,255,0.78)" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>RSVP by</span>
-              <button type="button" onClick={() => setOptionSheet(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}>Done</button>
-            </div>
-            <div style={{ padding: "20px 20px 0" }}>
-              <div style={{ height: 1, background: "var(--border)", marginBottom: 20 }} />
-              <input
-                type="date"
-                value={rsvpDeadline}
-                onChange={(e) => setRsvpDeadline(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
-              />
-              {rsvpDeadline && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>RSVP by</div>
+                {rsvpDraft && (
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 2 }}>
+                    {(() => { const [y, m, d] = rsvpDraft.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" }); })()}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button
                   type="button"
-                  onClick={() => setRsvpDeadline("")}
-                  style={{ marginTop: 12, background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#ef4444", fontFamily: "inherit", padding: 0 }}
+                  onClick={() => {
+                    setRsvpDeadline(rsvpDraft);
+                    setRsvpClosing(true);
+                    setTimeout(() => { setOptionSheet(null); setRsvpClosing(false); }, 250);
+                  }}
+                  aria-label="Confirm"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(94,168,255,0.14)", border: "1px solid rgba(94,168,255,0.28)", cursor: "pointer", color: "#5EA8FF" }}
                 >
-                  Clear deadline
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </button>
+              </div>
+            </div>
+
+            {/* Calendar body */}
+            <div style={{ padding: "16px 20px 0" }}>
+              <RsvpCalendar
+                selected={rsvpDraft}
+                onSelect={setRsvpDraft}
+                minIso={new Date().toLocaleDateString("en-CA")}
+                maxIso={startDate || null}
+              />
+
+              {/* Helper text */}
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.32)", textAlign: "center", margin: "12px 0 0" }}>
+                {startDate
+                  ? "Pick any date up to your event date"
+                  : "Pick a deadline for RSVPs"}
+              </p>
+
+              {/* Clear link */}
+              {rsvpDraft && (
+                <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+                  <button
+                    type="button"
+                    onClick={() => setRsvpDraft("")}
+                    style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: "4px 12px" }}
+                  >
+                    Clear deadline
+                  </button>
+                </div>
               )}
-              <button type="button" onClick={() => setOptionSheet(null)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}>Done</button>
             </div>
           </div>
         </div>
