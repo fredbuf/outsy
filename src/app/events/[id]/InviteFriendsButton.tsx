@@ -28,20 +28,28 @@ function avatarColor(name: string): string {
 export function InviteFriendsButton({ eventId, large }: { eventId: string; large?: boolean }) {
   const { user, session } = useAuth();
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [friends, setFriends] = useState<FriendProfile[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [doneCount, setDoneCount] = useState<number | null>(null);
+
+  function closeSheet() {
+    setClosing(true);
+    setTimeout(() => { setOpen(false); setClosing(false); }, 250);
+  }
 
   async function openModal() {
     if (!session) {
       window.dispatchEvent(new Event("outsy:open-signin"));
       return;
     }
-    setOpen(true);
     setDoneCount(null);
     setSelected(new Set());
+    setSearch("");
+    setOpen(true);
     // Cache friends list for the lifetime of this component
     if (friends !== null) return;
     setLoading(true);
@@ -86,14 +94,21 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
     setSending(false);
     setDoneCount(count);
     setSelected(new Set());
-    setTimeout(() => {
-      setOpen(false);
-      setDoneCount(null);
-    }, 1800);
+    setTimeout(() => closeSheet(), 1800);
   }
 
   // Hide for logged-out users — they see the Sign in prompt from the page itself
   if (!user) return null;
+
+  // Filtered friend list
+  const q = search.toLowerCase();
+  const filteredFriends = (friends ?? []).filter((f) => {
+    if (!q) return true;
+    return (
+      (f.display_name ?? "").toLowerCase().includes(q) ||
+      (f.username ?? "").toLowerCase().includes(q)
+    );
+  });
 
   return (
     <>
@@ -145,164 +160,242 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
       </button>
 
       {/* Friend picker bottom sheet */}
-      {open && createPortal(
+      {(open || closing) && createPortal(
         <div
-          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
           style={{
             position: "fixed", inset: 0, zIndex: 300,
-            background: "rgba(0,0,0,0.72)",
-            display: "flex", alignItems: "flex-end", justifyContent: "center",
+            background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "flex-end",
           }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeSheet(); }}
         >
           <div
+            className={closing ? "filter-sheet-exit" : "filter-sheet-enter"}
             style={{
-              background: "#111110",
-              color: "#eae8e4",
-              borderRadius: "20px 20px 0 0",
               width: "100%",
-              maxWidth: 540,
-              maxHeight: "72dvh",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              borderRadius: "22px 22px 0 0",
+              maxHeight: "92vh",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
-              "--border": "rgba(255,255,255,0.10)",
-              "--border-strong": "rgba(255,255,255,0.18)",
-              "--surface-subtle": "rgba(255,255,255,0.04)",
-              "--surface-raised": "rgba(255,255,255,0.09)",
-              "--accent": "#a78bfa",
-            } as React.CSSProperties}
+            }}
           >
-            {/* Sheet header */}
-            <div
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "16px 20px 12px",
-                borderBottom: "1px solid var(--border)",
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ width: 28, flexShrink: 0 }} />
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Invite friends</span>
+            {/* Grab handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
+            </div>
+
+            {/* Header — 3-column grid */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "44px 1fr 44px",
+              alignItems: "center", padding: "10px 16px 12px",
+              borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0,
+            }}>
+              {/* Close button */}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={closeSheet}
+                aria-label="Close"
                 style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontSize: 20, opacity: 0.5, lineHeight: 1, color: "inherit",
-                  width: 28, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)",
+                  cursor: "pointer", color: "rgba(255,255,255,0.78)",
                 }}
               >
-                ×
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
-            </div>
 
-            {/* Friend list */}
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              {doneCount !== null ? (
-                <div style={{ padding: "40px 20px", textAlign: "center", fontSize: 15, fontWeight: 600 }}>
-                  Invited {doneCount} {doneCount === 1 ? "friend" : "friends"} ✓
-                </div>
-              ) : loading ? (
-                <div style={{ padding: "40px 20px", textAlign: "center", opacity: 0.4, fontSize: 14 }}>
-                  Loading…
-                </div>
-              ) : !friends || friends.length === 0 ? (
-                <div style={{ padding: "40px 20px", textAlign: "center", opacity: 0.4, fontSize: 14, lineHeight: 1.6 }}>
-                  No friends to invite yet.<br />Add friends from their profile.
-                </div>
-              ) : (
-                <div style={{ paddingBlock: 6 }}>
-                  {friends.map((friend) => {
-                    const name = friend.display_name ?? friend.username ?? "User";
-                    const isSelected = selected.has(friend.id);
-                    return (
-                      <button
-                        key={friend.id}
-                        type="button"
-                        onClick={() => toggle(friend.id)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 12,
-                          width: "100%", padding: "10px 20px",
-                          background: isSelected ? "var(--surface-subtle)" : "transparent",
-                          border: "none", cursor: "pointer", textAlign: "left",
-                          transition: "background 0.12s",
-                        }}
-                      >
-                        {friend.avatar_url ? (
-                          <img
-                            src={friend.avatar_url}
-                            alt={name}
-                            style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 38, height: 38, borderRadius: "50%",
-                              background: avatarColor(name), flexShrink: 0,
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none",
-                            }}
-                          >
-                            {initials(name)}
-                          </div>
-                        )}
-                        <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{name}</span>
-                        {/* Checkbox */}
-                        <div
-                          style={{
-                            width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                            border: isSelected ? "none" : "1.5px solid var(--border-strong)",
-                            background: isSelected ? "var(--accent)" : "transparent",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            transition: "background 0.12s",
-                          }}
-                        >
-                          {isSelected && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+              {/* Title */}
+              <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>
+                {doneCount !== null
+                  ? `Invited ${doneCount} ${doneCount === 1 ? "friend" : "friends"} ✓`
+                  : selected.size > 0
+                  ? `Invite · ${selected.size}`
+                  : "Invite friends"}
+              </div>
 
-            {/* Send button — only when list is loaded and not yet done */}
-            {doneCount === null && !loading && friends && friends.length > 0 && (
-              <div
-                style={{
-                  padding: "12px 20px",
-                  paddingBottom: "max(12px, env(safe-area-inset-bottom))",
-                  borderTop: "1px solid var(--border)",
-                  flexShrink: 0,
-                }}
-              >
+              {/* Confirm button */}
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button
                   type="button"
                   onClick={sendInvites}
-                  disabled={selected.size === 0 || sending}
+                  aria-label="Send invites"
+                  disabled={selected.size === 0 || sending || doneCount !== null}
                   style={{
-                    width: "100%", padding: "13px 0",
-                    borderRadius: 12, border: "none",
-                    background: selected.size === 0 || sending ? "var(--surface-raised)" : "var(--accent)",
-                    color: selected.size === 0 || sending ? "inherit" : "#fff",
-                    fontWeight: 700, fontSize: 15,
-                    cursor: selected.size === 0 || sending ? "not-allowed" : "pointer",
-                    opacity: selected.size === 0 || sending ? 0.5 : 1,
-                    transition: "background 0.15s, opacity 0.15s",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 34, height: 34, borderRadius: "50%",
+                    background: selected.size === 0 || sending || doneCount !== null
+                      ? "rgba(255,255,255,0.07)"
+                      : "rgba(94,168,255,0.14)",
+                    border: selected.size === 0 || sending || doneCount !== null
+                      ? "1px solid rgba(255,255,255,0.12)"
+                      : "1px solid rgba(94,168,255,0.28)",
+                    cursor: selected.size === 0 || sending || doneCount !== null ? "not-allowed" : "pointer",
+                    color: selected.size === 0 || sending || doneCount !== null
+                      ? "rgba(255,255,255,0.28)"
+                      : "#5EA8FF",
+                    opacity: sending ? 0.5 : 1,
+                    transition: "background 0.15s, border 0.15s, color 0.15s",
                   }}
                 >
-                  {sending
-                    ? "Sending…"
-                    : selected.size === 0
-                    ? "Select friends to invite"
-                    : `Invite ${selected.size} ${selected.size === 1 ? "friend" : "friends"}`}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
                 </button>
               </div>
-            )}
+            </div>
+
+            {/* Search — pinned */}
+            <div style={{ padding: "14px 16px 0", flexShrink: 0 }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "0 14px", height: 50, borderRadius: 14,
+                background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)",
+              }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search friends…"
+                  style={{
+                    flex: 1, background: "none", border: "none", outline: "none",
+                    fontSize: 16, color: "#fff", fontFamily: "inherit",
+                  }}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="Clear search"
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: "rgba(255,255,255,0.14)", border: "none",
+                      cursor: "pointer", flexShrink: 0, color: "inherit",
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Friend list — scrollable */}
+            <div style={{
+              overflowY: "auto", flex: 1, minHeight: 0,
+              padding: "8px 8px 0",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+            }}>
+              {doneCount !== null ? (
+                <p style={{
+                  fontSize: 13, color: "rgba(255,255,255,0.45)",
+                  textAlign: "center", padding: "40px 20px 0", margin: 0,
+                }}>
+                  Invites sent!
+                </p>
+              ) : loading ? (
+                <p style={{
+                  fontSize: 13, color: "rgba(255,255,255,0.32)",
+                  textAlign: "center", padding: "32px 20px 0", margin: 0,
+                }}>
+                  Loading…
+                </p>
+              ) : !friends || friends.length === 0 ? (
+                <p style={{
+                  fontSize: 13, color: "rgba(255,255,255,0.32)",
+                  textAlign: "center", padding: "32px 20px 0", margin: 0, lineHeight: 1.6,
+                }}>
+                  No friends to invite yet.<br />Add friends from their profile.
+                </p>
+              ) : filteredFriends.length === 0 ? (
+                <p style={{
+                  fontSize: 13, color: "rgba(255,255,255,0.32)",
+                  textAlign: "center", padding: "28px 20px 0", margin: 0,
+                }}>
+                  No results.
+                </p>
+              ) : (
+                filteredFriends.map((friend) => {
+                  const name = friend.display_name ?? friend.username ?? "User";
+                  const isSelected = selected.has(friend.id);
+                  return (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      onClick={() => toggle(friend.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 14,
+                        width: "100%", padding: "10px 12px",
+                        background: isSelected ? "rgba(94,168,255,0.08)" : "none",
+                        border: isSelected ? "1px solid rgba(94,168,255,0.22)" : "1px solid transparent",
+                        borderRadius: 14, cursor: "pointer",
+                        color: "inherit", textAlign: "left", fontFamily: "inherit",
+                        marginBottom: 4, boxSizing: "border-box",
+                      }}
+                    >
+                      {/* Avatar */}
+                      {friend.avatar_url ? (
+                        <img
+                          src={friend.avatar_url}
+                          alt=""
+                          style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 40, height: 40, borderRadius: "50%",
+                            background: avatarColor(name), flexShrink: 0,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 14, fontWeight: 700, color: "#fff", userSelect: "none",
+                          }}
+                        >
+                          {initials(name)}
+                        </div>
+                      )}
+
+                      {/* Name + username */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 15, fontWeight: 600,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          color: isSelected ? "#5EA8FF" : "#fff",
+                        }}>
+                          {friend.display_name ?? `@${friend.username}`}
+                        </div>
+                        {friend.username && (
+                          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginTop: 1 }}>
+                            @{friend.username}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Selection indicator — circle */}
+                      <div style={{
+                        width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: isSelected ? "#5EA8FF" : "rgba(255,255,255,0.09)",
+                        border: isSelected ? "none" : "1px solid rgba(255,255,255,0.20)",
+                        transition: "background 0.15s, border 0.15s",
+                      }}>
+                        {isSelected && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>,
         document.body
