@@ -375,9 +375,14 @@ export default function ProfilePage() {
     setUploadingAvatar(false);
     if (json?.ok) {
       setProfile((prev) => (prev ? { ...prev, avatar_url: json.url } : prev));
-      // Refresh the Supabase Auth session so user.user_metadata.avatar_url
-      // is updated. This triggers onAuthStateChange → AuthProvider re-renders
-      // all consumers (AppTopBar on Home) with the new avatar immediately.
+      // Notify all listeners (e.g. AppTopBar) that the avatar has changed.
+      // This is more reliable than relying on JWT refresh propagation because
+      // user_metadata in the Supabase JWT comes from the OAuth provider and
+      // admin-side metadata writes may not be reflected before the token is
+      // refreshed. The custom event sidesteps the JWT entirely.
+      window.dispatchEvent(
+        new CustomEvent("outsy:avatar-updated", { detail: { url: json.url as string } })
+      );
       supabaseBrowser().auth.refreshSession().catch(() => {});
     } else {
       setAvatarError(json?.error ?? "Upload failed.");

@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 
 // ── AppTopBar ──────────────────────────────────────────────────────────────────
@@ -17,7 +18,26 @@ export function AppTopBar() {
   }
 
   const meta = user?.user_metadata as { avatar_url?: string; full_name?: string } | undefined;
-  const avatarUrl = meta?.avatar_url;
+
+  // Local override: updated immediately when the user changes their avatar.
+  // This is the reliable path — user_metadata.avatar_url comes from the OAuth
+  // provider (e.g. Google) and may not reflect Outsy-specific uploads even
+  // after a session refresh, because the JWT is generated from cached claims.
+  // The "outsy:avatar-updated" event is dispatched by profile/page.tsx right
+  // after a successful upload, so this override wins on the same tick.
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onAvatarUpdated(e: Event) {
+      const url = (e as CustomEvent<{ url: string }>).detail?.url;
+      if (url) setAvatarOverride(url);
+    }
+    window.addEventListener("outsy:avatar-updated", onAvatarUpdated);
+    return () => window.removeEventListener("outsy:avatar-updated", onAvatarUpdated);
+  }, []);
+
+  // avatarOverride takes precedence; fall back to the OAuth-provided URL.
+  const avatarUrl = avatarOverride ?? meta?.avatar_url;
   const initials = (() => {
     const name = meta?.full_name;
     if (!name) return (user?.email?.[0] ?? "?").toUpperCase();
