@@ -831,7 +831,7 @@ function AddFriendButton({
 }) {
   if (state === "friends") {
     return (
-      <span style={{ fontSize: 13, fontWeight: 600, color: "#10b981", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "#4ade80", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <polyline points="20 6 9 17 4 12" />
         </svg>
@@ -847,12 +847,13 @@ function AddFriendButton({
         disabled={state === "cancelling"}
         style={{
           padding: "7px 14px", borderRadius: 20,
-          border: "1px solid rgba(255,255,255,0.15)",
-          background: "rgba(255,255,255,0.07)",
+          border: "1px solid rgba(255,255,255,0.18)",
+          background: "rgba(255,255,255,0.08)",
           fontWeight: 600, fontSize: 13,
           cursor: state === "cancelling" ? "not-allowed" : "pointer",
-          flexShrink: 0, color: "inherit",
+          flexShrink: 0, color: "rgba(255,255,255,0.70)",
           opacity: state === "cancelling" ? 0.5 : 1,
+          transition: "opacity 0.15s",
         }}
       >
         {state === "cancelling" ? "…" : "Sent"}
@@ -865,11 +866,13 @@ function AddFriendButton({
       onClick={onAdd}
       disabled={state === "sending"}
       style={{
-        padding: "7px 14px", borderRadius: 20, border: "none",
-        background: state === "sending" ? "rgba(167,139,250,0.3)" : "#7c3aed",
-        color: "#fff", fontWeight: 600, fontSize: 13,
+        padding: "7px 14px", borderRadius: 20,
+        border: "1px solid rgba(94,168,255,0.30)",
+        background: state === "sending" ? "rgba(94,168,255,0.10)" : "rgba(94,168,255,0.18)",
+        color: "#5EA8FF", fontWeight: 600, fontSize: 13,
         cursor: state === "sending" ? "not-allowed" : "pointer",
-        flexShrink: 0, opacity: state === "sending" ? 0.6 : 1,
+        flexShrink: 0, opacity: state === "sending" ? 0.5 : 1,
+        transition: "opacity 0.15s",
       }}
     >
       {state === "sending" ? "…" : "Add"}
@@ -878,12 +881,18 @@ function AddFriendButton({
 }
 
 function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () => void; token: string }) {
+  const [closing, setClosing] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<UserSearchResult[] | null>(null);
   const [buttonStates, setButtonStates] = useState<Record<string, ButtonState>>({});
   const [friendshipIds, setFriendshipIds] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+
+  function startClose() {
+    setClosing(true);
+    setTimeout(() => { onClose(); }, 250);
+  }
 
   // Debounce + fetch combined: all setState calls happen inside async callbacks,
   // never synchronously in the effect body (satisfies react-hooks/set-state-in-effect).
@@ -970,63 +979,63 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 500,
-        background: "rgba(0,0,0,0.60)",
+        background: "rgba(0,0,0,0.55)",
         display: "flex", alignItems: "flex-end",
       }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && startClose()}
     >
       <div
+        className={closing ? "filter-sheet-exit" : "filter-sheet-enter"}
         style={{
           width: "100%",
-          height: "85dvh",
-          background: "#111110",
+          maxHeight: "92vh",
+          background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
           borderRadius: "22px 22px 0 0",
           display: "flex",
           flexDirection: "column",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          color: "#eae8e4",
-          colorScheme: "dark" as React.CSSProperties["colorScheme"],
+          overflow: "hidden",
         }}
       >
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, flexShrink: 0 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)" }} />
+        {/* Grab handle */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
         </div>
 
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", padding: "10px 20px 8px", flexShrink: 0 }}>
+        {/* Header — 3-column grid */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "44px 1fr 44px",
+          alignItems: "center", padding: "10px 16px 12px",
+          borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0,
+        }}>
           <button
             type="button"
-            onClick={onClose}
+            onClick={startClose}
             aria-label="Close"
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: 34, height: 34, borderRadius: "50%",
-              background: "rgba(255,255,255,0.08)", border: "none",
-              cursor: "pointer", color: "inherit", flexShrink: 0,
+              background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)",
+              cursor: "pointer", color: "rgba(255,255,255,0.78)",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Add friend</span>
-          {/* Balance spacer */}
-          <div style={{ width: 34, flexShrink: 0 }} />
+          <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>
+            Add friend
+          </div>
+          <div />
         </div>
 
         {/* Search bar */}
-        <div style={{ padding: "4px 16px 10px", flexShrink: 0 }}>
-          <div
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "0 14px", height: 48,
-              borderRadius: 14,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.10)",
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.40 }} aria-hidden>
+        <div style={{ padding: "14px 16px 0", flexShrink: 0 }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "0 14px", height: 50, borderRadius: 14,
+            background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)",
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
@@ -1037,7 +1046,7 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
               onChange={(e) => setQuery(e.target.value)}
               style={{
                 flex: 1, background: "none", border: "none", outline: "none",
-                fontSize: 16, color: "inherit", fontFamily: "inherit",
+                fontSize: 16, color: "#fff", fontFamily: "inherit",
               }}
             />
             {query && (
@@ -1048,8 +1057,8 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: 22, height: 22, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.14)",
-                  border: "none", cursor: "pointer", flexShrink: 0, color: "inherit",
+                  background: "rgba(255,255,255,0.14)", border: "none",
+                  cursor: "pointer", flexShrink: 0, color: "inherit",
                 }}
               >
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
@@ -1060,10 +1069,14 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
           </div>
         </div>
 
-        {/* Results */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 32px" }}>
+        {/* Results — scrollable */}
+        <div style={{
+          flex: 1, overflowY: "auto", minHeight: 0,
+          padding: "8px 8px 0",
+          paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+        }}>
           {searching && (
-            <p style={{ fontSize: 13, opacity: 0.4, padding: "8px 0", margin: 0 }}>Searching…</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", padding: "8px 4px", margin: 0 }}>Searching…</p>
           )}
 
           {showResults && results!.map((result) => {
@@ -1073,18 +1086,20 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
               <div
                 key={result.id}
                 style={{
-                  display: "flex", alignItems: "center", gap: 12,
-                  padding: "11px 0", borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  display: "flex", alignItems: "center", gap: 14,
+                  padding: "10px 12px",
+                  background: "none", border: "1px solid transparent",
+                  borderRadius: 14, marginBottom: 4, boxSizing: "border-box",
                 }}
               >
-                <Link href={`/profile/${result.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={onClose}>
-                  <AvatarCircle avatarUrl={result.avatar_url} name={label} />
+                <Link href={`/profile/${result.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={startClose}>
+                  <AvatarCircle avatarUrl={result.avatar_url} name={label} size={40} />
                 </Link>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <Link href={`/profile/${result.id}`} style={{ textDecoration: "none", color: "inherit" }} onClick={onClose}>
-                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{label}</div>
+                  <Link href={`/profile/${result.id}`} style={{ textDecoration: "none", color: "inherit" }} onClick={startClose}>
+                    <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", color: "#fff" }}>{label}</div>
                     {result.username && result.display_name && (
-                      <div style={{ fontSize: 12, opacity: 0.42, marginTop: 1 }}>@{result.username}</div>
+                      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginTop: 1 }}>@{result.username}</div>
                     )}
                   </Link>
                 </div>
@@ -1107,11 +1122,11 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
           )}
 
           {!searching && trimmed.length > 0 && trimmed.length < 2 && (
-            <p style={{ fontSize: 13, opacity: 0.4, padding: "8px 0", margin: 0 }}>Keep typing…</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", padding: "8px 4px", margin: 0 }}>Keep typing…</p>
           )}
 
           {!trimmed && (
-            <p style={{ fontSize: 13, opacity: 0.32, textAlign: "center", padding: "32px 0 0", margin: 0 }}>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.28)", textAlign: "center", padding: "32px 0 0", margin: 0 }}>
               Search by name or @username
             </p>
           )}

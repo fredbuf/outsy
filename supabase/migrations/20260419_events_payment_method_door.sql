@@ -19,7 +19,7 @@ BEGIN;
 
 -- 1. Remove the old constraint (typo in name: "methos" → "methods")
 ALTER TABLE events
-  DROP CONSTRAINT IF EXISTS events_payment_methos_check;
+  DROP CONSTRAINT IF EXISTS events_payment_method_check;
 
 -- 2. Add the new constraint with the corrected name and expanded value list
 ALTER TABLE events
