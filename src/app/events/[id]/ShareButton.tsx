@@ -64,7 +64,7 @@ function EventPreviewCard({ preview, title }: { preview: EventPreview; title: st
   const hasCover = Boolean(imageUrl);
 
   return (
-    <div style={{ padding: "12px 16px 8px" }}>
+    <div style={{ padding: "10px 16px 6px" }}>
       {hostName && (
         <div style={{
           fontSize: 11, opacity: 0.32, marginBottom: 6,
@@ -83,14 +83,14 @@ function EventPreviewCard({ preview, title }: { preview: EventPreview; title: st
           <img
             src={imageUrl!}
             alt=""
-            style={{ width: "100%", height: 148, objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }}
           />
         ) : (
-          <div style={{ width: "100%", height: 112, background: categoryGradient(category) }} />
+          <div style={{ width: "100%", height: 128, background: categoryGradient(category) }} />
         )}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0,
-          padding: hasCover ? "44px 14px 12px" : "18px 14px 12px",
+          padding: hasCover ? "52px 14px 14px" : "20px 14px 14px",
           background: hasCover
             ? "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.0) 100%)"
             : "none",
@@ -129,9 +129,9 @@ function EventPreviewCard({ preview, title }: { preview: EventPreview; title: st
   );
 }
 
-// ── Action row ────────────────────────────────────────────────────────────────
+// ── Action tile (icon above, label below) ────────────────────────────────────
 
-function ActionRow({
+function ActionTile({
   icon, label, onClick, accent,
 }: {
   icon: React.ReactNode;
@@ -144,25 +144,31 @@ function ActionRow({
       type="button"
       onClick={onClick}
       style={{
-        display: "flex", alignItems: "center", gap: 14,
-        width: "100%", padding: "11px 16px",
-        background: "none", border: "1px solid transparent",
-        borderRadius: 14, cursor: "pointer",
-        color: accent ? "#5EA8FF" : "inherit",
-        textAlign: "left", fontFamily: "inherit",
-        marginBottom: 4, boxSizing: "border-box",
+        flex: 1,
+        display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+        padding: "14px 8px 16px",
+        background: "none", border: "none",
+        cursor: "pointer", color: accent ? "#5EA8FF" : "inherit",
+        fontFamily: "inherit",
       }}
     >
       <div style={{
-        width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
-        background: accent ? "rgba(94,168,255,0.12)" : "rgba(255,255,255,0.09)",
-        border: accent ? "1px solid rgba(94,168,255,0.22)" : "1px solid rgba(255,255,255,0.10)",
+        width: 52, height: 52, borderRadius: "50%",
+        background: accent ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.09)",
+        border: accent ? "1px solid rgba(94,168,255,0.28)" : "1px solid rgba(255,255,255,0.13)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        color: accent ? "#5EA8FF" : "rgba(255,255,255,0.80)",
+        color: accent ? "#5EA8FF" : "rgba(255,255,255,0.85)",
+        transition: "background 0.15s, border 0.15s",
       }}>
         {icon}
       </div>
-      <span style={{ fontSize: 15, fontWeight: 600 }}>{label}</span>
+      <span style={{
+        fontSize: 12, fontWeight: 500,
+        color: accent ? "#5EA8FF" : "rgba(255,255,255,0.60)",
+        letterSpacing: "0.01em", textAlign: "center", lineHeight: 1.2,
+      }}>
+        {label}
+      </span>
     </button>
   );
 }
@@ -424,19 +430,19 @@ export function ShareButton({
             {/* Event preview card */}
             {preview && <EventPreviewCard preview={preview} title={title} />}
 
-            {/* Action rows */}
+            {/* Action tiles — single horizontal row */}
             <div style={{
-              padding: "6px 8px",
-              paddingBottom: "max(20px, env(safe-area-inset-bottom))",
-              overflowY: "auto",
+              display: "flex",
+              borderTop: "1px solid rgba(255,255,255,0.07)",
+              paddingBottom: "max(8px, env(safe-area-inset-bottom))",
             }}>
               {/* Send to friend */}
               {(user || !session) && (
-                <ActionRow
+                <ActionTile
                   onClick={openPicker}
                   label="Send to friend"
                   icon={
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
                       <line x1="19" y1="8" x2="19" y2="14" />
@@ -447,16 +453,16 @@ export function ShareButton({
               )}
 
               {/* Copy link */}
-              <ActionRow
+              <ActionTile
                 onClick={handleCopyLink}
-                label="Copy link"
+                label={copied ? "Copied!" : "Copy link"}
                 accent={copied}
                 icon={copied ? (
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 ) : (
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                   </svg>
@@ -465,14 +471,14 @@ export function ShareButton({
 
               {/* Native share — only when browser supports it */}
               {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
-                <ActionRow
+                <ActionTile
                   onClick={async () => {
                     closeAll();
                     await handleExternalShare();
                   }}
                   label="Share…"
                   icon={
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
                       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
                       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
