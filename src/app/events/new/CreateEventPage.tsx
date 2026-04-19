@@ -663,7 +663,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   });
   const [costClosing, setCostClosing] = useState(false);
   // Draft state for Cost sheet — pending until ✓ confirmed; X discards
-  const [costDraftMode, setCostDraftMode] = useState<"free" | "paid" | "door">("free");
+  // costDraftTopMode: top-level Free vs Paid
+  // costDraftPayMethod: secondary choice within Paid — "advance" (Interac) vs "door" (pay on site)
+  const [costDraftTopMode, setCostDraftTopMode] = useState<"free" | "paid">("free");
+  const [costDraftPayMethod, setCostDraftPayMethod] = useState<"advance" | "door">("advance");
   const [costDraftAmount, setCostDraftAmount] = useState("");
   const [costDraftCurrency, setCostDraftCurrency] = useState<"CAD" | "USD">("CAD");
   const [costDraftContact, setCostDraftContact] = useState("");
@@ -1809,7 +1812,9 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
               ? `${spotsLimit} spots` : null;
             const costLabel = costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
-              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}`
+              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount} · Interac`
+              : costMode === "door" && costAmount.trim() && parseFloat(costAmount) > 0
+              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount} · on site`
               : costMode === "door" ? "Pay on site"
               : costMode === "paid" ? "Paid"
               : null;
@@ -1840,7 +1845,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   {spotsLabel ?? "Spots"}
                 </button>
                 <button type="button" onClick={() => {
-                  setCostDraftMode(costMode);
+                  setCostDraftTopMode(costMode === "free" ? "free" : "paid");
+                  setCostDraftPayMethod(costMode === "door" ? "door" : "advance");
                   setCostDraftAmount(costAmount);
                   setCostDraftCurrency(costCurrency);
                   setCostDraftContact(costPaymentContact);
@@ -2143,10 +2149,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   type="button"
                   onClick={() => {
                     // Apply draft to committed state
-                    setCostMode(costDraftMode);
-                    setCostAmount(costDraftMode === "paid" ? costDraftAmount : "");
+                    // top=free → "free"; top=paid+advance → "paid"; top=paid+door → "door"
+                    const resolvedMode = costDraftTopMode === "free" ? "free"
+                      : costDraftPayMethod === "door" ? "door" : "paid";
+                    setCostMode(resolvedMode);
+                    setCostAmount(costDraftTopMode === "paid" ? costDraftAmount : "");
                     setCostCurrency(costDraftCurrency);
-                    setCostPaymentContact(costDraftMode === "paid" ? costDraftContact : "");
+                    setCostPaymentContact(costDraftTopMode === "paid" && costDraftPayMethod === "advance" ? costDraftContact : "");
                     setCostClosing(true);
                     setTimeout(() => { setOptionSheet(null); setCostClosing(false); }, 250);
                   }}
@@ -2166,19 +2175,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 How should guests pay?
               </p>
 
-              {/* Pricing mode selector — 3 large tappable tiles */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
+              {/* Top-level: Free / Paid — 2 tiles */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
                 {([
                   { id: "free" as const, label: "Free", sub: "No charge" },
                   { id: "paid" as const, label: "Paid", sub: "Set an amount" },
-                  { id: "door" as const, label: "Pay on site", sub: "At the door" },
                 ]).map(({ id, label, sub }) => {
-                  const active = costDraftMode === id;
+                  const active = costDraftTopMode === id;
                   return (
                     <button
                       key={id}
                       type="button"
-                      onClick={() => setCostDraftMode(id)}
+                      onClick={() => setCostDraftTopMode(id)}
                       style={{
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                         padding: "14px 8px", borderRadius: 16, cursor: "pointer",
@@ -2187,37 +2195,64 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                         fontFamily: "inherit", gap: 4,
                       }}
                     >
-                      <span style={{ fontSize: 14, fontWeight: 700, color: active ? "#5EA8FF" : "#fff" }}>{label}</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: active ? "#5EA8FF" : "#fff" }}>{label}</span>
                       <span style={{ fontSize: 11, color: active ? "rgba(94,168,255,0.75)" : "rgba(255,255,255,0.38)", lineHeight: 1.3 }}>{sub}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* Conditional: Paid details */}
-              {costDraftMode === "paid" && (
+              {/* Secondary + amount — only visible when Paid */}
+              {costDraftTopMode === "paid" && (
                 <div>
-                  {/* Amount input with currency prefix */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: 14, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 12 }}>
-                    {/* Currency toggle */}
+                  {/* Segmented control: Pay in advance / Pay on site */}
+                  <div style={{ display: "flex", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", overflow: "hidden", marginBottom: 20 }}>
+                    {([
+                      { id: "advance" as const, label: "Pay in advance" },
+                      { id: "door" as const, label: "Pay on site" },
+                    ]).map(({ id, label }) => {
+                      const active = costDraftPayMethod === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setCostDraftPayMethod(id)}
+                          style={{
+                            flex: 1, padding: "10px 8px", border: "none", cursor: "pointer", fontFamily: "inherit",
+                            background: active ? "rgba(255,255,255,0.10)" : "transparent",
+                            color: active ? "#fff" : "rgba(255,255,255,0.42)",
+                            fontSize: 13, fontWeight: active ? 600 : 400,
+                            borderRight: id === "advance" ? "1px solid rgba(255,255,255,0.13)" : "none",
+                          }}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Amount input — compact, single unified row */}
+                  <div style={{ display: "flex", alignItems: "stretch", borderRadius: 12, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 10 }}>
+                    {/* Currency toggle — left segment */}
                     <div style={{ display: "flex", borderRight: "1px solid rgba(255,255,255,0.12)", flexShrink: 0 }}>
-                      {(["CAD", "USD"] as const).map((c) => (
+                      {(["CAD", "USD"] as const).map((c, i) => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => setCostDraftCurrency(c)}
                           style={{
-                            padding: "13px 12px", border: "none", cursor: "pointer", fontFamily: "inherit",
-                            background: costDraftCurrency === c ? "rgba(255,255,255,0.12)" : "transparent",
-                            color: costDraftCurrency === c ? "#fff" : "rgba(255,255,255,0.42)",
-                            fontSize: 13, fontWeight: costDraftCurrency === c ? 700 : 500,
+                            padding: "10px 11px", border: "none", cursor: "pointer", fontFamily: "inherit",
+                            background: costDraftCurrency === c ? "rgba(255,255,255,0.10)" : "transparent",
+                            color: costDraftCurrency === c ? "#fff" : "rgba(255,255,255,0.38)",
+                            fontSize: 12, fontWeight: costDraftCurrency === c ? 700 : 500,
+                            borderRight: i === 0 ? "1px solid rgba(255,255,255,0.10)" : "none",
                           }}
                         >
                           {c}
                         </button>
                       ))}
                     </div>
-                    {/* Amount */}
+                    {/* Amount input */}
                     <input
                       type="number"
                       inputMode="decimal"
@@ -2226,7 +2261,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       placeholder="0.00"
                       value={costDraftAmount}
                       onChange={(e) => setCostDraftAmount(e.target.value)}
-                      style={{ flex: 1, background: "none", border: "none", outline: "none", padding: "13px 14px", fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "inherit" }}
+                      style={{ flex: 1, background: "none", border: "none", outline: "none", padding: "10px 12px", fontSize: 16, fontWeight: 600, color: "#fff", fontFamily: "inherit" }}
                     />
                   </div>
 
@@ -2253,31 +2288,33 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     })}
                   </div>
 
-                  {/* Interac contact */}
-                  <div style={{ marginBottom: 8 }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 8px" }}>
-                      Interac e-Transfer to
-                    </p>
-                    <input
-                      type="text"
-                      placeholder="Email or phone number"
-                      value={costDraftContact}
-                      onChange={(e) => setCostDraftContact(e.target.value)}
-                      style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", outline: "none" }}
-                    />
-                  </div>
-                </div>
-              )}
+                  {/* Interac contact — only for Pay in advance */}
+                  {costDraftPayMethod === "advance" && (
+                    <div style={{ marginBottom: 8 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 8px" }}>
+                        Interac e-Transfer to
+                      </p>
+                      <input
+                        type="text"
+                        placeholder="Email or phone number"
+                        value={costDraftContact}
+                        onChange={(e) => setCostDraftContact(e.target.value)}
+                        style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", outline: "none" }}
+                      />
+                    </div>
+                  )}
 
-              {/* Conditional: Pay on site info */}
-              {costDraftMode === "door" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", marginBottom: 8 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
-                    Guests pay at the venue. No advance payment required.
-                  </span>
+                  {/* Pay on site note */}
+                  {costDraftPayMethod === "door" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", marginBottom: 8 }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.38)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", lineHeight: 1.5 }}>
+                        Guests pay at the venue. Amount shown is still collected on arrival.
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
