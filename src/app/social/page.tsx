@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
+import { useBottomNav } from "@/app/components/BottomNavContext";
 import type { ActivityItem, MomentMeta } from "@/app/api/social/activity/route";
 import type { ConversationPreview } from "@/app/api/social/conversations/route";
 import type { UserSearchResult } from "@/app/api/users/search/route";
@@ -1152,12 +1153,17 @@ export default function SocialPage() {
   const [activityUnread, setActivityUnread] = useState(false);
   const [messagesUnread, setMessagesUnread] = useState(false);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
+  const { hide: hideNav, show: showNav } = useBottomNav();
 
-  // Lock body scroll when the add-friend sheet is open
+  // Lock body scroll and hide bottom nav when the add-friend sheet is open
   useEffect(() => {
     document.body.style.overflow = addFriendOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [addFriendOpen]);
+    if (addFriendOpen) { hideNav(); } else { showNav(); }
+    return () => {
+      document.body.style.overflow = "";
+      showNav();
+    };
+  }, [addFriendOpen, hideNav, showNav]);
 
   function handleTabSwitch(t: Tab) {
     setTab(t);
