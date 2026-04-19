@@ -9,16 +9,16 @@ export function PaymentReveal({
   paymentMethod,
   paymentContact,
 }: {
-  price: number;
+  price: number | null;
   currency: string;
   paymentMethod: string | null;
   paymentContact: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
-  const priceStr = `${currency === "USD" ? "US$" : "CA$"}${price.toFixed(2)}`;
-  const methodLabel = paymentMethod === "interac" ? "Interac" : paymentMethod ?? null;
-  const rowLabel = methodLabel ? `${priceStr} · ${methodLabel}` : priceStr;
+  const priceStr = price !== null ? `${currency === "USD" ? "US$" : "CA$"}${price.toFixed(2)}` : null;
+  const methodLabel = paymentMethod === "interac" ? "Interac" : paymentMethod === "door" ? "Pay on site" : null;
+  const rowLabel = priceStr && methodLabel ? `${priceStr} · ${methodLabel}` : priceStr ?? methodLabel ?? "";
 
   return (
     <>
@@ -105,10 +105,12 @@ export function PaymentReveal({
             {/* Body */}
             <div style={{ paddingBlock: 6, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
               {/* Price line */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px" }}>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>Amount</span>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>{priceStr}</span>
-              </div>
+              {priceStr && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px" }}>
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>Amount</span>
+                  <span style={{ fontSize: 15, fontWeight: 600 }}>{priceStr}</span>
+                </div>
+              )}
 
               {/* Payment method */}
               {methodLabel && (

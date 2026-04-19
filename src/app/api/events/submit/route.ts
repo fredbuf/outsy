@@ -202,7 +202,9 @@ export async function POST(req: Request) {
   const spotsLimit = spotsMode === "limited" && spotsLimitRaw !== null && spotsLimitRaw > 0 ? spotsLimitRaw : null;
   const price = typeof payload.price === "number" && payload.price > 0 ? payload.price : null;
   const currency = price && (payload.currency === "CAD" || payload.currency === "USD") ? payload.currency : null;
-  const paymentMethod = price && payload.paymentMethod === "interac" ? "interac" : null;
+  const paymentMethod = payload.paymentMethod === "door"
+    ? "door"
+    : (price && payload.paymentMethod === "interac" ? "interac" : null);
   const paymentContactRaw = typeof payload.paymentContact === "string" ? payload.paymentContact.trim().slice(0, 200) : null;
   const paymentContact = paymentMethod ? paymentContactRaw || null : null;
   // rsvp_deadline is a DATE column — send YYYY-MM-DD only, not a full ISO timestamp

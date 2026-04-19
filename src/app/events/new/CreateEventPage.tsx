@@ -1201,10 +1201,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             spotsLimit: spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
               ? parseInt(spotsLimit)
               : null,
-            price: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
+            price: (costMode === "paid" || costMode === "door") && costAmount.trim() && parseFloat(costAmount) > 0
               ? parseFloat(costAmount)
               : null,
-            currency: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
+            currency: (costMode === "paid" || costMode === "door") && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
             paymentMethod: costMode === "paid" ? "interac" : costMode === "door" ? "door" : null,
             paymentContact: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
               ? costPaymentContact.trim() || null
@@ -1284,10 +1284,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             spotsLimit: spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
               ? parseInt(spotsLimit)
               : null,
-            price: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
+            price: (costMode === "paid" || costMode === "door") && costAmount.trim() && parseFloat(costAmount) > 0
               ? parseFloat(costAmount)
               : null,
-            currency: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
+            currency: (costMode === "paid" || costMode === "door") && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
             paymentMethod: costMode === "paid" ? "interac" : costMode === "door" ? "door" : null,
             paymentContact: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
               ? costPaymentContact.trim() || null

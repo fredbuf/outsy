@@ -256,7 +256,9 @@ export async function PATCH(
   const spotsLimitRaw = typeof body.spotsLimit === "number" && body.spotsLimit > 0 ? body.spotsLimit : null;
   const priceRaw = typeof body.price === "number" && body.price > 0 ? body.price : null;
   const currency = priceRaw ? (body.currency === "USD" ? "USD" : "CAD") : null;
-  const paymentMethod = priceRaw && body.paymentMethod === "interac" ? "interac" : null;
+  const paymentMethod = body.paymentMethod === "door"
+    ? "door"
+    : (priceRaw && body.paymentMethod === "interac" ? "interac" : null);
   const paymentContact = paymentMethod
     ? (typeof body.paymentContact === "string" ? body.paymentContact.trim().slice(0, 200) || null : null)
     : null;
@@ -282,7 +284,7 @@ export async function PATCH(
       is_rejected: isRejected,
       image_url: imageUrl,
       ...(newVisibility === "private" ? {
-        cohost_ids: keptCohostIds.length > 0 ? keptCohostIds : null,
+        cohost_ids: keptCohostIds,
         spots_mode: spotsMode,
         spots_limit: spotsLimitRaw,
         price: priceRaw,

@@ -137,7 +137,7 @@ export function PrivateEventSwipePage(props: Props) {
 
   const avatarBorder = "2px solid rgba(18,25,36,0.85)";
 
-  const hasDetails = spotsLimited || eventPrice !== null || !!rsvpDeadline;
+  const hasDetails = spotsLimited || eventPrice !== null || paymentMethod === "door" || !!rsvpDeadline;
   const hasAttendees = rsvpCounts.going > 0 || rsvpCounts.maybe > 0;
 
   return (
@@ -503,7 +503,7 @@ export function PrivateEventSwipePage(props: Props) {
                         <span>{spotsLimit} spots available</span>
                       </div>
                     )}
-                    {eventPrice !== null && (
+                    {(eventPrice !== null || paymentMethod === "door") && (
                       <PaymentReveal
                         price={eventPrice}
                         currency={eventCurrency}
