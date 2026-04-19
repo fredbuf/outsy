@@ -655,6 +655,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [costPaymentContact, setCostPaymentContact] = useState(() =>
     editData?.payment_contact ?? ""
   );
+  // "free" | "paid" | "door" — committed pricing mode
+  const [costMode, setCostMode] = useState<"free" | "paid" | "door">(() => {
+    if (editData?.payment_method === "door") return "door";
+    if (editData?.price && editData.price > 0) return "paid";
+    return "free";
+  });
+  const [costClosing, setCostClosing] = useState(false);
+  // Draft state for Cost sheet — pending until ✓ confirmed; X discards
+  const [costDraftMode, setCostDraftMode] = useState<"free" | "paid" | "door">("free");
+  const [costDraftAmount, setCostDraftAmount] = useState("");
+  const [costDraftCurrency, setCostDraftCurrency] = useState<"CAD" | "USD">("CAD");
+  const [costDraftContact, setCostDraftContact] = useState("");
   const [rsvpDeadline, setRsvpDeadline] = useState(() =>
     editData?.rsvp_deadline ?? ""
   );
@@ -674,11 +686,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || spotsClosing || optionSheet !== null) ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || spotsClosing || costClosing || optionSheet !== null) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, spotsClosing, optionSheet]);
+  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, spotsClosing, costClosing, optionSheet]);
 
   // Fetch host profile
   useEffect(() => {
@@ -1028,12 +1040,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             spotsLimit: spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
               ? parseInt(spotsLimit)
               : null,
-            price: costAmount.trim() && parseFloat(costAmount) > 0
+            price: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
               ? parseFloat(costAmount)
               : null,
-            currency: costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
-            paymentMethod: costAmount.trim() && parseFloat(costAmount) > 0 ? "interac" : null,
-            paymentContact: costAmount.trim() && parseFloat(costAmount) > 0
+            currency: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
+            paymentMethod: costMode === "paid" ? "interac" : costMode === "door" ? "door" : null,
+            paymentContact: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
               ? costPaymentContact.trim() || null
               : null,
             rsvpDeadline: rsvpDeadline || null,
@@ -1111,12 +1123,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             spotsLimit: spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
               ? parseInt(spotsLimit)
               : null,
-            price: costAmount.trim() && parseFloat(costAmount) > 0
+            price: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
               ? parseFloat(costAmount)
               : null,
-            currency: costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
-            paymentMethod: costAmount.trim() && parseFloat(costAmount) > 0 ? "interac" : null,
-            paymentContact: costAmount.trim() && parseFloat(costAmount) > 0
+            currency: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
+            paymentMethod: costMode === "paid" ? "interac" : costMode === "door" ? "door" : null,
+            paymentContact: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
               ? costPaymentContact.trim() || null
               : null,
             rsvpDeadline: rsvpDeadline || null,
@@ -1245,6 +1257,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setCostAmount("");
               setCostCurrency("CAD");
               setCostPaymentContact("");
+              setCostMode("free");
               setRsvpDeadline("");
               setVenueName("");
               setVenueAddress("");
@@ -1795,8 +1808,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           {isPrivate && (() => {
             const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
               ? `${spotsLimit} spots` : null;
-            const costLabel = costAmount.trim() && parseFloat(costAmount) > 0
-              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}` : null;
+            const costLabel = costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
+              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}`
+              : costMode === "door" ? "Pay on site"
+              : costMode === "paid" ? "Paid"
+              : null;
             const rsvpLabel = rsvpDeadline ? (() => {
               const [y, m, d] = rsvpDeadline.split("-").map(Number);
               return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
@@ -1823,7 +1839,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   <img src="/Icons/IconSpots.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {spotsLabel ?? "Spots"}
                 </button>
-                <button type="button" onClick={() => setOptionSheet("cost")}
+                <button type="button" onClick={() => {
+                  setCostDraftMode(costMode);
+                  setCostDraftAmount(costAmount);
+                  setCostDraftCurrency(costCurrency);
+                  setCostDraftContact(costPaymentContact);
+                  setOptionSheet("cost");
+                }}
                   style={{ ...chipBase, color: costLabel ? "#fff" : "#8c98a8", background: costLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
                   <img src="/Icons/IconCost.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {costLabel ?? "Cost"}
@@ -2079,64 +2101,186 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       )}
 
       {/* Cost sheet */}
-      {optionSheet === "cost" && (
+      {(optionSheet === "cost" || costClosing) && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
-          onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setCostClosing(true);
+            setTimeout(() => { setOptionSheet(null); setCostClosing(false); }, 250);
+          }}
         >
-          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+          <div
+            className={costClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
+            style={{
+              width: "100%",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              borderRadius: "22px 22px 0 0",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+            }}
+          >
+            {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
-              <button type="button" onClick={() => setOptionSheet(null)} aria-label="Close" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+
+            {/* Header — 3-column grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCostClosing(true);
+                  setTimeout(() => { setOptionSheet(null); setCostClosing(false); }, 250);
+                }}
+                aria-label="Close"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)", cursor: "pointer", color: "rgba(255,255,255,0.78)" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Cost per person</span>
-              <button type="button" onClick={() => setOptionSheet(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}>Done</button>
+              <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>Cost</div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Apply draft to committed state
+                    setCostMode(costDraftMode);
+                    setCostAmount(costDraftMode === "paid" ? costDraftAmount : "");
+                    setCostCurrency(costDraftCurrency);
+                    setCostPaymentContact(costDraftMode === "paid" ? costDraftContact : "");
+                    setCostClosing(true);
+                    setTimeout(() => { setOptionSheet(null); setCostClosing(false); }, 250);
+                  }}
+                  aria-label="Confirm"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(94,168,255,0.14)", border: "1px solid rgba(94,168,255,0.28)", cursor: "pointer", color: "#5EA8FF" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </button>
+              </div>
             </div>
-            <div style={{ padding: "20px 20px 0" }}>
-              <div style={{ height: 1, background: "var(--border)", marginBottom: 20 }} />
-              {/* Price + currency row */}
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  placeholder="0.00"
-                  value={costAmount}
-                  onChange={(e) => setCostAmount(e.target.value)}
-                  style={{ flex: 1, boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
-                />
-                <div style={{ display: "flex", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", flexShrink: 0 }}>
-                  {(["CAD", "USD"] as const).map((c) => (
+
+            {/* Body */}
+            <div style={{ padding: "24px 20px 0" }}>
+
+              {/* Helper text */}
+              <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.40)", margin: "0 0 20px", letterSpacing: "0.01em" }}>
+                How should guests pay?
+              </p>
+
+              {/* Pricing mode selector — 3 large tappable tiles */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
+                {([
+                  { id: "free" as const, label: "Free", sub: "No charge" },
+                  { id: "paid" as const, label: "Paid", sub: "Set an amount" },
+                  { id: "door" as const, label: "Pay on site", sub: "At the door" },
+                ]).map(({ id, label, sub }) => {
+                  const active = costDraftMode === id;
+                  return (
                     <button
-                      key={c}
+                      key={id}
                       type="button"
-                      onClick={() => setCostCurrency(c)}
-                      style={{ padding: "11px 14px", border: "none", background: costCurrency === c ? "var(--surface-raised)" : "transparent", cursor: "pointer", fontSize: 13, fontWeight: costCurrency === c ? 700 : 400, color: "inherit", fontFamily: "inherit" }}
+                      onClick={() => setCostDraftMode(id)}
+                      style={{
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        padding: "14px 8px", borderRadius: 16, cursor: "pointer",
+                        background: active ? "rgba(94,168,255,0.12)" : "rgba(255,255,255,0.06)",
+                        border: active ? "1.5px solid rgba(94,168,255,0.38)" : "1.5px solid rgba(255,255,255,0.10)",
+                        fontFamily: "inherit", gap: 4,
+                      }}
                     >
-                      {c}
+                      <span style={{ fontSize: 14, fontWeight: 700, color: active ? "#5EA8FF" : "#fff" }}>{label}</span>
+                      <span style={{ fontSize: 11, color: active ? "rgba(94,168,255,0.75)" : "rgba(255,255,255,0.38)", lineHeight: 1.3 }}>{sub}</span>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-              {/* Interac section */}
-              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>Payment via Interac</span>
-                  <span style={{ fontSize: 12, padding: "3px 8px", borderRadius: 6, background: "var(--surface-raised)", opacity: 0.7 }}>Interac</span>
+
+              {/* Conditional: Paid details */}
+              {costDraftMode === "paid" && (
+                <div>
+                  {/* Amount input with currency prefix */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 0, borderRadius: 14, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.07)", overflow: "hidden", marginBottom: 12 }}>
+                    {/* Currency toggle */}
+                    <div style={{ display: "flex", borderRight: "1px solid rgba(255,255,255,0.12)", flexShrink: 0 }}>
+                      {(["CAD", "USD"] as const).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setCostDraftCurrency(c)}
+                          style={{
+                            padding: "13px 12px", border: "none", cursor: "pointer", fontFamily: "inherit",
+                            background: costDraftCurrency === c ? "rgba(255,255,255,0.12)" : "transparent",
+                            color: costDraftCurrency === c ? "#fff" : "rgba(255,255,255,0.42)",
+                            fontSize: 13, fontWeight: costDraftCurrency === c ? 700 : 500,
+                          }}
+                        >
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Amount */}
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.01"
+                      placeholder="0.00"
+                      value={costDraftAmount}
+                      onChange={(e) => setCostDraftAmount(e.target.value)}
+                      style={{ flex: 1, background: "none", border: "none", outline: "none", padding: "13px 14px", fontSize: 20, fontWeight: 600, color: "#fff", fontFamily: "inherit" }}
+                    />
+                  </div>
+
+                  {/* Amount presets */}
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                    {([10, 20, 30, 50] as const).map((n) => {
+                      const active = costDraftAmount === String(n);
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setCostDraftAmount(String(n))}
+                          style={{
+                            flex: 1, padding: "7px 0", borderRadius: 20,
+                            background: active ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.07)",
+                            border: active ? "1px solid rgba(94,168,255,0.38)" : "1px solid rgba(255,255,255,0.13)",
+                            color: active ? "#5EA8FF" : "rgba(255,255,255,0.65)",
+                            fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                          }}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Interac contact */}
+                  <div style={{ marginBottom: 8 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.40)", margin: "0 0 8px" }}>
+                      Interac e-Transfer to
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="Email or phone number"
+                      value={costDraftContact}
+                      onChange={(e) => setCostDraftContact(e.target.value)}
+                      style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.13)", background: "rgba(255,255,255,0.07)", color: "#fff", fontSize: 15, fontFamily: "inherit", outline: "none" }}
+                    />
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Email or phone number"
-                  value={costPaymentContact}
-                  onChange={(e) => setCostPaymentContact(e.target.value)}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
-                />
-              </div>
-              <button type="button" onClick={() => setOptionSheet(null)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}>Done</button>
+              )}
+
+              {/* Conditional: Pay on site info */}
+              {costDraftMode === "door" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", marginBottom: 8 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+                    Guests pay at the venue. No advance payment required.
+                  </span>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
