@@ -627,6 +627,9 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [cohostIds, setCohostIds] = useState<string[]>(() => editData?.cohost_ids ?? []);
   const [cohostProfiles, setCohostProfiles] = useState<CohostProfile[]>([]);
   const [cohostSheetOpen, setCohostSheetOpen] = useState(false);
+  const [cohostClosing, setCohostClosing] = useState(false);
+  // Draft selection — pending until ✓ is confirmed; X discards without touching cohostIds
+  const [cohostDraft, setCohostDraft] = useState<string[]>([]);
   const [cohostFriends, setCohostFriends] = useState<CohostProfile[]>([]);
   const [cohostFriendsLoading, setCohostFriendsLoading] = useState(false);
   const [cohostSearch, setCohostSearch] = useState("");
@@ -667,11 +670,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || optionSheet !== null) ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || optionSheet !== null) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, optionSheet]);
+  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, optionSheet]);
 
   // Fetch host profile
   useEffect(() => {
@@ -761,9 +764,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     };
   }, [locationQuery, locationSheetOpen, isPrivate]);
 
-  // Load friends when cohost sheet opens
+  // Load friends and seed draft when cohost sheet opens
   useEffect(() => {
     if (!cohostSheetOpen || !session?.access_token) return;
+    setCohostDraft(cohostIds);
     setCohostFriendsLoading(true);
     fetch("/api/friends", {
       headers: { Authorization: `Bearer ${session.access_token}` },
@@ -772,6 +776,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       .then((json) => { if (json?.ok) setCohostFriends(json.friends ?? []); })
       .catch(() => {})
       .finally(() => setCohostFriendsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cohostSheetOpen, session?.access_token]);
 
   // (click-outside for venue suggestions handled by the sheet backdrop)
@@ -2090,104 +2095,160 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       )}
 
       {/* ── Cohost picker sheet ─────────────────────────────────────── */}
-      {cohostSheetOpen && (
+      {(cohostSheetOpen || cohostClosing) && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
-          onClick={(e) => e.target === e.currentTarget && setCohostSheetOpen(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setCohostClosing(true);
+            setTimeout(() => { setCohostSheetOpen(false); setCohostClosing(false); }, 250);
+          }}
         >
-          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", maxHeight: "80vh", display: "flex", flexDirection: "column", paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-            {/* Drag handle */}
+          <div
+            className={cohostClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
+            style={{
+              width: "100%",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              borderRadius: "22px 22px 0 0",
+              maxHeight: "92vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
 
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0", flexShrink: 0 }}>
+            {/* Header — 3-column grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
               <button
                 type="button"
-                onClick={() => setCohostSheetOpen(false)}
+                onClick={() => {
+                  setCohostClosing(true);
+                  setTimeout(() => { setCohostSheetOpen(false); setCohostClosing(false); }, 250);
+                }}
                 aria-label="Close"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)", cursor: "pointer", color: "rgba(255,255,255,0.78)" }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+              <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>
+                {cohostDraft.length > 0 ? `Co-hosts · ${cohostDraft.length}` : "Add co-host"}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Apply draft: update cohostIds and rebuild cohostProfiles from friends list
+                    setCohostIds(cohostDraft);
+                    setCohostProfiles(cohostFriends.filter((f) => cohostDraft.includes(f.id)));
+                    setCohostClosing(true);
+                    setTimeout(() => { setCohostSheetOpen(false); setCohostClosing(false); }, 250);
+                  }}
+                  aria-label="Confirm"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(94,168,255,0.14)", border: "1px solid rgba(94,168,255,0.28)", cursor: "pointer", color: "#5EA8FF" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Search — pinned */}
+            <div style={{ padding: "14px 16px 0", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 14px", height: 50, borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-              </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>
-                {cohostIds.length > 0 ? `Co-hosts · ${cohostIds.length}` : "Add co-host"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setCohostSheetOpen(false)}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}
-              >
-                Done
-              </button>
+                <input
+                  value={cohostSearch}
+                  onChange={(e) => setCohostSearch(e.target.value)}
+                  placeholder="Search friends…"
+                  style={{ flex: 1, background: "none", border: "none", outline: "none", fontSize: 16, color: "#fff", fontFamily: "inherit" }}
+                />
+                {cohostSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCohostSearch("")}
+                    aria-label="Clear search"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.14)", border: "none", cursor: "pointer", flexShrink: 0, color: "inherit" }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Search */}
-            <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-              <input
-                value={cohostSearch}
-                onChange={(e) => setCohostSearch(e.target.value)}
-                placeholder="Search friends…"
-                style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 16, background: "var(--surface-raised)", color: "inherit", outline: "none", fontFamily: "inherit" }}
-              />
-            </div>
-
-            {/* Friend list */}
-            <div style={{ overflowY: "auto", flex: 1, padding: "8px 20px 0" }}>
+            {/* Friend list — scrollable */}
+            <div style={{ overflowY: "auto", flex: 1, minHeight: 0, padding: "8px 8px 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
               {cohostFriendsLoading ? (
-                <p style={{ opacity: 0.45, fontSize: 14, textAlign: "center", padding: "32px 0" }}>Loading…</p>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "32px 20px 0", margin: 0 }}>Loading…</p>
               ) : cohostFriends.length === 0 ? (
-                <p style={{ opacity: 0.45, fontSize: 14, textAlign: "center", padding: "32px 0" }}>No friends yet — add some from your profile.</p>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "32px 20px 0", margin: 0 }}>No friends yet — add some from your profile.</p>
               ) : (() => {
                 const q = cohostSearch.toLowerCase();
                 const filtered = cohostFriends.filter((f) => {
                   if (!q) return true;
                   return (f.display_name ?? "").toLowerCase().includes(q) || (f.username ?? "").toLowerCase().includes(q);
                 });
-                if (filtered.length === 0) return <p style={{ opacity: 0.45, fontSize: 14, padding: "16px 0" }}>No results.</p>;
-                return filtered.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => {
-                      if (cohostIds.includes(f.id)) {
-                        setCohostIds((prev) => prev.filter((id) => id !== f.id));
-                        setCohostProfiles((prev) => prev.filter((p) => p.id !== f.id));
-                      } else {
-                        setCohostIds((prev) => [...prev, f.id]);
-                        setCohostProfiles((prev) => [...prev, f]);
-                      }
-                    }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 12,
-                      width: "100%", padding: "10px 0", background: "none", border: "none",
-                      borderBottom: "1px solid var(--border)", cursor: "pointer",
-                      color: "inherit", textAlign: "left", fontFamily: "inherit",
-                    }}
-                  >
-                    {f.avatar_url ? (
-                      <img src={f.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 38, height: 38, borderRadius: "50%", background: getAvatarColor(f.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0, userSelect: "none" }}>
-                        {getInitials(f.display_name)}
+                if (filtered.length === 0) return <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "28px 20px 0", margin: 0 }}>No results.</p>;
+                return filtered.map((f) => {
+                  const selected = cohostDraft.includes(f.id);
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        setCohostDraft((prev) =>
+                          prev.includes(f.id) ? prev.filter((id) => id !== f.id) : [...prev, f.id]
+                        );
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 14,
+                        width: "100%", padding: "10px 12px",
+                        background: selected ? "rgba(94,168,255,0.08)" : "none",
+                        border: selected ? "1px solid rgba(94,168,255,0.22)" : "1px solid transparent",
+                        borderRadius: 14, cursor: "pointer",
+                        color: "inherit", textAlign: "left", fontFamily: "inherit",
+                        marginBottom: 4,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      {/* Avatar */}
+                      {f.avatar_url ? (
+                        <img src={f.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(f.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0, userSelect: "none" }}>
+                          {getInitials(f.display_name)}
+                        </div>
+                      )}
+
+                      {/* Name + username */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: selected ? "#5EA8FF" : "#fff" }}>
+                          {f.display_name ?? `@${f.username}`}
+                        </div>
+                        {f.username && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginTop: 1 }}>@{f.username}</div>}
                       </div>
-                    )}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {f.display_name ?? `@${f.username}`}
+
+                      {/* Selection indicator */}
+                      <div style={{
+                        width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: selected ? "#5EA8FF" : "rgba(255,255,255,0.09)",
+                        border: selected ? "none" : "1px solid rgba(255,255,255,0.20)",
+                        transition: "background 0.15s, border 0.15s",
+                      }}>
+                        {selected && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        )}
                       </div>
-                      {f.username && <div style={{ fontSize: 12, opacity: 0.45 }}>@{f.username}</div>}
-                    </div>
-                    {cohostIds.includes(f.id) && (
-                      <svg style={{ marginLeft: "auto", flexShrink: 0 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </button>
-                ));
+                    </button>
+                  );
+                });
               })()}
             </div>
           </div>
