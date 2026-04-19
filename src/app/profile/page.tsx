@@ -375,6 +375,10 @@ export default function ProfilePage() {
     setUploadingAvatar(false);
     if (json?.ok) {
       setProfile((prev) => (prev ? { ...prev, avatar_url: json.url } : prev));
+      // Refresh the Supabase Auth session so user.user_metadata.avatar_url
+      // is updated. This triggers onAuthStateChange → AuthProvider re-renders
+      // all consumers (AppTopBar on Home) with the new avatar immediately.
+      supabaseBrowser().auth.refreshSession().catch(() => {});
     } else {
       setAvatarError(json?.error ?? "Upload failed.");
     }

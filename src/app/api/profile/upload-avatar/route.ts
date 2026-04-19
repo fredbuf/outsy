@@ -65,8 +65,11 @@ export async function POST(req: Request) {
   }
 
   const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  const avatarUrl = urlData.publicUrl;
+  // Append a timestamp so each upload gets a distinct URL — busts the browser
+  // cache even though the storage path is unchanged (upsert replaces in place).
+  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
+  // 1. Update the profiles table (authoritative source for profile data).
   const { error: updateError } = await supabase
     .from("profiles")
     .update({ avatar_url: avatarUrl })
@@ -75,6 +78,14 @@ export async function POST(req: Request) {
   if (updateError) {
     return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
   }
+
+  // 2. Mirror the new URL into Supabase Auth user_metadata so that components
+  //    reading user.user_metadata.avatar_url (e.g. AppTopBar) stay in sync.
+  //    The client must call supabase.auth.refreshSession() after this to pick
+  //    up the change — see profile/page.tsx handleAvatarChange.
+  await supabase.auth.admin.updateUserById(user.id, {
+    user_metadata: { avatar_url: avatarUrl },
+  });
 
   return NextResponse.json({ ok: true, url: avatarUrl });
 }
