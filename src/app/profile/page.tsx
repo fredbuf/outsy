@@ -149,35 +149,96 @@ function DetailSheet({
   searchPlaceholder: string;
   children: React.ReactNode;
 }) {
+  const [closing, setClosing] = useState(false);
+
+  function close() {
+    setClosing(true);
+    setTimeout(() => onClose(), 260);
+  }
+
   return (
     <div
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.50)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+      onClick={(e) => e.target === e.currentTarget && close()}
+      style={{
+        position: "fixed", inset: 0,
+        background: closing ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.55)",
+        zIndex: 300,
+        display: "flex", alignItems: "flex-end",
+        transition: "background 0.22s ease",
+      }}
     >
-      <div style={{ background: "var(--background)", borderRadius: "20px 20px 0 0", width: "100%", maxHeight: "82vh", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0", flexShrink: 0 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.5 }} />
+      <div
+        className={closing ? "filter-sheet-exit" : "filter-sheet-enter"}
+        style={{
+          background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          borderRadius: "24px 24px 0 0",
+          width: "100%",
+          /* dvh shrinks when the software keyboard opens — prevents layout jump */
+          maxHeight: "88dvh",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.45)",
+        }}
+      >
+        {/* Grab handle */}
+        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 2px", flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px 0", flexShrink: 0 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>{title}</h2>
+
+        {/* 3-column header */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "44px 1fr 44px",
+          alignItems: "center", padding: "8px 16px 10px",
+          flexShrink: 0,
+        }}>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Close"
-            style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-raised)", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6, color: "inherit" }}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)",
+              cursor: "pointer", color: "rgba(255,255,255,0.78)",
+            }}
           >
-            ×
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
+          <div style={{ textAlign: "center", fontSize: 17, fontWeight: 600, color: "#FFFFFF" }}>
+            {title}
+          </div>
+          <div />
         </div>
-        <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-          <input
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={searchPlaceholder}
-            style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border-strong)", fontSize: 16, background: "var(--surface-raised)", color: "inherit", outline: "none" }}
-          />
+
+        {/* Search — flexShrink:0 keeps it anchored at the top while keyboard is open */}
+        <div style={{ padding: "0 16px 10px", flexShrink: 0 }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.13)",
+            borderRadius: 14, padding: "0 14px", height: 50,
+          }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              className="detail-sheet-search"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={searchPlaceholder}
+              style={{
+                flex: 1, background: "none", border: "none", outline: "none",
+                fontSize: 16, color: "#FFFFFF",
+              }}
+            />
+          </div>
         </div>
-        <div style={{ overflowY: "auto", flex: 1, padding: "12px 20px 36px" }}>
+
+        {/* Results — only this div scrolls */}
+        <div style={{ overflowY: "auto", flex: 1, padding: "4px 16px max(24px, env(safe-area-inset-bottom))" }}>
           {children}
         </div>
       </div>
@@ -656,7 +717,7 @@ export default function ProfilePage() {
                     key={f.id}
                     href={f.username ? `/u/${f.username}` : `/profile/${f.id}`}
                     onClick={() => setActiveSheet(null)}
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", textDecoration: "none", color: "inherit", borderBottom: "1px solid var(--border)" }}
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 2px", textDecoration: "none", color: "inherit", borderBottom: "1px solid rgba(255,255,255,0.07)", borderRadius: 2 }}
                   >
                     {f.avatar_url ? (
                       <img src={f.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
@@ -731,7 +792,7 @@ export default function ProfilePage() {
                           key={e.id}
                           href={`/events/${e.id}`}
                           onClick={() => setActiveSheet(null)}
-                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", textDecoration: "none", color: "inherit", borderBottom: "1px solid var(--border)" }}
+                          style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", textDecoration: "none", color: "inherit", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
                         >
                           <div style={{ width: 44, height: 36, borderRadius: 8, overflow: "hidden", background: "var(--surface-raised)", flexShrink: 0 }}>
                             {e.image_url && (

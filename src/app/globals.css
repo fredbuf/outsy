@@ -180,6 +180,11 @@ body.settings-open .bottom-nav {
   animation: modal-zoom-out 0.18s ease-in forwards;
 }
 
+/* Detail sheet (Friends / Following / Events) search placeholder */
+.detail-sheet-search::placeholder {
+  color: rgba(255,255,255,0.35);
+}
+
 .filter-clear-btn {
   transition: background 0.15s ease, transform 0.08s ease;
 }
