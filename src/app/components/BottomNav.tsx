@@ -282,7 +282,7 @@ export function BottomNav() {
         display: "flex",
         alignItems: "center",
         // Glass pill
-        background: "rgb(16 23 34 / 8%)",
+        background: "rgb(16 23 34 / 50%)",
         backdropFilter: "blur(24px) saturate(160%)",
         WebkitBackdropFilter: "blur(24px) saturate(160%)",
         border: "1px solid rgba(255,255,255,0.07)",
