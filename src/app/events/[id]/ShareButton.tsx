@@ -64,96 +64,106 @@ function EventPreviewCard({ preview, title }: { preview: EventPreview; title: st
   const hasCover = Boolean(imageUrl);
 
   return (
-    <div style={{ padding: "8px 16px 4px" }}>
-      {/* Sender line — very muted, secondary to the card */}
+    <div style={{ padding: "12px 16px 8px" }}>
       {hostName && (
         <div style={{
-          fontSize: 11, opacity: 0.32, marginBottom: 5,
+          fontSize: 11, opacity: 0.32, marginBottom: 6,
           paddingLeft: 2, letterSpacing: "0.01em",
         }}>
           {hostName} is hosting
         </div>
       )}
-
-      {/* Card */}
-      <div
-        style={{
-          borderRadius: 14,
-          overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.12)",
-          position: "relative",
-          boxShadow: "0 6px 28px rgba(0,0,0,0.50)",
-        }}
-      >
-        {/* Cover image or gradient */}
+      <div style={{
+        borderRadius: 14, overflow: "hidden",
+        border: "1px solid rgba(255,255,255,0.12)",
+        position: "relative",
+        boxShadow: "0 6px 28px rgba(0,0,0,0.50)",
+      }}>
         {hasCover ? (
           <img
             src={imageUrl!}
             alt=""
-            style={{
-              width: "100%", height: 156,
-              objectFit: "cover", display: "block",
-            }}
+            style={{ width: "100%", height: 148, objectFit: "cover", display: "block" }}
           />
         ) : (
-          <div style={{
-            width: "100%", height: 120,
-            background: categoryGradient(category),
-          }} />
+          <div style={{ width: "100%", height: 112, background: categoryGradient(category) }} />
         )}
-
-        {/* Gradient overlay + text */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0, left: 0, right: 0,
-            padding: hasCover ? "48px 14px 12px" : "20px 14px 12px",
-            background: hasCover
-              ? "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.0) 100%)"
-              : "none",
-          }}
-        >
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          padding: hasCover ? "44px 14px 12px" : "18px 14px 12px",
+          background: hasCover
+            ? "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.0) 100%)"
+            : "none",
+        }}>
           <div style={{
-            fontSize: 15, fontWeight: 700, color: "#fff",
-            lineHeight: 1.25,
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
+            fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25,
+            overflow: "hidden", display: "-webkit-box",
+            WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
           }}>
             {title}
           </div>
-
           {(dateStr || venueName) && (
             <div style={{
-              marginTop: 5, fontSize: 12, color: "rgba(255,255,255,0.55)",
+              marginTop: 4, fontSize: 12, color: "rgba(255,255,255,0.55)",
               overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis",
             }}>
               {[dateStr, venueName].filter(Boolean).join(" · ")}
             </div>
           )}
         </div>
-
-        {/* "View event" pill — top right */}
         <div style={{
           position: "absolute", top: 9, right: 9,
-          background: "rgba(0,0,0,0.50)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          borderRadius: 20,
+          background: "rgba(0,0,0,0.50)", backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)", borderRadius: 20,
           padding: "4px 9px 4px 8px",
           display: "flex", alignItems: "center", gap: 3,
           border: "1px solid rgba(255,255,255,0.10)",
         }}>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.72)", fontWeight: 600, letterSpacing: "0.01em" }}>
-            View event
-          </span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.72)", fontWeight: 600 }}>View event</span>
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M9 18l6-6-6-6"/>
           </svg>
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Action row ────────────────────────────────────────────────────────────────
+
+function ActionRow({
+  icon, label, onClick, accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  accent?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 14,
+        width: "100%", padding: "11px 16px",
+        background: "none", border: "1px solid transparent",
+        borderRadius: 14, cursor: "pointer",
+        color: accent ? "#5EA8FF" : "inherit",
+        textAlign: "left", fontFamily: "inherit",
+        marginBottom: 4, boxSizing: "border-box",
+      }}
+    >
+      <div style={{
+        width: 42, height: 42, borderRadius: "50%", flexShrink: 0,
+        background: accent ? "rgba(94,168,255,0.12)" : "rgba(255,255,255,0.09)",
+        border: accent ? "1px solid rgba(94,168,255,0.22)" : "1px solid rgba(255,255,255,0.10)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: accent ? "#5EA8FF" : "rgba(255,255,255,0.80)",
+      }}>
+        {icon}
+      </div>
+      <span style={{ fontSize: 15, fontWeight: 600 }}>{label}</span>
+    </button>
   );
 }
 
@@ -172,8 +182,8 @@ export function ShareButton({
 }) {
   const { user, session } = useAuth();
 
-  // Sheet state
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [closing, setClosing] = useState(false);
 
   // Friends picker state
   const [friends, setFriends] = useState<FriendProfile[] | null>(null);
@@ -181,18 +191,28 @@ export function ShareButton({
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<Set<string>>(new Set());
   const [sendError, setSendError] = useState<string | null>(null);
-
-  // Optional message to attach to the event share
   const [message, setMessage] = useState("");
 
   // Copy-link feedback
   const [copied, setCopied] = useState(false);
+
+  // ── Animation helpers ─────────────────────────────────────────────────────
+
+  function closeAll() {
+    setClosing(true);
+    setTimeout(() => { setSheet(null); setClosing(false); }, 250);
+  }
+
+  function goToOptions() {
+    setSheet("options");
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   function openSheet() {
     if (eventId) {
       setSheet("options");
+      setClosing(false);
     } else {
       handleExternalShare();
     }
@@ -212,7 +232,7 @@ export function ShareButton({
     const url = window.location.href;
     await copyToClipboard(url);
     setCopied(true);
-    setSheet(null);
+    closeAll();
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -237,6 +257,7 @@ export function ShareButton({
     }
     setSendError(null);
     setSheet("picker");
+    setClosing(false);
     if (friends !== null) return;
     setLoadingFriends(true);
     try {
@@ -255,7 +276,6 @@ export function ShareButton({
     setSendingTo(friend.id);
     setSendError(null);
     try {
-      // 1. Send the event card
       const res = await fetch(`/api/social/messages/${friend.id}`, {
         method: "POST",
         headers: {
@@ -265,14 +285,11 @@ export function ShareButton({
         body: JSON.stringify({ eventId }),
       });
       const data = (await res.json()) as { ok: boolean; error?: string };
-
       if (!data.ok) {
         setSendError(data.error ?? "Failed to send.");
         setSendingTo(null);
         return;
       }
-
-      // 2. If user added a message, send it as a follow-up text
       const trimmed = message.trim();
       if (trimmed) {
         await fetch(`/api/social/messages/${friend.id}`, {
@@ -284,8 +301,6 @@ export function ShareButton({
           body: JSON.stringify({ body: trimmed }),
         });
       }
-
-      // Mark as sent — stay on the page
       setSentTo((prev) => new Set(prev).add(friend.id));
       setSendingTo(null);
     } catch {
@@ -294,41 +309,71 @@ export function ShareButton({
     }
   }
 
-  // ── Shared sheet wrapper ──────────────────────────────────────────────────
+  // ── Sheet shell ──────────────────────────────────────────────────────────
 
-  const sheetStyle: React.CSSProperties = {
-    background: "#111110",
-    color: "#eae8e4",
-    borderRadius: "20px 20px 0 0",
-    width: "100%",
-    maxWidth: 540,
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-    "--border": "rgba(255,255,255,0.10)",
-    "--border-strong": "rgba(255,255,255,0.18)",
-    "--surface-raised": "rgba(255,255,255,0.09)",
-    "--accent": "#a78bfa",
-  } as React.CSSProperties;
+  const sheetShell = (
+    children: React.ReactNode,
+    headerTitle: string,
+    onClose: () => void,
+    maxH = "82vh",
+  ) => (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 300,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "flex-end",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className={closing ? "filter-sheet-exit" : "filter-sheet-enter"}
+        style={{
+          width: "100%",
+          background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+          borderRadius: "22px 22px 0 0",
+          maxHeight: maxH,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        {/* Grab handle */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
+        </div>
 
-  const overlayStyle: React.CSSProperties = {
-    position: "fixed", inset: 0, zIndex: 300,
-    background: "rgba(0,0,0,0.72)",
-    display: "flex", alignItems: "flex-end", justifyContent: "center",
-  };
+        {/* Header — 3-column grid */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "44px 1fr 44px",
+          alignItems: "center", padding: "10px 16px 12px",
+          borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0,
+        }}>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 34, height: 34, borderRadius: "50%",
+              background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)",
+              cursor: "pointer", color: "rgba(255,255,255,0.78)",
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+          <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>
+            {headerTitle}
+          </div>
+          {/* Right slot — empty placeholder to keep title centred */}
+          <div />
+        </div>
 
-  const sheetHeaderStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px 20px 12px",
-    borderBottom: "1px solid var(--border)",
-    flexShrink: 0,
-  };
-
-  const closeBtn: React.CSSProperties = {
-    background: "none", border: "none", cursor: "pointer",
-    fontSize: 20, opacity: 0.5, lineHeight: 1, color: "inherit",
-    width: 28, flexShrink: 0,
-  };
+        {children}
+      </div>
+    </div>
+  );
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -349,14 +394,9 @@ export function ShareButton({
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           cursor: "pointer",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 9,
-          color: "inherit",
-          fontSize: 14,
-          fontWeight: 600,
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          gap: 9, color: "inherit", fontSize: 14, fontWeight: 600,
           transition: "background 0.15s",
         } : {
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -368,7 +408,7 @@ export function ShareButton({
         }}
       >
         {copied ? (
-          <svg width={large ? 20 : 18} height={large ? 20 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width={large ? 20 : 18} height={large ? 20 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="20 6 9 17 4 12" />
           </svg>
         ) : (
@@ -379,213 +419,271 @@ export function ShareButton({
 
       {/* Options sheet */}
       {sheet === "options" && createPortal(
-        <div
-          style={overlayStyle}
-          onClick={(e) => e.target === e.currentTarget && setSheet(null)}
-        >
-          <div style={sheetStyle}>
-            <div style={sheetHeaderStyle}>
-              <div style={{ width: 28, flexShrink: 0 }} />
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Share</span>
-              <button type="button" onClick={() => setSheet(null)} style={closeBtn}>×</button>
-            </div>
-
+        sheetShell(
+          <>
             {/* Event preview card */}
             {preview && <EventPreviewCard preview={preview} title={title} />}
 
-            <div style={{ paddingBlock: 6, paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
-
+            {/* Action rows */}
+            <div style={{
+              padding: "6px 8px",
+              paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+              overflowY: "auto",
+            }}>
               {/* Send to friend */}
               {(user || !session) && (
-                <button
-                  type="button"
+                <ActionRow
                   onClick={openPicker}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    width: "100%", padding: "14px 20px",
-                    background: "transparent", border: "none",
-                    cursor: "pointer", textAlign: "left", color: "inherit",
-                  }}
-                >
-                  <span style={{
-                    width: 38, height: 38, borderRadius: "50%",
-                    background: "var(--surface-raised)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0,
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  label="Send to friend"
+                  icon={
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                       <circle cx="9" cy="7" r="4" />
                       <line x1="19" y1="8" x2="19" y2="14" />
                       <line x1="22" y1="11" x2="16" y2="11" />
                     </svg>
-                  </span>
-                  <span style={{ fontSize: 15, fontWeight: 600 }}>Send to friend</span>
-                </button>
+                  }
+                />
               )}
 
               {/* Copy link */}
-              <button
-                type="button"
+              <ActionRow
                 onClick={handleCopyLink}
-                style={{
-                  display: "flex", alignItems: "center", gap: 14,
-                  width: "100%", padding: "14px 20px",
-                  background: "transparent", border: "none",
-                  cursor: "pointer", textAlign: "left", color: "inherit",
-                }}
-              >
-                <span style={{
-                  width: 38, height: 38, borderRadius: "50%",
-                  background: "var(--surface-raised)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                label="Copy link"
+                accent={copied}
+                icon={copied ? (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                   </svg>
-                </span>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>Copy link</span>
-              </button>
+                )}
+              />
 
-              {/* Native share — only on mobile/browsers that support it */}
+              {/* Native share — only when browser supports it */}
               {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
-                <button
-                  type="button"
+                <ActionRow
                   onClick={async () => {
-                    setSheet(null);
+                    closeAll();
                     await handleExternalShare();
                   }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    width: "100%", padding: "14px 20px",
-                    background: "transparent", border: "none",
-                    cursor: "pointer", textAlign: "left", color: "inherit",
-                  }}
-                >
-                  <span style={{
-                    width: 38, height: 38, borderRadius: "50%",
-                    background: "var(--surface-raised)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0,
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  label="Share…"
+                  icon={
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
                       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
                       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                     </svg>
-                  </span>
-                  <span style={{ fontSize: 15, fontWeight: 600 }}>Share…</span>
-                </button>
+                  }
+                />
               )}
             </div>
-          </div>
-        </div>,
+          </>,
+          "Share",
+          closeAll,
+          "82vh",
+        ),
         document.body
       )}
 
       {/* Friend picker sheet */}
       {sheet === "picker" && createPortal(
         <div
-          style={overlayStyle}
-          onClick={(e) => e.target === e.currentTarget && setSheet(null)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 300,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex", alignItems: "flex-end",
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeAll(); }}
         >
-          <div style={{ ...sheetStyle, maxHeight: "82dvh" }}>
-            <div style={sheetHeaderStyle}>
-              <div style={{ width: 28, flexShrink: 0 }} />
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Send to friend</span>
-              <button type="button" onClick={() => setSheet(null)} style={closeBtn}>×</button>
+          <div
+            className={closing ? "filter-sheet-exit" : "filter-sheet-enter"}
+            style={{
+              width: "100%",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              borderRadius: "22px 22px 0 0",
+              maxHeight: "82vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            {/* Grab handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
 
-            {/* Optional message input */}
-            <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Add a message… (optional)"
-                maxLength={200}
+            {/* Header — back (←) left, title centre, empty right */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "44px 1fr 44px",
+              alignItems: "center", padding: "10px 16px 12px",
+              borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0,
+            }}>
+              <button
+                type="button"
+                onClick={goToOptions}
+                aria-label="Back"
                 style={{
-                  width: "100%", boxSizing: "border-box",
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "1px solid var(--border)",
-                  background: "rgba(255,255,255,0.07)",
-                  color: "inherit",
-                  fontSize: 14,
-                  fontFamily: "inherit",
-                  outline: "none",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)",
+                  cursor: "pointer", color: "rgba(255,255,255,0.78)",
                 }}
-              />
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>
+                Send to friend
+              </div>
+              <div />
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", marginTop: 8 }}>
+            {/* Message input */}
+            <div style={{ padding: "14px 16px 0", flexShrink: 0 }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "0 14px", height: 50, borderRadius: 14,
+                background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.13)",
+              }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.40)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden>
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Add a message… (optional)"
+                  maxLength={200}
+                  style={{
+                    flex: 1, background: "none", border: "none", outline: "none",
+                    fontSize: 15, color: "#fff", fontFamily: "inherit",
+                  }}
+                />
+                {message && (
+                  <button
+                    type="button"
+                    onClick={() => setMessage("")}
+                    aria-label="Clear message"
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: "rgba(255,255,255,0.14)", border: "none",
+                      cursor: "pointer", flexShrink: 0, color: "inherit",
+                    }}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Friend list — scrollable */}
+            <div style={{
+              overflowY: "auto", flex: 1, minHeight: 0,
+              padding: "8px 8px 0",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+            }}>
               {sendError && (
-                <div style={{ padding: "8px 20px", fontSize: 13, color: "#dc2626" }}>{sendError}</div>
+                <div style={{ padding: "8px 12px 4px", fontSize: 13, color: "#dc2626" }}>
+                  {sendError}
+                </div>
               )}
 
               {loadingFriends ? (
-                <div style={{ padding: "40px 20px", textAlign: "center", opacity: 0.4, fontSize: 14 }}>Loading…</div>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "32px 20px 0", margin: 0 }}>
+                  Loading…
+                </p>
               ) : !friends || friends.length === 0 ? (
-                <div style={{ padding: "40px 20px", textAlign: "center", opacity: 0.4, fontSize: 14, lineHeight: 1.6 }}>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", textAlign: "center", padding: "32px 20px 0", margin: 0, lineHeight: 1.6 }}>
                   No friends yet.<br />Add friends from their profile.
-                </div>
+                </p>
               ) : (
-                <div style={{ paddingBlock: 6, paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
-                  {friends.map((friend) => {
-                    const name = friend.display_name ?? friend.username ?? "User";
-                    const isSending = sendingTo === friend.id;
-                    const isDone = sentTo.has(friend.id);
-                    return (
-                      <button
-                        key={friend.id}
-                        type="button"
-                        onClick={() => !isDone && sendToFriend(friend)}
-                        disabled={!!sendingTo || isDone}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 12,
-                          width: "100%", padding: "11px 20px",
-                          background: "transparent", border: "none",
-                          cursor: isDone ? "default" : sendingTo ? "not-allowed" : "pointer",
-                          textAlign: "left",
-                          opacity: sendingTo && !isSending ? 0.4 : 1,
-                          transition: "opacity 0.12s",
-                        }}
-                      >
-                        {friend.avatar_url ? (
-                          <img
-                            src={friend.avatar_url}
-                            alt={name}
-                            style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                          />
-                        ) : (
-                          <div style={{
-                            width: 40, height: 40, borderRadius: "50%",
-                            background: avatarColor(name), flexShrink: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 14, fontWeight: 700, color: "#fff", userSelect: "none",
-                          }}>
-                            {initials(name)}
+                friends.map((friend) => {
+                  const name = friend.display_name ?? friend.username ?? "User";
+                  const isSending = sendingTo === friend.id;
+                  const isDone = sentTo.has(friend.id);
+                  return (
+                    <button
+                      key={friend.id}
+                      type="button"
+                      onClick={() => !isDone && sendToFriend(friend)}
+                      disabled={!!sendingTo || isDone}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 14,
+                        width: "100%", padding: "10px 12px",
+                        background: isDone ? "rgba(74,222,128,0.06)" : "none",
+                        border: isDone ? "1px solid rgba(74,222,128,0.18)" : "1px solid transparent",
+                        borderRadius: 14, cursor: isDone ? "default" : sendingTo ? "not-allowed" : "pointer",
+                        color: "inherit", textAlign: "left", fontFamily: "inherit",
+                        marginBottom: 4, boxSizing: "border-box",
+                        opacity: sendingTo && !isSending ? 0.4 : 1,
+                        transition: "opacity 0.12s",
+                      }}
+                    >
+                      {/* Avatar */}
+                      {friend.avatar_url ? (
+                        <img
+                          src={friend.avatar_url}
+                          alt=""
+                          style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: 40, height: 40, borderRadius: "50%",
+                          background: avatarColor(name), flexShrink: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 14, fontWeight: 700, color: "#fff", userSelect: "none",
+                        }}>
+                          {initials(name)}
+                        </div>
+                      )}
+
+                      {/* Name + username */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize: 15, fontWeight: 600,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          color: isDone ? "#4ade80" : "#fff",
+                        }}>
+                          {friend.display_name ?? `@${friend.username}`}
+                        </div>
+                        {friend.username && (
+                          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", marginTop: 1 }}>
+                            @{friend.username}
                           </div>
                         )}
-                        <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{name}</span>
-                        {isDone ? (
-                          <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0, color: "#4ade80", display: "flex", alignItems: "center", gap: 4 }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                            Sent
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0, color: isSending ? "inherit" : "var(--accent)", opacity: isSending ? 0.5 : 1 }}>
-                            {isSending ? "Sending…" : "Send"}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+
+                      {/* Send / Sent indicator */}
+                      {isDone ? (
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 5,
+                          fontSize: 13, fontWeight: 600, flexShrink: 0, color: "#4ade80",
+                        }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          Sent
+                        </div>
+                      ) : (
+                        <div style={{
+                          fontSize: 13, fontWeight: 600, flexShrink: 0,
+                          color: isSending ? "rgba(255,255,255,0.38)" : "#5EA8FF",
+                          opacity: isSending ? 0.6 : 1,
+                        }}>
+                          {isSending ? "Sending…" : "Send"}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
