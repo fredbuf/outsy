@@ -164,6 +164,22 @@ body.settings-open .bottom-nav {
 .filter-sheet-exit {
   animation: filter-sheet-out 0.25s ease-in forwards;
 }
+/* ── Modal zoom animations ──────────────────────────────────────────────── */
+@keyframes modal-zoom-in {
+  from { transform: scale(0.93); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+@keyframes modal-zoom-out {
+  from { transform: scale(1);    opacity: 1; }
+  to   { transform: scale(0.93); opacity: 0; }
+}
+.modal-zoom-enter {
+  animation: modal-zoom-in 0.22s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+.modal-zoom-exit {
+  animation: modal-zoom-out 0.18s ease-in forwards;
+}
+
 .filter-clear-btn {
   transition: background 0.15s ease, transform 0.08s ease;
 }

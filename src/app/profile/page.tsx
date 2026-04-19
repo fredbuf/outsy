@@ -197,6 +197,7 @@ export default function ProfilePage() {
   const [fetching, setFetching] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
+  const [editClosing, setEditClosing] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [saving, setSaving] = useState(false);
@@ -239,16 +240,16 @@ export default function ProfilePage() {
   const { hide: hideNav, show: showNav } = useBottomNav();
 
   useEffect(() => {
-    document.body.style.overflow = (editOpen || activeSheet !== null || settingsOpen) ? "hidden" : "";
+    document.body.style.overflow = (editOpen || editClosing || activeSheet !== null || settingsOpen) ? "hidden" : "";
     document.body.classList.toggle("settings-open", settingsOpen);
-    if (editOpen || activeSheet !== null || settingsOpen) { hideNav(); } else { showNav(); }
+    if (editOpen || editClosing || activeSheet !== null || settingsOpen) { hideNav(); } else { showNav(); }
     return () => {
       document.body.style.overflow = "";
       document.body.classList.remove("settings-open");
       showNav();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editOpen, activeSheet, settingsOpen]);
+  }, [editOpen, editClosing, activeSheet, settingsOpen]);
 
   // Restore active sheet from URL on mount (e.g. returning via back button)
   useEffect(() => {
@@ -287,7 +288,7 @@ export default function ProfilePage() {
       setSaveSuccess(true);
       setTimeout(() => {
         setSaveSuccess(false);
-        setEditOpen(false);
+        closeEdit();
       }, 1200);
     } else {
       setSaveError(json?.error ?? "Failed to save.");
@@ -312,6 +313,11 @@ export default function ProfilePage() {
     } else {
       setAvatarError(json?.error ?? "Upload failed.");
     }
+  }
+
+  function closeEdit() {
+    setEditClosing(true);
+    setTimeout(() => { setEditOpen(false); setEditClosing(false); }, 200);
   }
 
   function handleShare() {
@@ -746,211 +752,163 @@ export default function ProfilePage() {
         </DetailSheet>
       )}
 
-      {editOpen && (
+      {(editOpen || editClosing) && (
         <div
-          onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}
+          onClick={(e) => e.target === e.currentTarget && closeEdit()}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.50)",
+            background: editClosing ? "rgba(0,0,0,0)" : "rgba(0,0,0,0.62)",
             zIndex: 300,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 16,
+            padding: "16px 16px max(16px, env(safe-area-inset-bottom))",
+            transition: "background 0.18s ease",
           }}
         >
           <div
+            className={editClosing ? "modal-zoom-exit" : "modal-zoom-enter"}
             style={{
-              background: "var(--background)",
-              border: "1px solid var(--border)",
-              borderRadius: 18,
+              background: "linear-gradient(160deg, #1c2535 0%, #0d1320 100%)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              borderRadius: 24,
               width: "100%",
-              maxWidth: 420,
+              maxWidth: 400,
               overflow: "hidden",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.20)",
+              boxShadow: "0 32px 80px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.04) inset",
             }}
           >
-            {/* Modal header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "16px 20px",
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Edit profile</h2>
+            {/* Header — 3-column grid */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "44px 1fr 44px",
+              alignItems: "center", padding: "14px 16px 12px",
+              borderBottom: "1px solid rgba(255,255,255,0.07)",
+            }}>
               <button
                 type="button"
-                onClick={() => setEditOpen(false)}
+                onClick={closeEdit}
                 aria-label="Close"
                 style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  background: "var(--surface-raised)",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 18,
-                  lineHeight: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: 0.6,
-                  color: "inherit",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)",
+                  cursor: "pointer", color: "rgba(255,255,255,0.78)",
                 }}
               >
-                ×
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
+              <div style={{ textAlign: "center", fontSize: 17, fontWeight: 600, color: "#FFFFFF" }}>
+                Edit profile
+              </div>
+              <div />
             </div>
 
-            {/* Modal body */}
-            <form onSubmit={handleSave} style={{ padding: "20px", display: "grid", gap: 16 }}>
-              {/* Avatar row */}
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt=""
-                      style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", display: "block", border: "2px solid var(--border-medium)" }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: "50%",
-                        background: getAvatarColor(avatarLabel),
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: "#fff",
-                        userSelect: "none",
-                        border: "2px solid var(--border-medium)",
-                      }}
-                    >
-                      {getInitials(avatarLabel)}
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingAvatar}
-                    aria-label="Change photo"
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      right: 0,
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      border: "2px solid var(--background)",
-                      background: "var(--foreground)",
-                      color: "var(--background)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: uploadingAvatar ? "wait" : "pointer",
-                      opacity: uploadingAvatar ? 0.5 : 1,
-                    }}
-                  >
-                    <CameraIcon />
-                  </button>
+            {/* Avatar — centred hero section */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 20px 20px", gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                aria-label="Change photo"
+                style={{
+                  position: "relative", background: "none", border: "none",
+                  cursor: uploadingAvatar ? "wait" : "pointer", padding: 0,
+                  opacity: uploadingAvatar ? 0.6 : 1,
+                }}
+              >
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt=""
+                    style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", display: "block", border: "2px solid rgba(255,255,255,0.14)" }}
+                  />
+                ) : (
+                  <div style={{
+                    width: 80, height: 80, borderRadius: "50%",
+                    background: getAvatarColor(avatarLabel),
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 26, fontWeight: 700, color: "#fff", userSelect: "none",
+                    border: "2px solid rgba(255,255,255,0.14)",
+                  }}>
+                    {getInitials(avatarLabel)}
+                  </div>
+                )}
+                {/* Camera badge */}
+                <div style={{
+                  position: "absolute", bottom: 0, right: 0,
+                  width: 26, height: 26, borderRadius: "50%",
+                  background: "rgba(94,168,255,0.90)",
+                  border: "2px solid #0d1320",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#fff",
+                }}>
+                  <CameraIcon />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  style={{
-                    padding: "8px 16px",
-                    borderRadius: 10,
-                    border: "1px solid var(--border-strong)",
-                    background: "transparent",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: uploadingAvatar ? "wait" : "pointer",
-                    opacity: uploadingAvatar ? 0.5 : 1,
-                    color: "inherit",
-                  }}
-                >
-                  {uploadingAvatar ? "Uploading…" : "Change photo"}
-                </button>
-              </div>
+              </button>
+              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.42)", fontWeight: 500 }}>
+                {uploadingAvatar ? "Uploading…" : "Tap to change photo"}
+              </span>
+              {avatarError && <span style={{ fontSize: 12, color: "#f87171" }}>{avatarError}</span>}
+            </div>
 
+            {/* Fields */}
+            <form onSubmit={handleSave} style={{ padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
               {/* Display name */}
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.55 }}>Display name</span>
+              <div style={{
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)",
+                overflow: "hidden",
+              }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>Display name</span>
+                </div>
                 <input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Your name"
                   maxLength={80}
                   style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid var(--border-strong)",
-                    fontSize: 16,
-                    background: "transparent",
-                    color: "inherit",
-                    outline: "none",
-                    width: "100%",
-                    boxSizing: "border-box",
+                    display: "block", width: "100%", boxSizing: "border-box",
+                    padding: "4px 14px 12px",
+                    background: "none", border: "none", outline: "none",
+                    fontSize: 16, fontWeight: 500, color: "#fff", fontFamily: "inherit",
                   }}
                 />
-              </label>
+              </div>
 
               {/* Username */}
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.55 }}>Username</span>
-                <div style={{ position: "relative" }}>
-                  <span
-                    style={{
-                      position: "absolute",
-                      left: 12,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      opacity: 0.4,
-                      fontSize: 14,
-                      pointerEvents: "none",
-                      userSelect: "none",
-                    }}
-                  >
-                    @
-                  </span>
+              <div style={{
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)",
+                overflow: "hidden",
+              }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>Username</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", padding: "4px 14px 12px", gap: 2 }}>
+                  <span style={{ fontSize: 16, color: "rgba(255,255,255,0.35)", userSelect: "none", lineHeight: 1 }}>@</span>
                   <input
                     value={username}
                     onChange={(e) =>
-                      setUsername(
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9_]/g, "")
-                          .slice(0, 30)
-                      )
+                      setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30))
                     }
                     placeholder="yourname"
                     style={{
-                      width: "100%",
-                      boxSizing: "border-box",
-                      padding: "10px 12px 10px 26px",
-                      borderRadius: 10,
-                      border: "1px solid var(--border-strong)",
-                      fontSize: 16,
-                      background: "transparent",
-                      color: "inherit",
-                      outline: "none",
+                      flex: 1, background: "none", border: "none", outline: "none",
+                      fontSize: 16, fontWeight: 500, color: "#fff", fontFamily: "inherit",
                     }}
                   />
                 </div>
-                <span style={{ fontSize: 11, opacity: 0.4 }}>3–30 chars · letters, numbers, underscores</span>
-              </label>
+              </div>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", paddingLeft: 2, marginTop: -4 }}>
+                3–30 characters · letters, numbers, underscores
+              </span>
 
               {saveError && (
-                <p style={{ fontSize: 13, color: "#dc2626", margin: 0 }}>{saveError}</p>
+                <p style={{ fontSize: 13, color: "#f87171", margin: 0 }}>{saveError}</p>
               )}
 
               {/* Save button */}
@@ -958,23 +916,25 @@ export default function ProfilePage() {
                 type="submit"
                 disabled={saving}
                 style={{
-                  padding: "12px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: saving
-                    ? "var(--surface-raised)"
-                    : saveSuccess
-                    ? "rgba(16,185,129,0.15)"
-                    : "var(--accent)",
-                  color: saving ? "inherit" : saveSuccess ? "#10b981" : "#fff",
+                  marginTop: 6,
+                  padding: "14px",
+                  borderRadius: 14,
+                  background: saveSuccess
+                    ? "rgba(74,222,128,0.15)"
+                    : saving
+                    ? "rgba(94,168,255,0.10)"
+                    : "rgba(94,168,255,0.18)",
+                  border: saveSuccess
+                    ? "1px solid rgba(74,222,128,0.28)"
+                    : "1px solid rgba(94,168,255,0.30)",
+                  color: saveSuccess ? "#4ade80" : "#5EA8FF",
                   cursor: saving ? "not-allowed" : "pointer",
-                  fontWeight: 700,
-                  fontSize: 14,
+                  fontWeight: 700, fontSize: 15,
                   opacity: saving ? 0.6 : 1,
-                  transition: "background 0.2s, color 0.2s",
-                }}
+                  transition: "background 0.2s, color 0.2s, border 0.2s",
+                } as React.CSSProperties}
               >
-                {saving ? "Saving…" : saveSuccess ? "Saved!" : "Save changes"}
+                {saving ? "Saving…" : saveSuccess ? "Saved ✓" : "Save changes"}
               </button>
             </form>
           </div>
