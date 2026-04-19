@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -43,89 +43,93 @@ function InboxIcon({ active }: { active: boolean }) {
 }
 
 // ── Spring easing ─────────────────────────────────────────────────────────────
-// cubic-bezier(0.34, 1.56, 0.64, 1) — slight overshoot for native-mobile feel
-
 const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
 
 // ── NavTab ────────────────────────────────────────────────────────────────────
+// Uses forwardRef so BottomNav can measure each tab's DOM position for the
+// sliding indicator without polling or querySelectorAll.
 
-function NavTab({
-  href,
-  active,
-  label,
-  badge = false,
-  children,
-}: {
+interface NavTabProps {
   href: string;
   active: boolean;
   label: string;
   badge?: boolean;
+  onSelect: () => void;
   children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 3,
-        padding: "7px 14px 6px",
-        borderRadius: 999,
-        textDecoration: "none",
-        color: active ? "#5EA8FF" : "#8C98A8",
-        background: active ? "rgba(94,168,255,0.10)" : "transparent",
-        boxShadow: active ? "0 0 0 1px rgba(94,168,255,0.18) inset" : "none",
-        transition: `color 0.22s ${SPRING}, background 0.22s ${SPRING}, box-shadow 0.22s ${SPRING}`,
-        position: "relative",
-        minWidth: 54,
-        cursor: "pointer",
-      }}
-    >
-      {/* Icon wrapper with spring scale */}
-      <span
+}
+
+const NavTab = React.forwardRef<HTMLAnchorElement, NavTabProps>(
+  function NavTab({ href, active, label, badge = false, onSelect, children }, ref) {
+    return (
+      <Link
+        ref={ref}
+        href={href}
+        onClick={onSelect}
+        aria-current={active ? "page" : undefined}
         style={{
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          transform: active ? "scale(1.12) translateY(-1px)" : "scale(1) translateY(0)",
-          transition: `transform 0.28s ${SPRING}`,
+          gap: 3,
+          padding: "7px 14px 6px",
+          borderRadius: 999,
+          textDecoration: "none",
+          // Active/inactive colour only — background is handled by the sliding
+          // indicator so individual tabs have no background of their own.
+          color: active ? "#5EA8FF" : "#8C98A8",
+          transition: `color 0.22s ${SPRING}`,
+          position: "relative",
+          zIndex: 1,         // sit above the indicator (z:0)
+          minWidth: 54,
+          cursor: "pointer",
         }}
       >
-        {children}
-      </span>
-      <span style={{
-        fontSize: 10,
-        fontWeight: 600,
-        lineHeight: 1,
-        letterSpacing: "0.01em",
-        opacity: active ? 1 : 0.7,
-        transform: active ? "translateY(0)" : "translateY(0.5px)",
-        transition: `opacity 0.22s ${SPRING}, transform 0.22s ${SPRING}`,
-      }}>
-        {label}
-      </span>
-      {badge && (
+        {/* Icon with spring scale */}
         <span
-          aria-label="unread notifications"
           style={{
-            position: "absolute",
-            top: 4,
-            right: 10,
-            width: 9,
-            height: 9,
-            borderRadius: "50%",
-            background: "#ef4444",
-            border: "2px solid #101722",
-            boxShadow: "0 0 6px rgba(239,68,68,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transform: active ? "scale(1.12) translateY(-1px)" : "scale(1) translateY(0)",
+            transition: `transform 0.28s ${SPRING}`,
           }}
-        />
-      )}
-    </Link>
-  );
-}
+        >
+          {children}
+        </span>
+
+        <span style={{
+          fontSize: 10,
+          fontWeight: 600,
+          lineHeight: 1,
+          letterSpacing: "0.01em",
+          opacity: active ? 1 : 0.7,
+          transform: active ? "translateY(0)" : "translateY(0.5px)",
+          transition: `opacity 0.22s ${SPRING}, transform 0.22s ${SPRING}`,
+        }}>
+          {label}
+        </span>
+
+        {badge && (
+          <span
+            aria-label="unread notifications"
+            style={{
+              position: "absolute",
+              top: 4,
+              right: 10,
+              width: 9,
+              height: 9,
+              borderRadius: "50%",
+              background: "#ef4444",
+              border: "2px solid #101722",
+              boxShadow: "0 0 6px rgba(239,68,68,0.55)",
+            }}
+          />
+        )}
+      </Link>
+    );
+  }
+);
 
 // ── Create button — standout center action ────────────────────────────────────
 
@@ -149,7 +153,7 @@ function CreateTab({ active }: { active: boolean }) {
         color: "#fff",
         flexShrink: 0,
         marginInline: 4,
-        transition: `background 0.22s ${SPRING}, box-shadow 0.22s ${SPRING}, transform 0.22s ${SPRING}`,
+        transition: `box-shadow 0.22s ${SPRING}, transform 0.22s ${SPRING}`,
         transform: active ? "scale(0.93)" : "scale(1)",
         cursor: "pointer",
       }}
@@ -169,10 +173,37 @@ export function BottomNav() {
   const { session } = useAuth();
   const [unread, setUnread] = useState(false);
 
-  // Poll unread counts for the Inbox badge.
-  // Re-runs on session change AND on pathname change so that navigating away
-  // from a conversation (which marks messages read server-side) immediately
-  // clears the dot without waiting for a window focus event.
+  // ── Optimistic path ───────────────────────────────────────────────────────
+  // Set immediately when a tab is tapped so active states update before the
+  // Next.js route transition completes. Cleared once pathname catches up.
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+
+  // ── Sliding indicator ──────────────────────────────────────────────────────
+  const navRef  = useRef<HTMLElement | null>(null);
+  const tabRefs = useRef<(HTMLAnchorElement | null)[]>([null, null, null, null]);
+  const [indicator, setIndicator] = useState<{
+    left: number;
+    width: number;
+    animated: boolean;
+  } | null>(null);
+  // Suppress CSS transition on the very first measurement so the indicator
+  // appears at the right position instantly (no slide-in from the left edge).
+  const firstMeasure = useRef(true);
+
+  // ── Active-state derivation ────────────────────────────────────────────────
+  // Computed BEFORE the early-return guards so they are available to effects
+  // and so the indicator can respond to pendingPath immediately.
+  const eff           = pendingPath ?? pathname;
+  const activeHome     = eff === "/" || eff === "/events";
+  const activeExplore  = eff === "/map"      || (eff?.startsWith("/map")      ?? false);
+  const activeSchedule = eff === "/schedule" || (eff?.startsWith("/schedule") ?? false);
+  const activeInbox    = (eff === "/social"  || (eff?.startsWith("/social")   ?? false))
+                           && !(eff?.startsWith("/social/messages/") ?? false);
+  const activeCreate   = eff === "/events/new";
+  // Index among the four NavTab slots (0=Home 1=Explore 2=Schedule 3=Inbox)
+  const activeIndex    = [activeHome, activeExplore, activeSchedule, activeInbox].findIndex(Boolean);
+
+  // ── Unread badge ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!session) { setUnread(false); return; }
     const token = session.access_token;
@@ -189,14 +220,41 @@ export function BottomNav() {
     check();
     window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);
-  // pathname is intentionally included: navigating away from a thread should
-  // trigger a fresh count so the dot clears immediately.
+  // pathname intentionally in deps so navigating away from a conversation
+  // immediately clears the badge without waiting for window focus.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token, pathname]);
 
-  // Hide on pages where the bottom nav conflicts with immersive/full-screen UI.
-  // "/events/" (trailing slash) covers /events/new, /events/[id], /events/[id]/edit,
-  // /events/[id]/moments — but NOT "/events" (the list page, no trailing slash).
+  // ── Sync pending path ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (pendingPath !== null && pathname === pendingPath) {
+      setPendingPath(null);
+    }
+  }, [pathname, pendingPath]);
+
+  // ── Measure indicator position ─────────────────────────────────────────────
+  // useLayoutEffect runs synchronously after DOM mutations and before the
+  // browser paints, so the indicator is positioned correctly on the first
+  // visible frame — no flash at (0,0) or delayed pop-in.
+  useLayoutEffect(() => {
+    if (activeIndex === -1 || !navRef.current) {
+      setIndicator(null);
+      return;
+    }
+    const tab = tabRefs.current[activeIndex];
+    if (!tab) return;
+    const navRect = navRef.current.getBoundingClientRect();
+    const tabRect = tab.getBoundingClientRect();
+    const animated = !firstMeasure.current;
+    firstMeasure.current = false;
+    setIndicator({
+      left:     tabRect.left - navRect.left,
+      width:    tabRect.width,
+      animated,
+    });
+  }, [activeIndex]);
+
+  // ── Route guard — hide nav on immersive pages ──────────────────────────────
   if (
     pathname === "/" ||
     pathname?.startsWith("/events/") ||
@@ -207,15 +265,10 @@ export function BottomNav() {
     return null;
   }
 
-  // Active state — exact match for root destinations, prefix match for sub-paths
-  const activeHome     = pathname === "/" || pathname === "/events";
-  const activeExplore  = pathname === "/map" || pathname?.startsWith("/map");
-  const activeCreate   = pathname === "/events/new";
-  const activeSchedule = pathname === "/schedule" || pathname?.startsWith("/schedule");
-  const activeInbox    = pathname === "/social" || (pathname?.startsWith("/social") && !pathname.startsWith("/social/messages/"));
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <nav
+      ref={navRef as React.RefObject<HTMLElement>}
       className="bottom-nav"
       aria-label="Main navigation"
       style={{
@@ -228,14 +281,13 @@ export function BottomNav() {
         zIndex: 150,
         display: "flex",
         alignItems: "center",
-        // Glass pill — neutral dark, no glow
+        // Glass pill
         background: "rgb(16 23 34 / 8%)",
         backdropFilter: "blur(24px) saturate(160%)",
         WebkitBackdropFilter: "blur(24px) saturate(160%)",
         border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 999,
         padding: "5px 6px",
-        // Subtle shadow + inner top-highlight
         boxShadow: "0 8px 32px rgba(0,0,0,0.50), 0 1px 0 rgba(255,255,255,0.06) inset",
         gap: 2,
         pointerEvents: "auto",
@@ -243,21 +295,75 @@ export function BottomNav() {
         WebkitUserSelect: "none",
       }}
     >
-      <NavTab href="/events" active={activeHome} label="Home">
+      {/* ── Sliding liquid-glass indicator ──────────────────────────────────
+          Absolutely positioned so it sits behind the tab content (z:0).
+          Its left/width are updated on every tab change; the CSS transition
+          makes it glide smoothly between positions.
+          On initial render animated=false suppresses the transition so it
+          appears directly at the correct position.                         */}
+      {indicator && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: 5,
+            height: "calc(100% - 10px)",
+            left: indicator.left,
+            width: indicator.width,
+            borderRadius: 999,
+            background: "rgba(94,168,255,0.11)",
+            boxShadow: "0 0 0 1px rgba(94,168,255,0.20) inset, 0 2px 10px rgba(94,168,255,0.08)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            transition: indicator.animated
+              ? `left 0.28s ${SPRING}, width 0.28s ${SPRING}`
+              : "none",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+      )}
+
+      <NavTab
+        ref={(el) => { tabRefs.current[0] = el; }}
+        href="/events"
+        active={activeHome}
+        label="Home"
+        onSelect={() => setPendingPath("/events")}
+      >
         <HomeIcon active={activeHome} />
       </NavTab>
 
-      <NavTab href="/map" active={activeExplore} label="Explore">
+      <NavTab
+        ref={(el) => { tabRefs.current[1] = el; }}
+        href="/map"
+        active={activeExplore}
+        label="Explore"
+        onSelect={() => setPendingPath("/map")}
+      >
         <ExploreIcon active={activeExplore} />
       </NavTab>
 
       <CreateTab active={activeCreate} />
 
-      <NavTab href="/schedule" active={activeSchedule} label="Schedule">
+      <NavTab
+        ref={(el) => { tabRefs.current[2] = el; }}
+        href="/schedule"
+        active={activeSchedule}
+        label="Schedule"
+        onSelect={() => setPendingPath("/schedule")}
+      >
         <ScheduleIcon active={activeSchedule} />
       </NavTab>
 
-      <NavTab href="/social" active={activeInbox} label="Inbox" badge={unread && !activeInbox}>
+      <NavTab
+        ref={(el) => { tabRefs.current[3] = el; }}
+        href="/social"
+        active={activeInbox}
+        label="Inbox"
+        badge={unread && !activeInbox}
+        onSelect={() => setPendingPath("/social")}
+      >
         <InboxIcon active={activeInbox} />
       </NavTab>
     </nav>
