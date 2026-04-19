@@ -174,8 +174,12 @@ function DetailSheet({
           border: "1px solid rgba(255,255,255,0.09)",
           borderRadius: "24px 24px 0 0",
           width: "100%",
-          /* dvh shrinks when the software keyboard opens — prevents layout jump */
-          maxHeight: "88dvh",
+          /*
+           * Fixed height (not maxHeight) so the sheet never resizes when result
+           * count changes. dvh accounts for the software keyboard so the sheet
+           * always fits the visible area.
+           */
+          height: "88dvh",
           display: "flex",
           flexDirection: "column",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.45)",
@@ -708,7 +712,11 @@ export default function ProfilePage() {
               );
             }
             if (filtered.length === 0) {
-              return <p style={{ opacity: 0.45, fontSize: 14, margin: "16px 0 0" }}>No results for &ldquo;{sheetSearch}&rdquo;</p>;
+              return (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 120 }}>
+                  <p style={{ opacity: 0.45, fontSize: 14, margin: 0 }}>No results for &ldquo;{sheetSearch}&rdquo;</p>
+                </div>
+              );
             }
             return (
               <div>
