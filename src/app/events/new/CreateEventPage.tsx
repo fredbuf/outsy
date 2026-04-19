@@ -636,12 +636,16 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Optional options (private events only)
   const [optionSheet, setOptionSheet] = useState<OptionSheet>(null);
+  const [spotsClosing, setSpotsClosing] = useState(false);
   const [spotsMode, setSpotsMode] = useState<"unlimited" | "limited">(() =>
     (editData?.spots_mode as "unlimited" | "limited") ?? "unlimited"
   );
   const [spotsLimit, setSpotsLimit] = useState(() =>
     editData?.spots_limit ? String(editData.spots_limit) : ""
   );
+  // Draft state for Spots sheet — pending until ✓ confirmed; X discards
+  const [spotsDraftMode, setSpotsDraftMode] = useState<"unlimited" | "limited">("unlimited");
+  const [spotsDraftCount, setSpotsDraftCount] = useState(10);
   const [costAmount, setCostAmount] = useState(() =>
     editData?.price ? String(editData.price) : ""
   );
@@ -670,11 +674,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   // Lock scroll when any sheet is open
   useEffect(() => {
-    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || optionSheet !== null) ? "hidden" : "";
+    document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || spotsClosing || optionSheet !== null) ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, optionSheet]);
+  }, [dateSheetOpen, locationSheetOpen, locationClosing, cohostSheetOpen, cohostClosing, spotsClosing, optionSheet]);
 
   // Fetch host profile
   useEffect(() => {
@@ -1809,7 +1813,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
             return (
               <div className="cep-options" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "12px 0 2px", scrollbarWidth: "none" }}>
-                <button type="button" onClick={() => setOptionSheet("spots")}
+                <button type="button" onClick={() => {
+                  // Seed draft from committed state
+                  setSpotsDraftMode(spotsMode);
+                  setSpotsDraftCount(spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0 ? parseInt(spotsLimit) : 10);
+                  setOptionSheet("spots");
+                }}
                   style={{ ...chipBase, color: spotsLabel ? "#fff" : "#8c98a8", background: spotsLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
                   <img src="/Icons/IconSpots.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
                   {spotsLabel ?? "Spots"}
@@ -1931,60 +1940,139 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       {/* ── Option sheets (Spots / Cost / RSVP by) ──────────────────── */}
 
       {/* Spots sheet */}
-      {optionSheet === "spots" && (
+      {(optionSheet === "spots" || spotsClosing) && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "flex-end" }}
-          onClick={(e) => e.target === e.currentTarget && setOptionSheet(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setSpotsClosing(true);
+            setTimeout(() => { setOptionSheet(null); setSpotsClosing(false); }, 250);
+          }}
         >
-          <div style={{ width: "100%", background: "#111110", borderRadius: "22px 22px 0 0", paddingBottom: "max(32px, env(safe-area-inset-bottom))" }}>
+          <div
+            className={spotsClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
+            style={{
+              width: "100%",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              borderRadius: "22px 22px 0 0",
+              paddingBottom: "max(32px, env(safe-area-inset-bottom))",
+            }}
+          >
+            {/* Grab handle */}
             <div style={{ display: "flex", justifyContent: "center", paddingTop: 12 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border-strong)", opacity: 0.35 }} />
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.38)" }} />
             </div>
-            <div style={{ display: "flex", alignItems: "center", padding: "12px 20px 0" }}>
-              <button type="button" onClick={() => setOptionSheet(null)} aria-label="Close" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--btn-bg)", border: "none", cursor: "pointer", color: "inherit", flexShrink: 0 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-              <span style={{ flex: 1, textAlign: "center", fontSize: 16, fontWeight: 700 }}>Spots</span>
-              <button type="button" onClick={() => setOptionSheet(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 600, color: "var(--accent)", padding: "4px 0", flexShrink: 0 }}>Done</button>
-            </div>
-            <div style={{ padding: "20px 20px 0" }}>
-              <div style={{ height: 1, background: "var(--border)", marginBottom: 20 }} />
-              {/* Unlimited */}
+
+            {/* Header — 3-column grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", padding: "10px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <button
                 type="button"
-                onClick={() => setSpotsMode("unlimited")}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "14px 0", background: "none", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", color: "inherit", fontFamily: "inherit", fontSize: 15, fontWeight: spotsMode === "unlimited" ? 600 : 400 }}
+                onClick={() => {
+                  setSpotsClosing(true);
+                  setTimeout(() => { setOptionSheet(null); setSpotsClosing(false); }, 250);
+                }}
+                aria-label="Close"
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.13)", cursor: "pointer", color: "rgba(255,255,255,0.78)" }}
               >
-                <span>Unlimited</span>
-                {spotsMode === "unlimited" && (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                )}
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
-              {/* Limited */}
-              <button
-                type="button"
-                onClick={() => setSpotsMode("limited")}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "14px 0", background: "none", border: "none", borderBottom: spotsMode === "limited" ? "none" : "1px solid var(--border)", cursor: "pointer", color: "inherit", fontFamily: "inherit", fontSize: 15, fontWeight: spotsMode === "limited" ? 600 : 400 }}
-              >
-                <span>Limited</span>
-                {spotsMode === "limited" && (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                )}
-              </button>
-              {spotsMode === "limited" && (
-                <div style={{ paddingTop: 14, paddingBottom: 4 }}>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    placeholder="Number of spots"
-                    value={spotsLimit}
-                    onChange={(e) => setSpotsLimit(e.target.value)}
-                    style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-subtle)", color: "inherit", fontSize: 16, fontFamily: "inherit" }}
-                  />
+              <div style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#FFFFFF" }}>Spots</div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Apply draft to committed state
+                    setSpotsMode(spotsDraftMode);
+                    setSpotsLimit(spotsDraftMode === "limited" ? String(spotsDraftCount) : "");
+                    setSpotsClosing(true);
+                    setTimeout(() => { setOptionSheet(null); setSpotsClosing(false); }, 250);
+                  }}
+                  aria-label="Confirm"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "rgba(94,168,255,0.14)", border: "1px solid rgba(94,168,255,0.28)", cursor: "pointer", color: "#5EA8FF" }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: "28px 24px 0" }}>
+
+              {/* Helper text */}
+              <p style={{ textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.40)", margin: "0 0 28px", letterSpacing: "0.01em" }}>
+                How many people can join?
+              </p>
+
+              {spotsDraftMode === "unlimited" ? (
+                /* Unlimited state — large badge */
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginBottom: 32 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 120, height: 64, borderRadius: 20, background: "rgba(94,168,255,0.12)", border: "1.5px solid rgba(94,168,255,0.32)" }}>
+                    <span style={{ fontSize: 22, fontWeight: 700, color: "#5EA8FF", letterSpacing: "-0.01em" }}>∞</span>
+                  </div>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.42)" }}>No limit on attendees</span>
+                </div>
+              ) : (
+                /* Stepper */
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, marginBottom: 32 }}>
+                  <button
+                    type="button"
+                    onClick={() => setSpotsDraftCount((n) => Math.max(1, n - 1))}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.18)", cursor: "pointer", color: "#fff", flexShrink: 0 }}
+                    aria-label="Decrease"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                  </button>
+                  <div style={{ minWidth: 72, textAlign: "center" }}>
+                    <span style={{ fontSize: 44, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>{spotsDraftCount}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSpotsDraftCount((n) => n + 1)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, borderRadius: "50%", background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.18)", cursor: "pointer", color: "#fff", flexShrink: 0 }}
+                    aria-label="Increase"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                  </button>
                 </div>
               )}
-              <button type="button" onClick={() => setOptionSheet(null)} style={{ width: "100%", padding: "14px", borderRadius: 14, border: "none", background: "var(--foreground)", color: "var(--background)", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 24 }}>Done</button>
+
+              {/* Presets */}
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                {([5, 10, 20, 50] as const).map((n) => {
+                  const active = spotsDraftMode === "limited" && spotsDraftCount === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => { setSpotsDraftMode("limited"); setSpotsDraftCount(n); }}
+                      style={{
+                        padding: "7px 18px", borderRadius: 20,
+                        background: active ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.07)",
+                        border: active ? "1px solid rgba(94,168,255,0.38)" : "1px solid rgba(255,255,255,0.13)",
+                        color: active ? "#5EA8FF" : "rgba(255,255,255,0.65)",
+                        fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
+                {/* Unlimited preset */}
+                <button
+                  type="button"
+                  onClick={() => setSpotsDraftMode("unlimited")}
+                  style={{
+                    padding: "7px 18px", borderRadius: 20,
+                    background: spotsDraftMode === "unlimited" ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.07)",
+                    border: spotsDraftMode === "unlimited" ? "1px solid rgba(94,168,255,0.38)" : "1px solid rgba(255,255,255,0.13)",
+                    color: spotsDraftMode === "unlimited" ? "#5EA8FF" : "rgba(255,255,255,0.65)",
+                    fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  Unlimited
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
