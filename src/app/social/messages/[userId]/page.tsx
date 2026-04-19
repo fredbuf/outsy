@@ -10,15 +10,17 @@ import type { MessageRow } from "@/app/api/social/messages/[userId]/route";
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
+  "#3b82f6", "#0ea5e9", "#10b981", "#f59e0b",
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
 ];
+
 function getInitials(name: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
+
 function getAvatarColor(name: string | null): string {
   if (!name) return AVATAR_COLORS[0];
   let hash = 0;
@@ -33,7 +35,6 @@ function formatTime(iso: string): string {
   });
 }
 
-// Compact date for event cards
 function smartEventDate(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
@@ -47,10 +48,9 @@ function smartEventDate(iso: string | null): string | null {
   });
   const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
   const timeStr = isUnknownTime ? "" : " · " + rawTime;
-  if (eventDay === today) return `Today${timeStr}`;
+  if (eventDay === today)    return `Today${timeStr}`;
   if (eventDay === tomorrow) return `Tomorrow${timeStr}`;
-  const monthDay = d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" });
-  return `${monthDay}${timeStr}`;
+  return d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" }) + timeStr;
 }
 
 type OtherUser = {
@@ -60,9 +60,9 @@ type OtherUser = {
   avatar_url: string | null;
 };
 
-// ── Event card bubble ──────────────────────────────────────────────────────────
+// ── Shared event card ──────────────────────────────────────────────────────────
 
-function EventCard({ msg, isMe }: { msg: MessageRow; isMe: boolean }) {
+function EventCard({ msg }: { msg: MessageRow }) {
   const ev = msg.event;
   if (!ev) return null;
   const dateStr = smartEventDate(ev.start_at);
@@ -70,15 +70,19 @@ function EventCard({ msg, isMe }: { msg: MessageRow; isMe: boolean }) {
   return (
     <Link
       href={`/events/${ev.id}`}
+      className="card-enter"
       style={{ textDecoration: "none", color: "inherit", display: "block" }}
     >
       <div
         style={{
-          maxWidth: 240,
-          borderRadius: 14,
+          width: 220,
+          borderRadius: 18,
           overflow: "hidden",
-          border: "1px solid var(--border-strong)",
-          background: "var(--surface-subtle)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(255,255,255,0.05)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.30)",
           cursor: "pointer",
         }}
       >
@@ -86,15 +90,15 @@ function EventCard({ msg, isMe }: { msg: MessageRow; isMe: boolean }) {
           <img
             src={ev.image_url}
             alt=""
-            style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }}
           />
         ) : (
           <div style={{
-            width: "100%", height: 64,
-            background: isMe ? "rgba(124,58,237,0.15)" : "var(--surface-raised)",
+            width: "100%", height: 80,
+            background: "rgba(94,168,255,0.08)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.3 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />
@@ -102,15 +106,15 @@ function EventCard({ msg, isMe }: { msg: MessageRow; isMe: boolean }) {
             </svg>
           </div>
         )}
-        <div style={{ padding: "9px 11px 10px" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+        <div style={{ padding: "10px 12px 12px" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.3, color: "#fff", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {ev.title}
           </div>
           {dateStr && (
-            <div style={{ fontSize: 11, opacity: 0.55, marginTop: 3 }}>{dateStr}</div>
+            <div style={{ fontSize: 11, color: "#5EA8FF", marginTop: 4, fontWeight: 500 }}>{dateStr}</div>
           )}
           {ev.venue_name && (
-            <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.38)", marginTop: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
               {ev.venue_name}
             </div>
           )}
@@ -127,15 +131,15 @@ export default function ChatPage() {
   const otherId = params.userId;
   const { user, session, loading: authLoading } = useAuth();
 
-  const [otherUser, setOtherUser] = useState<OtherUser | null>(null);
-  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [otherUser, setOtherUser]     = useState<OtherUser | null>(null);
+  const [messages, setMessages]       = useState<MessageRow[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(true);
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft]             = useState("");
+  const [sending, setSending]         = useState(false);
+  const [sendError, setSendError]     = useState<string | null>(null);
+  const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
+  const chatRef     = useRef<HTMLDivElement>(null);
 
   async function fetchMessages() {
     if (!session) return;
@@ -160,12 +164,12 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, session]);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages load or a new one arrives
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // iOS Safari keyboard fix
+  // iOS Safari keyboard fix — shrink container to visual viewport
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
@@ -176,7 +180,7 @@ export default function ChatPage() {
         const el = chatRef.current;
         if (!el || !vv) return;
         el.style.height = `${vv.height}px`;
-        el.style.top = `${vv.offsetTop}px`;
+        el.style.top    = `${vv.offsetTop}px`;
       });
     }
     vv.addEventListener("resize", adjust);
@@ -207,7 +211,11 @@ export default function ChatPage() {
       if (data.ok && data.message) {
         setMessages((prev) => [...prev, data.message!]);
         setDraft("");
-        textareaRef.current?.focus();
+        // Reset textarea height
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.focus();
+        }
       } else {
         setSendError(data.error ?? "Failed to send.");
       }
@@ -240,83 +248,115 @@ export default function ChatPage() {
   return (
     <div ref={chatRef} className="chat-screen">
 
-      {/* ── Header bar ── */}
+      {/* ── Header — 3-column centered identity ───────────────────────────── */}
       <div
         style={{
-          display: "flex", alignItems: "center", gap: 10,
-          padding: "12px 16px",
+          display: "grid",
+          gridTemplateColumns: "52px 1fr 52px",
+          alignItems: "center",
+          padding: "10px 12px",
           borderBottom: "1px solid rgba(255,255,255,0.07)",
-          background: "rgba(13,11,20,0.88)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
+          background: "linear-gradient(180deg, rgba(28,37,53,0.96) 0%, rgba(13,19,32,0.92) 100%)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           flexShrink: 0,
           position: "relative",
           zIndex: 1,
         }}
       >
-        {/* Back chevron */}
+        {/* Back button */}
         <Link
           href="/social?tab=messages"
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", textDecoration: "none", color: "rgba(255,255,255,0.6)", flexShrink: 0, transition: "background 0.15s" }}
           aria-label="Back"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 36, height: 36, borderRadius: "50%",
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            textDecoration: "none",
+            color: "rgba(255,255,255,0.70)",
+            transition: "background 0.15s",
+          }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M15 18l-6-6 6-6"/>
           </svg>
         </Link>
 
-        {/* Avatar */}
-        {otherUser && (
-          <Link href={`/profile/${otherId}`} style={{ lineHeight: 0, flexShrink: 0 }}>
-            {otherUser.avatar_url ? (
+        {/* Centered identity block */}
+        <Link
+          href={`/profile/${otherId}`}
+          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textDecoration: "none" }}
+        >
+          {otherUser ? (
+            otherUser.avatar_url ? (
               <img
                 src={otherUser.avatar_url}
                 alt={otherName}
-                style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(124,58,237,0.4)" }}
+                style={{
+                  width: 40, height: 40, borderRadius: "50%", objectFit: "cover",
+                  border: "2px solid rgba(94,168,255,0.35)",
+                  boxShadow: "0 0 0 3px rgba(94,168,255,0.10)",
+                }}
               />
             ) : (
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: getAvatarColor(otherName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none", border: "2px solid rgba(124,58,237,0.3)" }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: "50%",
+                background: getAvatarColor(otherName),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 14, fontWeight: 700, color: "#fff",
+                border: "2px solid rgba(94,168,255,0.25)",
+                boxShadow: "0 0 0 3px rgba(94,168,255,0.08)",
+              }}>
                 {getInitials(otherName)}
               </div>
-            )}
-          </Link>
-        )}
-
-        {/* Name */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2, color: "#fff" }}>{otherName}</div>
-          {otherUser?.username && (
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>@{otherUser.username}</div>
+            )
+          ) : (
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
           )}
-        </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>{otherName}</div>
+            {otherUser?.username && (
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>@{otherUser.username}</div>
+            )}
+          </div>
+        </Link>
+
+        {/* Right spacer — keeps grid balanced */}
+        <div />
       </div>
 
       {/* ── Message thread ── */}
       <div
         style={{
           flex: 1, minHeight: 0, overflowY: "auto",
-          padding: "16px 16px 8px",
-          display: "flex", flexDirection: "column", gap: 4,
-          background: "transparent",
+          padding: "20px 16px 12px",
+          display: "flex", flexDirection: "column", gap: 2,
           position: "relative", zIndex: 1,
         }}
       >
         {loadingMsgs ? (
-          <div style={{ margin: "auto", color: "rgba(255,255,255,0.35)", fontSize: 14 }}>Loading…</div>
+          <div style={{ margin: "auto", color: "rgba(255,255,255,0.30)", fontSize: 14 }}>Loading…</div>
         ) : messages.length === 0 ? (
-          <div style={{ margin: "auto", textAlign: "center" }}>
-            <div style={{ opacity: 0.15, marginBottom: 12, display: "flex", justifyContent: "center" }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <div style={{ margin: "auto", textAlign: "center", padding: "40px 0" }}>
+            <div style={{ marginBottom: 14, display: "flex", justifyContent: "center", opacity: 0.18 }}>
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
             </div>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", margin: 0 }}>No messages yet</p>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginTop: 4 }}>Say hello!</p>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.38)", margin: 0 }}>No messages yet</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.22)", marginTop: 4 }}>Say hello 👋</p>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, i) => {
             const isMe = msg.sender_id === user.id;
             const isEventShare = !!msg.event_id;
+            const prevMsg = i > 0 ? messages[i - 1] : null;
+            // Collapse timestamp when consecutive messages from same sender
+            // are sent within 3 minutes
+            const showTime = !prevMsg
+              || prevMsg.sender_id !== msg.sender_id
+              || (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime()) > 3 * 60 * 1000;
 
             return (
               <div
@@ -325,48 +365,64 @@ export default function ChatPage() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: isMe ? "flex-end" : "flex-start",
-                  gap: 3,
-                  marginBottom: 4,
+                  gap: 2,
+                  marginTop: showTime ? 10 : 2,
                 }}
               >
                 {isEventShare ? (
-                  <EventCard msg={msg} isMe={isMe} />
+                  <EventCard msg={msg} />
                 ) : (
                   <div
+                    className={isMe ? "msg-enter-me" : "msg-enter-them"}
                     style={{
-                      maxWidth: "75%",
-                      padding: "10px 16px",
-                      borderRadius: isMe ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                      maxWidth: "72%",
+                      padding: "10px 15px",
+                      borderRadius: isMe ? "18px 18px 5px 18px" : "18px 18px 18px 5px",
                       background: isMe
-                        ? "#7c3aed"
+                        ? "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)"
                         : "rgba(255,255,255,0.08)",
-                      border: isMe ? "none" : "1px solid rgba(255,255,255,0.1)",
-                      boxShadow: isMe ? "0 2px 14px rgba(124,58,237,0.38)" : "none",
+                      border: isMe
+                        ? "1px solid rgba(94,168,255,0.20)"
+                        : "1px solid rgba(255,255,255,0.09)",
+                      boxShadow: isMe
+                        ? "0 2px 12px rgba(59,130,246,0.25)"
+                        : "none",
                       color: "#fff",
                       fontSize: 15,
-                      lineHeight: 1.45,
+                      lineHeight: 1.5,
                       wordBreak: "break-word",
                     }}
                   >
                     {msg.body}
                   </div>
                 )}
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", paddingInline: 6 }}>
-                  {formatTime(msg.created_at)}
-                </span>
+                {showTime && (
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", paddingInline: 4, marginTop: 1 }}>
+                    {formatTime(msg.created_at)}
+                  </span>
+                )}
               </div>
             );
           })
         )}
 
-        {/* Sending status bubble */}
+        {/* In-flight sending indicator */}
         {sending && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, marginBottom: 4 }}>
-            <div style={{ maxWidth: "75%", padding: "10px 16px", borderRadius: "20px 20px 4px 20px", background: "#7c3aed", opacity: 0.55, color: "#fff", fontSize: 15, lineHeight: 1.45 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, marginTop: 10 }}>
+            <div
+              className="msg-enter-me"
+              style={{
+                maxWidth: "72%", padding: "10px 15px",
+                borderRadius: "18px 18px 5px 18px",
+                background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                border: "1px solid rgba(94,168,255,0.20)",
+                opacity: 0.50, color: "#fff", fontSize: 15, lineHeight: 1.5,
+              }}
+            >
               {draft}
             </div>
-            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", paddingInline: 6, display: "flex", alignItems: "center", gap: 5 }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden style={{ animation: "spin 1s linear infinite" }}>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", paddingInline: 4, display: "flex", alignItems: "center", gap: 4 }}>
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden style={{ animation: "spin 1s linear infinite" }}>
                 <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
               </svg>
               Sending
@@ -377,21 +433,20 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Send input ── */}
+      {/* ── Composer ── */}
       <div
         style={{
-          padding: "10px 16px",
-          paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+          padding: "10px 14px",
+          paddingBottom: "max(14px, env(safe-area-inset-bottom))",
           borderTop: "1px solid rgba(255,255,255,0.06)",
-          background: "rgba(13,11,20,0.80)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
+          background: "linear-gradient(180deg, rgba(13,19,32,0.88) 0%, rgba(11,15,20,0.96) 100%)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
           flexShrink: 0,
           display: "flex", gap: 10, alignItems: "flex-end",
           position: "relative", zIndex: 1,
         }}
       >
-        {/* Pill input wrapper */}
         <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
           <textarea
             ref={textareaRef}
@@ -399,57 +454,65 @@ export default function ChatPage() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message…"
+            placeholder="Message…"
             maxLength={2000}
             style={{
               width: "100%",
               resize: "none",
-              borderRadius: 24,
-              border: "1px solid rgba(255,255,255,0.12)",
-              padding: "11px 52px 11px 18px",
+              borderRadius: 22,
+              border: "1px solid rgba(255,255,255,0.11)",
+              padding: "11px 50px 11px 16px",
               fontSize: 16,
-              lineHeight: 1.4,
-              background: "rgba(255,255,255,0.07)",
+              lineHeight: 1.45,
+              background: "rgba(255,255,255,0.06)",
               outline: "none",
               fontFamily: "inherit",
               maxHeight: 120,
               overflowY: "auto",
               boxSizing: "border-box",
               color: "#fff",
-              caretColor: "#a78bfa",
-              transition: "border-color 0.15s",
+              caretColor: "#5EA8FF",
+              transition: "border-color 0.18s, background 0.18s",
             }}
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = "auto";
               el.style.height = Math.min(el.scrollHeight, 120) + "px";
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(124,58,237,0.55)"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "rgba(94,168,255,0.45)";
+              e.currentTarget.style.background  = "rgba(255,255,255,0.08)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.11)";
+              e.currentTarget.style.background  = "rgba(255,255,255,0.06)";
+            }}
           />
-          {/* Send button inside pill */}
           <button
             type="button"
             onClick={handleSend}
             disabled={!draft.trim() || sending}
+            aria-label="Send"
             style={{
               position: "absolute",
-              right: 6,
-              bottom: 6,
-              width: 36, height: 36,
+              right: 6, bottom: 6,
+              width: 34, height: 34,
               borderRadius: "50%",
               border: "none",
-              background: !draft.trim() || sending ? "rgba(255,255,255,0.1)" : "#7c3aed",
-              boxShadow: !draft.trim() || sending ? "none" : "0 2px 8px rgba(124,58,237,0.45)",
+              background: !draft.trim() || sending
+                ? "rgba(255,255,255,0.09)"
+                : "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+              boxShadow: !draft.trim() || sending
+                ? "none"
+                : "0 2px 8px rgba(59,130,246,0.40)",
               color: "#fff",
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: !draft.trim() || sending ? "default" : "pointer",
-              transition: "background 0.15s, box-shadow 0.15s",
+              transition: "background 0.18s, box-shadow 0.18s",
               flexShrink: 0,
             }}
-            aria-label="Send"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <line x1="22" y1="2" x2="11" y2="13"/>
               <polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
@@ -458,7 +521,7 @@ export default function ChatPage() {
       </div>
 
       {sendError && (
-        <div style={{ padding: "6px 16px 8px", fontSize: 12, color: "#f87171", background: "rgba(13,11,20,0.9)", textAlign: "center" }}>
+        <div style={{ padding: "6px 16px 8px", fontSize: 12, color: "#f87171", background: "rgba(11,15,20,0.95)", textAlign: "center", flexShrink: 0 }}>
           {sendError}
         </div>
       )}
