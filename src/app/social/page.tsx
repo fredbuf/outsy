@@ -890,6 +890,14 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
   const [friendshipIds, setFriendshipIds] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Defer focus so the browser never scrolls the underlying page to reveal
+  // the input. autoFocus fires before position:fixed is fully established,
+  // causing a scroll-to-bottom jump. A short timeout avoids that.
+  useEffect(() => {
+    const id = setTimeout(() => inputRef.current?.focus(), 350);
+    return () => clearTimeout(id);
+  }, []);
+
   function startClose() {
     setClosing(true);
     setTimeout(() => { onClose(); }, 250);
@@ -1041,7 +1049,6 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
             </svg>
             <input
               ref={inputRef}
-              autoFocus
               placeholder="Search by name or username…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
