@@ -13,12 +13,7 @@ export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization") || "";
   const expectedBearer = `Bearer ${cronSecret}`;
 
-  // Allow query fallback ONLY for local/dev testing (avoid leaking secrets in URLs)
-  const url = new URL(req.url);
-  const queryKey =
-    process.env.NODE_ENV !== "production" ? url.searchParams.get("key") : null;
-
-  const isAuthorized = authHeader === expectedBearer || queryKey === cronSecret;
+  const isAuthorized = authHeader === expectedBearer;
   if (!isAuthorized) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
