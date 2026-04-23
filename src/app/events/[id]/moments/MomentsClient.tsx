@@ -1465,7 +1465,9 @@ function InlineComments({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/events/${eventId}/moments/${momentId}/comments`)
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    fetch(`/api/events/${eventId}/moments/${momentId}/comments`, { headers })
       .then((r) => r.json())
       .then((data: { ok: boolean; comments?: CommentRow[]; error?: string }) => {
         if (data.ok && data.comments) setComments(data.comments);
@@ -1479,7 +1481,7 @@ function InlineComments({
         setLoadError("Network error.");
       })
       .finally(() => setLoading(false));
-  }, [momentId, eventId]);
+  }, [momentId, eventId, token]);
 
   async function handleSend() {
     const trimmed = text.trim();

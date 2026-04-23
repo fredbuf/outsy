@@ -20,19 +20,22 @@ async function resolveAuth(req: Request) {
 }
 
 // GET /api/events/[id]/moments/[momentId]/comments
-// Returns chronological comments for a moment. No auth required.
+// Returns chronological comments for a moment.
+// Public/unlisted events: no auth required.
+// Private events: host, cohost, or RSVP'd user only.
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: RouteParams
 ) {
-  const { momentId } = await params;
+  const { id: eventId, momentId } = await params;
   const supabase = supabaseServer();
 
-  // Check that comments are enabled for this moment
+  // Verify moment exists and belongs to this event
   const { data: moment } = await supabase
     .from("moments")
     .select("id,comments_enabled")
     .eq("id", momentId)
+    .eq("event_id", eventId)
     .maybeSingle();
 
   if (!moment) {
@@ -40,6 +43,40 @@ export async function GET(
   }
   if (moment.comments_enabled === false) {
     return NextResponse.json({ ok: true, comments: [] });
+  }
+
+  // Enforce event visibility
+  const { data: event } = await supabase
+    .from("events")
+    .select("id,visibility,creator_id,cohost_ids")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (!event) {
+    return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
+  }
+
+  if (event.visibility === "private") {
+    const user = await resolveAuth(req);
+    const creatorId = event.creator_id as string | null;
+    const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
+    const isHostOrCohost = user !== null && (creatorId === user.id || cohostIds.includes(user.id));
+
+    if (!isHostOrCohost) {
+      let hasRsvp = false;
+      if (user) {
+        const { data: rsvp } = await supabase
+          .from("rsvps")
+          .select("id")
+          .eq("event_id", eventId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        hasRsvp = !!rsvp;
+      }
+      if (!hasRsvp) {
+        return NextResponse.json({ ok: false, error: "Not authorized." }, { status: 403 });
+      }
+    }
   }
 
   const { data: rows, error } = await supabase
