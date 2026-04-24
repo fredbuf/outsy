@@ -28,7 +28,7 @@
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --font-sans:
-    var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
@@ -58,7 +58,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   color-scheme: light dark;
-  font-family: var(--font-jakarta, ui-sans-serif), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter, ui-sans-serif), system-ui, -apple-system, sans-serif;
   font-size: 15px;
   line-height: 1.5;
   letter-spacing: -0.01em;

@@ -623,6 +623,7 @@ export function EventsList() {
   const [tileRsvp, setTileRsvp] = useState<TileRsvpData>(EMPTY_RSVP);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [starPending, setStarPending] = useState<Set<string>>(new Set());
+  const [starPressed, setStarPressed] = useState<Set<string>>(new Set());
 
   // Typed query (immediate, controls the input).
   const [query, setQuery] = useState("");
@@ -1209,6 +1210,7 @@ export function EventsList() {
                 {thisWeekEvents.map((e) => {
                   const starred = starredIds.has(e.id);
                   const pending = starPending.has(e.id);
+                  const pressed = starPressed.has(e.id);
                   const rsvpCount = tileRsvp.counts[e.id] ?? 0;
                   const rsvpNames = tileRsvp.names[e.id] ?? [];
                   const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
@@ -1235,9 +1237,9 @@ export function EventsList() {
                             {[0, 1, 2].map((idx) => {
                               if (!rsvpAvatars[idx] && !rsvpNames[idx]) return null;
                               return rsvpAvatars[idx] ? (
-                                <img key={idx} src={rsvpAvatars[idx]} alt="" style={{ width: 17, height: 17, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -6 : 0 }} />
+                                <img key={idx} src={rsvpAvatars[idx]} alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -6 : 0 }} />
                               ) : (
-                                <div key={idx} style={{ width: 17, height: 17, borderRadius: "50%", background: getAvatarColor(rsvpNames[idx]!), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -6 : 0 }}>
+                                <div key={idx} style={{ width: 19, height: 19, borderRadius: "50%", background: getAvatarColor(rsvpNames[idx]!), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -6 : 0 }}>
                                   {rsvpNames[idx]![0].toUpperCase()}
                                 </div>
                               );
@@ -1250,6 +1252,9 @@ export function EventsList() {
                           type="button"
                           aria-label={starred ? "Remove from saved" : "Save event"}
                           onClick={(ev) => handleStar(e.id, ev)}
+                          onPointerDown={() => setStarPressed((s) => { const n = new Set(s); n.add(e.id); return n; })}
+                          onPointerUp={() => setStarPressed((s) => { const n = new Set(s); n.delete(e.id); return n; })}
+                          onPointerLeave={() => setStarPressed((s) => { const n = new Set(s); n.delete(e.id); return n; })}
                           style={{
                             position: "absolute", top: 7, right: 8,
                             width: 26, height: 26, borderRadius: "50%", border: "none",
@@ -1258,14 +1263,18 @@ export function EventsList() {
                             cursor: pending ? "wait" : "pointer",
                             opacity: pending ? 0.6 : 1,
                             padding: 0,
+                            transform: pressed ? "scale(0.95)" : "scale(1)",
+                            transition: "transform 0.12s ease, background 0.15s ease",
                           }}
                         >
-                          <img src="/icons/IconInterested.svg" alt="" style={{ width: 15, height: 15, opacity: starred ? 1 : 0.85 }} />
+                          <svg width="15" height="15" viewBox="0 0 18 18" fill={starred ? "#fff" : "none"} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path fillRule="evenodd" clipRule="evenodd" d="M8.81244 3.375C8.74419 3.375 8.57619 3.39375 8.48694 3.57225L7.11744 6.3105C6.90069 6.74325 6.48294 7.044 5.99994 7.113L2.93394 7.55475C2.73144 7.584 2.66244 7.734 2.64144 7.797C2.62269 7.85775 2.59269 8.01225 2.73219 8.14575L4.94919 10.2758C5.30244 10.6155 5.46294 11.1053 5.37894 11.5845L4.85694 14.592C4.82469 14.7802 4.94244 14.8897 4.99494 14.9272C5.05044 14.9692 5.19894 15.0525 5.38269 14.9565L8.12394 13.5353C8.55594 13.3125 9.07044 13.3125 9.50094 13.5353L12.2414 14.9557C12.4259 15.051 12.5744 14.9677 12.6307 14.9272C12.6832 14.8897 12.8009 14.7802 12.7687 14.592L12.2452 11.5845C12.1612 11.1053 12.3217 10.6155 12.6749 10.2758L14.8919 8.14575C15.0322 8.01225 15.0022 7.857 14.9827 7.797C14.9624 7.734 14.8934 7.584 14.6909 7.55475L11.6249 7.113C11.1427 7.044 10.7249 6.74325 10.5082 6.30975L9.13719 3.57225C9.04869 3.39375 8.88069 3.375 8.81244 3.375Z" />
+                          </svg>
                         </button>
 
                         {/* Title + info — centered at bottom */}
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 9px 11px", textAlign: "center", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
-                          <div style={{ fontSize: 15, fontWeight: 800, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, marginBottom: 3 }}>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 9px 11px", textAlign: "center" }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "#F5F7FA", lineHeight: 1.15, marginBottom: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                             {e.title}
                           </div>
                           <div style={{ fontSize: 11, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
