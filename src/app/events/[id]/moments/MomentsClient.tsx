@@ -294,19 +294,20 @@ function Toggle({
 
 function ComposeArea({
   eventId,
+  eventTitle,
   isHostOrCohost,
   token,
   onPosted,
 }: {
   eventId: string;
+  eventTitle: string;
   isHostOrCohost: boolean;
   token: string;
   onPosted: (moment: PostedMoment) => void;
 }) {
-  // step: null = closed, "compose" = step 1, "confirm" = step 2
   const [step, setStep] = useState<null | "compose" | "confirm">(null);
+  const [closing, setClosing] = useState(false);
   const [title, setTitle] = useState("");
-  const [details, setDetails] = useState("");
   // Survey
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyOptions, setSurveyOptions] = useState(["", ""]);
@@ -325,17 +326,19 @@ function ComposeArea({
   const [isPinned, setIsPinned] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
+  // Auto-growing textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  function handleOpen() {
-    setStep("compose");
-    setTimeout(() => titleRef.current?.focus(), 80);
-  }
+  // Grow textarea on content change, capped at ~5 lines (150px)
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
+  }, [title]);
 
-  function handleClose() {
-    setStep(null);
+  function resetState() {
     setTitle("");
-    setDetails("");
     setShowSurvey(false);
     setSurveyOptions(["", ""]);
     setLinkUrl("");
@@ -349,14 +352,29 @@ function ComposeArea({
     setError(null);
   }
 
+  function handleOpen() {
+    setStep("compose");
+    setClosing(false);
+    document.body.style.overflow = "hidden";
+    setTimeout(() => textareaRef.current?.focus(), 80);
+  }
+
+  function handleClose() {
+    setClosing(true);
+    setTimeout(() => {
+      setStep(null);
+      setClosing(false);
+      document.body.style.overflow = "";
+      resetState();
+    }, 180);
+  }
+
   function handleAdvance() {
     if (!title.trim()) return;
-    // Validate link if entered
     if (linkUrl.trim() && !/^https?:\/\/.{3,}/.test(linkUrl.trim())) {
       setLinkError("Enter a valid URL starting with http:// or https://");
       return;
     }
-    // Validate survey if enabled
     if (showSurvey) {
       const filled = surveyOptions.filter((o) => o.trim().length > 0);
       if (filled.length < 2) {
@@ -389,11 +407,8 @@ function ComposeArea({
         body: fd,
       });
       const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
-      if (data.ok && data.url) {
-        setImageUrl(data.url);
-      } else {
-        setImageError(data.error ?? "Upload failed.");
-      }
+      if (data.ok && data.url) setImageUrl(data.url);
+      else setImageError(data.error ?? "Upload failed.");
     } catch {
       setImageError("Network error during upload.");
     } finally {
@@ -402,11 +417,10 @@ function ComposeArea({
   }
 
   async function handlePost() {
-    const body = [title.trim(), details.trim()].filter(Boolean).join("\n\n");
+    const body = title.trim();
     if (!body || submitting) return;
     const finalLink = linkUrl.trim() && /^https?:\/\/.{3,}/.test(linkUrl.trim())
-      ? linkUrl.trim()
-      : null;
+      ? linkUrl.trim() : null;
     const filledOptions = surveyOptions.map((o) => o.trim()).filter(Boolean);
     const finalSurveyQuestion = showSurvey && filledOptions.length >= 2 ? title.trim() : null;
     setSubmitting(true);
@@ -414,10 +428,7 @@ function ComposeArea({
     try {
       const res = await fetch(`/api/events/${eventId}/moments`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           body,
           survey_question: finalSurveyQuestion,
@@ -443,42 +454,50 @@ function ComposeArea({
     }
   }
 
-  // Shared sheet styles
+  const hasContent = Boolean(title.trim());
+  const hasAttachment = Boolean(imageUrl || linkUrl.trim() || showSurvey);
+
+  // Shared overlay backdrop
   const overlayStyle: React.CSSProperties = {
     position: "fixed", inset: 0, zIndex: 400,
-    background: "rgba(0,0,0,0.72)",
-    display: "flex", alignItems: "flex-end", justifyContent: "center",
-  };
-  const sheetStyle: React.CSSProperties = {
-    background: "#111110",
-    color: "#eae8e4",
-    borderRadius: "20px 20px 0 0",
-    width: "100%",
-    maxWidth: 540,
-    display: "flex",
-    flexDirection: "column",
-    // Take most of the screen — composer feels like a real creation surface
-    minHeight: "90dvh",
-    maxHeight: "96dvh",
-    overflow: "hidden",
-  };
-  const sheetHeaderStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px 16px 14px",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
-    flexShrink: 0,
-  };
-  const iconBtnStyle: React.CSSProperties = {
-    width: 36, height: 36, borderRadius: "50%",
-    background: "rgba(255,255,255,0.08)",
-    border: "none", cursor: "pointer", color: "inherit",
+    background: "rgba(0,0,0,0.60)",
+    backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
     display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
+    padding: "24px 16px",
   };
+
+  // Shared glass modal panel
+  const glassPanel: React.CSSProperties = {
+    width: "100%", maxWidth: 480,
+    display: "flex", flexDirection: "column",
+    borderRadius: 24, overflow: "hidden",
+    background: "rgba(13,18,28,0.97)",
+    backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
+  };
+
+  const circleBtn: React.CSSProperties = {
+    width: 34, height: 34, borderRadius: "50%",
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "pointer", color: "inherit", flexShrink: 0,
+  };
+
+  const toolBtn = (active: boolean): React.CSSProperties => ({
+    display: "flex", alignItems: "center", gap: 5,
+    padding: "6px 11px", borderRadius: 20,
+    border: `1px solid ${active ? "rgba(94,168,255,0.35)" : "rgba(255,255,255,0.09)"}`,
+    background: active ? "rgba(94,168,255,0.12)" : "rgba(255,255,255,0.05)",
+    color: active ? "#5EA8FF" : "rgba(255,255,255,0.50)",
+    fontSize: 12, fontWeight: 500, cursor: "pointer",
+    transition: "background 0.15s, color 0.15s",
+  });
 
   return (
     <>
-      {/* Hidden file input for image upload */}
+      {/* Hidden file input */}
       <input
         ref={imageInputRef}
         type="file"
@@ -487,387 +506,313 @@ function ComposeArea({
         onChange={handleImagePick}
       />
 
-      {/* Trigger button */}
+      {/* ── Trigger button ── */}
       <button
         type="button"
         onClick={handleOpen}
         style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          width: "100%",
-          padding: "28px 16px 24px",
+          display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          gap: 10, width: "100%",
+          padding: "26px 16px 22px",
           borderRadius: 14,
-          background: "rgba(255,255,255,0.08)",
-          border: "1px solid rgba(255,255,255,0.10)",
-          cursor: "pointer",
-          textAlign: "center",
-          color: "rgba(255,255,255,0.50)",
+          background: "rgba(255,255,255,0.07)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          cursor: "pointer", textAlign: "center",
+          color: "rgba(255,255,255,0.45)",
         }}
       >
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="16" />
-          <line x1="8" y1="12" x2="16" y2="12" />
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
         </svg>
         <span style={{ fontSize: 14, fontWeight: 500 }}>Share a moment</span>
       </button>
 
-      {/* ── Step 1: Composer ── */}
-      {step === "compose" && createPortal(
-        <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
-          <div style={sheetStyle}>
+      {/* ── Composer modal ── */}
+      {(step === "compose" || (step === null && closing)) && createPortal(
+        <div
+          style={overlayStyle}
+          onClick={(e) => e.target === e.currentTarget && handleClose()}
+        >
+          <div
+            className={closing ? "modal-zoom-exit" : "modal-zoom-enter"}
+            style={{ ...glassPanel, maxHeight: "min(640px, 90dvh)" }}
+          >
             {/* Header */}
-            <div style={sheetHeaderStyle}>
-              <button type="button" onClick={handleClose} style={iconBtnStyle} aria-label="Close">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            <div style={{
+              display: "grid", gridTemplateColumns: "40px 1fr 40px",
+              alignItems: "center", padding: "16px 14px 12px", flexShrink: 0,
+            }}>
+              <button type="button" onClick={handleClose} style={circleBtn} aria-label="Close">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <path d="M1 1l9 9M10 1L1 10" stroke="#F5F7FA" strokeWidth="1.7" strokeLinecap="round"/>
                 </svg>
               </button>
-              <span style={{ fontSize: 16, fontWeight: 700 }}>Share a moment</span>
+              <span style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: "#F5F7FA" }}>
+                Share a moment
+              </span>
               <button
                 type="button"
                 onClick={handleAdvance}
-                disabled={!title.trim()}
-                aria-label="Next"
+                disabled={!hasContent}
+                aria-label="Continue"
                 style={{
-                  ...iconBtnStyle,
-                  background: title.trim() ? "#a78bfa" : "rgba(255,255,255,0.08)",
-                  opacity: title.trim() ? 1 : 0.45,
+                  ...circleBtn,
+                  background: hasContent
+                    ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                    : "rgba(255,255,255,0.07)",
+                  border: hasContent ? "none" : "1px solid rgba(255,255,255,0.09)",
+                  opacity: hasContent ? 1 : 0.4,
+                  justifySelf: "end",
+                  transition: "background 0.2s, opacity 0.2s",
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <polyline points="20 6 9 17 4 12"/>
                 </svg>
               </button>
             </div>
 
-            {/* Fields — flex-grow to fill space */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 0 }}>
-              <input
-                ref={titleRef}
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="What's happening?"
-                maxLength={200}
-                style={{
-                  width: "100%", boxSizing: "border-box",
-                  background: "transparent", border: "none",
-                  outline: "none", color: "inherit",
-                  fontSize: 20, fontWeight: 600,
-                  fontFamily: "inherit", lineHeight: 1.3,
-                  marginBottom: 16,
-                  caretColor: "#a78bfa",
-                }}
-              />
-              <textarea
-                value={details}
-                onChange={(e) => setDetails(e.target.value)}
-                placeholder="Add details… (optional)"
-                maxLength={BODY_MAX}
-                rows={6}
-                style={{
-                  width: "100%", boxSizing: "border-box",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.09)",
-                  borderRadius: 12,
-                  outline: "none", color: "inherit",
-                  fontSize: 16, lineHeight: 1.55,
-                  resize: "none", fontFamily: "inherit",
-                  padding: "12px 14px",
-                  caretColor: "#a78bfa",
-                  flex: 1,
-                }}
-              />
-              {details.length > BODY_MAX * 0.85 && (
-                <div style={{ marginTop: 4, fontSize: 11, opacity: 0.45, textAlign: "right" }}>
-                  {details.length}/{BODY_MAX}
-                </div>
-              )}
+            {/* Context: "At [event]" */}
+            <div style={{
+              textAlign: "center", fontSize: 12,
+              color: "rgba(255,255,255,0.30)",
+              marginTop: -4, marginBottom: 4, paddingBottom: 2,
+              flexShrink: 0,
+            }}>
+              At {eventTitle}
+            </div>
 
-              {/* Link input — shown when toggled */}
-              {showLinkInput && (
-                <div style={{ marginTop: 14 }}>
-                  <input
-                    type="url"
-                    value={linkUrl}
-                    onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null); }}
-                    placeholder="https://…"
-                    style={{
-                      width: "100%", boxSizing: "border-box",
-                      background: "rgba(255,255,255,0.05)",
-                      border: linkError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.09)",
-                      borderRadius: 12, outline: "none",
-                      color: "inherit", fontSize: 16,
-                      fontFamily: "inherit", padding: "11px 14px",
-                      caretColor: "#a78bfa",
-                    }}
-                  />
-                  {linkError && (
-                    <div style={{ marginTop: 5, fontSize: 12, color: "#ef4444" }}>{linkError}</div>
-                  )}
-                </div>
-              )}
-
-              {/* Image preview */}
-              {imageUrl && (
-                <div style={{ marginTop: 14, position: "relative" }}>
-                  <img
-                    src={imageUrl}
-                    alt="Attached image"
-                    style={{
-                      width: "100%", borderRadius: 12,
-                      maxHeight: 220, objectFit: "cover",
-                      display: "block",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setImageUrl(null)}
-                    aria-label="Remove image"
-                    style={{
-                      position: "absolute", top: 8, right: 8,
-                      width: 28, height: 28, borderRadius: "50%",
-                      background: "rgba(0,0,0,0.65)",
-                      border: "none", cursor: "pointer", color: "#fff",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                  </button>
-                </div>
-              )}
-              {imageError && (
-                <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444" }}>{imageError}</div>
-              )}
-
-              {/* Survey builder */}
-              {showSurvey && (
-                <div style={{ marginTop: 14 }}>
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, opacity: 0.45,
-                    textTransform: "uppercase", letterSpacing: "0.07em",
-                    marginBottom: 8,
-                  }}>
-                    Survey options
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+              {/* Auto-growing textarea */}
+              <div style={{ padding: "12px 20px 8px" }}>
+                <textarea
+                  ref={textareaRef}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="What's happening?"
+                  maxLength={BODY_MAX}
+                  rows={2}
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    background: "transparent", border: "none",
+                    outline: "none", color: "#F5F7FA",
+                    fontSize: 17, fontWeight: 500,
+                    fontFamily: "inherit", lineHeight: 1.5,
+                    resize: "none", overflow: "hidden",
+                    minHeight: 56, // ~2 lines
+                    caretColor: "#5EA8FF",
+                    display: "block",
+                  }}
+                />
+                {title.length > BODY_MAX * 0.85 && (
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", textAlign: "right", marginTop: 2 }}>
+                    {title.length}/{BODY_MAX}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {surveyOptions.map((opt, i) => (
-                      <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input
-                          type="text"
-                          value={opt}
-                          onChange={(e) => {
-                            const next = [...surveyOptions];
-                            next[i] = e.target.value;
-                            setSurveyOptions(next);
-                          }}
-                          placeholder={`Option ${i + 1}`}
-                          maxLength={200}
-                          style={{
-                            flex: 1, boxSizing: "border-box",
-                            background: "rgba(255,255,255,0.05)",
-                            border: "1px solid rgba(255,255,255,0.09)",
-                            borderRadius: 10, outline: "none",
-                            color: "inherit", fontSize: 16,
-                            fontFamily: "inherit", padding: "10px 12px",
-                            caretColor: "#a78bfa",
-                          }}
-                        />
-                        {surveyOptions.length > 2 && (
-                          <button
-                            type="button"
-                            onClick={() => setSurveyOptions(surveyOptions.filter((_, j) => j !== i))}
-                            aria-label="Remove option"
-                            style={{
-                              width: 28, height: 28, borderRadius: "50%",
-                              background: "rgba(255,255,255,0.07)",
-                              border: "none", cursor: "pointer", color: "rgba(255,255,255,0.45)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {surveyOptions.length < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setSurveyOptions([...surveyOptions, ""])}
-                      style={{
-                        marginTop: 8, display: "flex", alignItems: "center", gap: 6,
-                        background: "none", border: "none", cursor: "pointer",
-                        color: "#a78bfa", fontSize: 13, fontWeight: 500, padding: 0,
-                      }}
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                      Add option
+                )}
+              </div>
+
+              {/* Content previews */}
+              <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+                {/* Image preview */}
+                {imageUrl && (
+                  <div style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>
+                    <img
+                      src={imageUrl} alt="Attached image"
+                      style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block", borderRadius: 12, border: "1px solid rgba(255,255,255,0.09)" }}
+                    />
+                    <button type="button" onClick={() => setImageUrl(null)} aria-label="Remove image"
+                      style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.70)", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1l8 8M9 1L1 9" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"/></svg>
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
+                {imageError && <div style={{ fontSize: 12, color: "#ef4444" }}>{imageError}</div>}
+
+                {/* Link input + preview */}
+                {showLinkInput && (
+                  <div>
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null); }}
+                      placeholder="https://…"
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        background: "rgba(255,255,255,0.05)",
+                        border: linkError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.09)",
+                        borderRadius: 10, outline: "none",
+                        color: "#F5F7FA", fontSize: 14,
+                        fontFamily: "inherit", padding: "10px 12px",
+                        caretColor: "#5EA8FF",
+                      }}
+                    />
+                    {linkError && <div style={{ marginTop: 4, fontSize: 12, color: "#ef4444" }}>{linkError}</div>}
+                    {linkUrl.trim() && !linkError && (
+                      <div style={{
+                        marginTop: 6, padding: "8px 12px", borderRadius: 10,
+                        background: "rgba(94,168,255,0.07)", border: "1px solid rgba(94,168,255,0.18)",
+                        display: "flex", alignItems: "center", gap: 8,
+                      }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                        <span style={{ fontSize: 12, color: "#5EA8FF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {linkUrl.trim()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Survey builder */}
+                {showSurvey && (
+                  <div style={{
+                    borderRadius: 12, border: "1px solid rgba(94,168,255,0.15)",
+                    background: "rgba(94,168,255,0.05)", padding: "12px 14px",
+                  }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(94,168,255,0.70)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+                      Survey options
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {surveyOptions.map((opt, i) => (
+                        <div key={i} style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const next = [...surveyOptions];
+                              next[i] = e.target.value;
+                              setSurveyOptions(next);
+                            }}
+                            placeholder={`Option ${i + 1}`}
+                            maxLength={200}
+                            style={{
+                              flex: 1, boxSizing: "border-box",
+                              background: "rgba(255,255,255,0.06)",
+                              border: "1px solid rgba(255,255,255,0.09)",
+                              borderRadius: 8, outline: "none",
+                              color: "#F5F7FA", fontSize: 13,
+                              fontFamily: "inherit", padding: "8px 10px",
+                              caretColor: "#5EA8FF",
+                            }}
+                          />
+                          {surveyOptions.length > 2 && (
+                            <button type="button" onClick={() => setSurveyOptions(surveyOptions.filter((_, j) => j !== i))} aria-label="Remove option"
+                              style={{ width: 26, height: 26, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.40)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M1 1l7 7M8 1L1 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {surveyOptions.length < 5 && (
+                      <button type="button" onClick={() => setSurveyOptions([...surveyOptions, ""])}
+                        style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "#5EA8FF", fontSize: 12, fontWeight: 500, padding: 0 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add option
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div style={{ padding: "8px 20px 0", fontSize: 12, color: "#ef4444" }}>{error}</div>
               )}
             </div>
 
-            {/* Tools row */}
+            {/* Toolbar */}
             <div style={{
-              display: "flex", alignItems: "center", gap: 4,
-              padding: "12px 16px",
-              borderTop: "1px solid rgba(255,255,255,0.08)",
-              flexShrink: 0,
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "12px 20px",
+              paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+              borderTop: "1px solid rgba(255,255,255,0.07)",
+              flexShrink: 0, overflowX: "auto",
             }}>
-              {/* Link tool */}
-              <button
-                type="button"
-                onClick={() => setShowLinkInput((v) => !v)}
-                aria-label="Add link"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "7px 12px", borderRadius: 20,
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  background: showLinkInput ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
-                  color: showLinkInput ? "#a78bfa" : "rgba(255,255,255,0.55)",
-                  fontSize: 13, fontWeight: 500, cursor: "pointer",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <button type="button" onClick={() => setShowLinkInput((v) => !v)} aria-label="Add link" style={toolBtn(showLinkInput || Boolean(linkUrl.trim()))}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
-                {linkUrl.trim() ? "Link added" : "Link"}
+                Link
               </button>
 
-              {/* Image tool */}
-              <button
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={uploadingImage}
-                aria-label="Add image"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "7px 12px", borderRadius: 20,
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  background: imageUrl ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
-                  color: imageUrl ? "#a78bfa" : "rgba(255,255,255,0.55)",
-                  fontSize: 13, fontWeight: 500,
-                  cursor: uploadingImage ? "wait" : "pointer",
-                  opacity: uploadingImage ? 0.6 : 1,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Add image"
+                style={{ ...toolBtn(Boolean(imageUrl)), opacity: uploadingImage ? 0.6 : 1, cursor: uploadingImage ? "wait" : "pointer" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
                 </svg>
-                {uploadingImage ? "Uploading…" : imageUrl ? "Image added" : "Image"}
+                {uploadingImage ? "Uploading…" : "Photo"}
               </button>
 
-              {/* Survey tool */}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSurvey((v) => !v);
-                  if (!showSurvey) setSurveyOptions(["", ""]);
-                }}
-                aria-label="Add survey"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "7px 12px", borderRadius: 20,
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  background: showSurvey ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
-                  color: showSurvey ? "#a78bfa" : "rgba(255,255,255,0.55)",
-                  fontSize: 13, fontWeight: 500, cursor: "pointer",
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <button type="button" onClick={() => { setShowSurvey((v) => !v); if (!showSurvey) setSurveyOptions(["", ""]); }} aria-label="Add survey" style={toolBtn(showSurvey)}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
                 </svg>
-                Survey
+                Poll
               </button>
-            </div>
 
-            {/* Bottom safe area */}
-            <div style={{ height: "max(8px, env(safe-area-inset-bottom))", flexShrink: 0 }} />
+              {hasAttachment && !hasContent && (
+                <span style={{ marginLeft: "auto", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
+                  Add text to post
+                </span>
+              )}
+            </div>
           </div>
         </div>,
         document.body
       )}
 
-      {/* ── Step 2: Confirm options ── */}
+      {/* ── Confirm / post options modal ── */}
       {step === "confirm" && createPortal(
         <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
-          <div style={{ ...sheetStyle, minHeight: "auto", maxHeight: "80dvh" }}>
+          <div
+            className={closing ? "modal-zoom-exit" : "modal-zoom-enter"}
+            style={{ ...glassPanel, maxHeight: "min(560px, 85dvh)" }}
+          >
             {/* Header */}
-            <div style={sheetHeaderStyle}>
-              <button type="button" onClick={handleBack} style={iconBtnStyle} aria-label="Back">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M15 18l-6-6 6-6"/>
+            <div style={{
+              display: "grid", gridTemplateColumns: "40px 1fr 40px",
+              alignItems: "center", padding: "16px 14px 14px", flexShrink: 0,
+            }}>
+              <button type="button" onClick={handleBack} style={circleBtn} aria-label="Back">
+                <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
+                  <path d="M7 1L1 7l6 6" stroke="#F5F7FA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-              <span style={{ fontSize: 16, fontWeight: 700 }}>Post options</span>
-              <div style={{ width: 36 }} />
+              <span style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: "#F5F7FA" }}>Post options</span>
+              <div />
             </div>
 
             {/* Preview */}
-            <div style={{
-              padding: "14px 20px 12px",
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
-              flexShrink: 0,
-            }}>
-              <div style={{ fontSize: 15, fontWeight: 600, opacity: 0.9, lineHeight: 1.3 }}>
+            <div style={{ padding: "0 20px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F7FA", lineHeight: 1.4, marginBottom: 8,
+                overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const }}>
                 {title}
               </div>
-              {details.trim() && (
-                <div style={{
-                  fontSize: 13, opacity: 0.45, marginTop: 4, lineHeight: 1.4,
-                  overflow: "hidden", display: "-webkit-box",
-                  WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
-                }}>
-                  {details}
-                </div>
-              )}
               {(linkUrl.trim() || imageUrl || (showSurvey && surveyOptions.filter((o) => o.trim()).length >= 2)) && (
-                <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                   {showSurvey && surveyOptions.filter((o) => o.trim()).length >= 2 && (
-                    <span style={{
-                      fontSize: 12, padding: "3px 8px", borderRadius: 20,
-                      background: "rgba(167,139,250,0.12)",
-                      border: "1px solid rgba(167,139,250,0.25)",
-                      color: "#a78bfa",
-                    }}>
-                      {surveyOptions.filter((o) => o.trim()).length} survey options
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.22)", color: "#5EA8FF" }}>
+                      {surveyOptions.filter((o) => o.trim()).length} poll options
                     </span>
                   )}
                   {linkUrl.trim() && (
-                    <span style={{
-                      fontSize: 12, padding: "3px 8px", borderRadius: 20,
-                      background: "rgba(167,139,250,0.12)",
-                      border: "1px solid rgba(167,139,250,0.25)",
-                      color: "#a78bfa",
-                    }}>
-                      Link attached
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.22)", color: "#5EA8FF" }}>
+                      Link
                     </span>
                   )}
                   {imageUrl && (
-                    <span style={{
-                      fontSize: 12, padding: "3px 8px", borderRadius: 20,
-                      background: "rgba(167,139,250,0.12)",
-                      border: "1px solid rgba(167,139,250,0.25)",
-                      color: "#a78bfa",
-                    }}>
-                      Image attached
+                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.22)", color: "#5EA8FF" }}>
+                      Photo
                     </span>
                   )}
                 </div>
@@ -883,26 +828,26 @@ function ComposeArea({
               )}
             </div>
 
-            {/* Error */}
             {error && (
-              <div style={{ padding: "8px 20px 0", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>
-                {error}
-              </div>
+              <div style={{ padding: "8px 20px 0", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>{error}</div>
             )}
 
             {/* Post button */}
-            <div style={{ padding: "16px 20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", flexShrink: 0 }}>
+            <div style={{ padding: "16px 20px", paddingBottom: "calc(max(20px, env(safe-area-inset-bottom)))", flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={() => void handlePost()}
                 disabled={submitting}
                 style={{
-                  width: "100%", padding: "15px",
+                  width: "100%", padding: "14px",
                   borderRadius: 14, border: "none",
-                  background: submitting ? "rgba(167,139,250,0.45)" : "#a78bfa",
-                  color: "#fff", fontSize: 16, fontWeight: 700,
+                  background: submitting
+                    ? "rgba(94,168,255,0.35)"
+                    : "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)",
+                  color: "#fff", fontSize: 15, fontWeight: 700,
                   cursor: submitting ? "not-allowed" : "pointer",
-                  transition: "background 0.15s",
+                  transition: "opacity 0.15s",
+                  opacity: submitting ? 0.7 : 1,
                 }}
               >
                 {submitting ? "Posting…" : "Post moment"}
@@ -2871,6 +2816,7 @@ export function MomentsClient({
           <div style={{ marginBottom: 20 }}>
             <ComposeArea
               eventId={eventId}
+              eventTitle={eventTitle}
               isHostOrCohost={isHostOrCohost}
               token={session.access_token}
               onPosted={handlePosted}
