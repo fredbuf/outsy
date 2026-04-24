@@ -243,7 +243,7 @@ type PostedMoment = {
   created_at: string;
 };
 
-// Shared toggle pill used in the confirm step
+// Shared toggle row used in the compose confirm step and edit sheet
 function Toggle({
   checked,
   onChange,
@@ -264,27 +264,32 @@ function Toggle({
         width: "100%", padding: "14px 20px",
         background: "none", border: "none",
         cursor: "pointer", color: "inherit",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        transition: "background 0.12s",
       }}
     >
-      <span style={{ fontSize: 15, fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.88)" }}>{label}</span>
+      {/* Track */}
       <span
         style={{
-          width: 44, height: 26, borderRadius: 13,
-          background: checked ? "#a78bfa" : "rgba(255,255,255,0.15)",
+          width: 46, height: 27, borderRadius: 14,
+          background: checked
+            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+            : "rgba(255,255,255,0.12)",
           position: "relative", flexShrink: 0,
-          transition: "background 0.18s",
+          transition: "background 0.2s",
           display: "block",
+          boxShadow: checked ? "0 0 8px rgba(94,168,255,0.35)" : "none",
         }}
       >
+        {/* Thumb */}
         <span
           style={{
             position: "absolute",
-            top: 3, left: checked ? 21 : 3,
-            width: 20, height: 20, borderRadius: "50%",
+            top: 3, left: checked ? 22 : 3,
+            width: 21, height: 21, borderRadius: "50%",
             background: "#fff",
-            transition: "left 0.18s",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+            transition: "left 0.2s cubic-bezier(0.34,1.4,0.64,1)",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.30)",
           }}
         />
       </span>
@@ -771,86 +776,79 @@ function ComposeArea({
         document.body
       )}
 
-      {/* ── Confirm / post options modal ── */}
+      {/* ── Moment options modal ── */}
       {step === "confirm" && createPortal(
         <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
           <div
             className={closing ? "modal-zoom-exit" : "modal-zoom-enter"}
-            style={{ ...glassPanel, maxHeight: "min(560px, 85dvh)" }}
+            style={{ ...glassPanel, maxHeight: "min(480px, 85dvh)" }}
           >
             {/* Header */}
             <div style={{
               display: "grid", gridTemplateColumns: "40px 1fr 40px",
-              alignItems: "center", padding: "16px 14px 14px", flexShrink: 0,
+              alignItems: "center", padding: "18px 14px 16px", flexShrink: 0,
             }}>
               <button type="button" onClick={handleBack} style={circleBtn} aria-label="Back">
                 <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
                   <path d="M7 1L1 7l6 6" stroke="#F5F7FA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-              <span style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: "#F5F7FA" }}>Post options</span>
+              <span style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: "#F5F7FA" }}>Moment options</span>
               <div />
             </div>
 
-            {/* Preview */}
-            <div style={{ padding: "0 20px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)", flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F7FA", lineHeight: 1.4, marginBottom: 8,
-                overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const }}>
-                {title}
+            {/* Toggle rows — glass card */}
+            <div style={{
+              flex: 1, overflowY: "auto",
+              padding: "0 16px",
+            }}>
+              <div style={{
+                borderRadius: 16,
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.07)",
+                overflow: "hidden",
+              }}>
+                <Toggle checked={reactionsEnabled} onChange={setReactionsEnabled} label="Let people react" />
+                <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "0 20px" }} />
+                <Toggle checked={commentsEnabled} onChange={setCommentsEnabled} label="Let people comment" />
+                {isHostOrCohost && (
+                  <>
+                    <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "0 20px" }} />
+                    <Toggle checked={isPinned} onChange={setIsPinned} label="Pin this moment" />
+                  </>
+                )}
               </div>
-              {(linkUrl.trim() || imageUrl || (showSurvey && surveyOptions.filter((o) => o.trim()).length >= 2)) && (
-                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                  {showSurvey && surveyOptions.filter((o) => o.trim()).length >= 2 && (
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.22)", color: "#5EA8FF" }}>
-                      {surveyOptions.filter((o) => o.trim()).length} poll options
-                    </span>
-                  )}
-                  {linkUrl.trim() && (
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.22)", color: "#5EA8FF" }}>
-                      Link
-                    </span>
-                  )}
-                  {imageUrl && (
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.22)", color: "#5EA8FF" }}>
-                      Photo
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Toggles */}
-            <div style={{ flex: 1, overflowY: "auto" }}>
-              <Toggle checked={reactionsEnabled} onChange={setReactionsEnabled} label="Allow reactions" />
-              <Toggle checked={commentsEnabled} onChange={setCommentsEnabled} label="Allow comments" />
-              {isHostOrCohost && (
-                <Toggle checked={isPinned} onChange={setIsPinned} label="Pin to top" />
-              )}
             </div>
 
             {error && (
-              <div style={{ padding: "8px 20px 0", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>{error}</div>
+              <div style={{ padding: "8px 20px 4px", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>{error}</div>
             )}
 
-            {/* Post button */}
-            <div style={{ padding: "16px 20px", paddingBottom: "calc(max(20px, env(safe-area-inset-bottom)))", flexShrink: 0 }}>
+            {/* Share button */}
+            <div style={{
+              padding: "20px 16px",
+              paddingBottom: "calc(max(20px, env(safe-area-inset-bottom)))",
+              flexShrink: 0,
+            }}>
               <button
                 type="button"
                 onClick={() => void handlePost()}
                 disabled={submitting}
                 style={{
-                  width: "100%", padding: "14px",
+                  width: "100%", padding: "15px",
                   borderRadius: 14, border: "none",
                   background: submitting
                     ? "rgba(94,168,255,0.35)"
                     : "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)",
                   color: "#fff", fontSize: 15, fontWeight: 700,
                   cursor: submitting ? "not-allowed" : "pointer",
-                  transition: "opacity 0.15s",
+                  boxShadow: submitting ? "none" : "0 4px 20px rgba(37,99,235,0.40)",
+                  transition: "opacity 0.15s, transform 0.1s",
                   opacity: submitting ? 0.7 : 1,
+                  transform: submitting ? "scale(0.98)" : "scale(1)",
                 }}
               >
-                {submitting ? "Posting…" : "Post moment"}
+                {submitting ? "Sharing…" : "Share moment"}
               </button>
             </div>
           </div>
