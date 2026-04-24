@@ -8,12 +8,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Attendee = { display_name: string | null; avatar_url: string | null; userId?: string | null };
-type FullAttendee = Attendee & { response: "going" | "maybe" };
-type RpcRow = { user_id: string; response: string; display_name: string | null; avatar_url: string | null; username: string | null };
+type FullAttendee = Attendee & { response: "going" | "maybe"; username?: string | null };
+type RpcRow = {
+  user_id: string;
+  response: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  username: string | null;
+};
 
 const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
+  "#0ea5e9", "#10b981", "#f59e0b",
+  "#ef4444", "#ec4899", "#14b8a6", "#6366f1", "#0284c7",
 ];
 
 function getInitials(name: string | null): string {
@@ -79,21 +85,91 @@ function AvatarCircle({
   );
 }
 
-function AttendeeRow({ a }: { a: Attendee }) {
+function AttendeeRow({ a }: { a: FullAttendee }) {
   const inner = (
-    <>
-      <AvatarCircle a={a} size={34} />
-      <span style={{ fontSize: 14 }}>{a.display_name ?? "Anonymous"}</span>
-    </>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 20px",
+      }}
+    >
+      <AvatarCircle a={a} size={42} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: "#F5F7FA",
+            lineHeight: 1.2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {a.display_name ?? "Anonymous"}
+        </span>
+        {a.username && (
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.40)", lineHeight: 1.2 }}>
+            @{a.username}
+          </span>
+        )}
+      </div>
+    </div>
   );
+
   if (a.userId) {
     return (
-      <Link href={`/profile/${a.userId}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", color: "inherit", cursor: "pointer" }}>
+      <Link
+        href={`/profile/${a.userId}`}
+        style={{ display: "block", textDecoration: "none" }}
+      >
         {inner}
       </Link>
     );
   }
-  return <div style={{ display: "flex", alignItems: "center", gap: 10 }}>{inner}</div>;
+  return <div>{inner}</div>;
+}
+
+function SkeletonRow({ delay }: { delay: number }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 20px" }}>
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,0.08)",
+          flexShrink: 0,
+          animationDelay: `${delay}ms`,
+        }}
+        className="skeleton"
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, flex: 1 }}>
+        <div
+          style={{
+            height: 13,
+            borderRadius: 6,
+            background: "rgba(255,255,255,0.08)",
+            width: "52%",
+            animationDelay: `${delay}ms`,
+          }}
+          className="skeleton"
+        />
+        <div
+          style={{
+            height: 10,
+            borderRadius: 6,
+            background: "rgba(255,255,255,0.06)",
+            width: "32%",
+            animationDelay: `${delay + 100}ms`,
+          }}
+          className="skeleton"
+        />
+      </div>
+    </div>
+  );
 }
 
 export function AttendeeList({
@@ -116,10 +192,12 @@ export function AttendeeList({
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [allAttendees, setAllAttendees] = useState<FullAttendee[] | null>(null);
   const [fetching, setFetching] = useState(false);
+  const [activeTab, setActiveTab] = useState<"going" | "maybe">("going");
 
-  // Re-open modal when returning via back button from a profile page
+  // Re-open sheet when returning via back button from a profile page
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("guests") === "open") {
       handleOpen();
@@ -134,23 +212,29 @@ export function AttendeeList({
     };
   }, [open]);
 
-  function closeModal() {
-    setOpen(false);
+  function closeSheet() {
+    setClosing(true);
     const sp = new URLSearchParams(window.location.search);
     sp.delete("guests");
     const qs = sp.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 250);
   }
 
   async function handleOpen() {
     setOpen(true);
-    // Stamp URL so back-navigation from a profile restores this modal
+    setClosing(false);
+    setActiveTab(goingCount > 0 ? "going" : "maybe");
+
     const sp = new URLSearchParams(window.location.search);
     if (sp.get("guests") !== "open") {
       sp.set("guests", "open");
       router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
     }
-    // Unauthenticated — modal will show a sign-in prompt; no fetch needed
+
     if (!token) return;
     if (allAttendees !== null) return;
     setFetching(true);
@@ -162,6 +246,7 @@ export function AttendeeList({
       display_name: row.display_name,
       avatar_url: row.avatar_url,
       userId: row.user_id,
+      username: row.username,
       response: row.response as "going" | "maybe",
     }));
     setAllAttendees(attendees);
@@ -181,8 +266,14 @@ export function AttendeeList({
   const visibleAvatars = initialAttendees.slice(0, MAX_VISIBLE);
   const overflowCount = totalCount - MAX_VISIBLE;
 
+  const maybeLabel = visibility === "private" ? "Maybe" : "Interested";
+  const activeList = activeTab === "going" ? going : interested;
+  const tabGoingCount = allAttendees ? going.length : goingCount;
+  const tabMaybeCount = allAttendees ? interested.length : maybeCount;
+
   return (
     <>
+      {/* ── Trigger: avatar stack + count label ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <button
           type="button"
@@ -197,7 +288,6 @@ export function AttendeeList({
             cursor: "pointer",
           }}
         >
-          {/* Avatar stack — capped at MAX_VISIBLE */}
           <div style={{ display: "flex" }}>
             {visibleAvatars.map((a, i) => (
               <div
@@ -212,7 +302,6 @@ export function AttendeeList({
               </div>
             ))}
           </div>
-          {/* Overflow indicator */}
           {overflowCount > 0 && (
             <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.70, flexShrink: 0 }}>
               +{overflowCount}
@@ -222,130 +311,192 @@ export function AttendeeList({
         </button>
       </div>
 
-      {/* Attendee modal */}
+      {/* ── Sheet portal ── */}
       {open && createPortal(
         <div
-          onClick={(e) => e.target === e.currentTarget && closeModal()}
+          onClick={(e) => e.target === e.currentTarget && closeSheet()}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.5)",
+            background: "rgba(0,0,0,0.55)",
             zIndex: 300,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "24px 16px",
+            alignItems: "flex-end",
           }}
         >
           <div
+            className={closing ? "filter-sheet-exit" : "filter-sheet-enter"}
             style={{
-              background: "#111110",
-              color: "#eae8e4",
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 16,
               width: "100%",
-              maxWidth: 400,
-              maxHeight: "70vh",
+              height: "88dvh",
               display: "flex",
               flexDirection: "column",
-              "--border": "rgba(255,255,255,0.10)",
-              "--border-strong": "rgba(255,255,255,0.18)",
-              "--accent": "#a78bfa",
-            } as React.CSSProperties}
+              borderRadius: "20px 20px 0 0",
+              overflow: "hidden",
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderBottom: "none",
+            }}
           >
-            {/* Modal header */}
+            {/* Grab handle */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  background: "rgba(255,255,255,0.40)",
+                }}
+              />
+            </div>
+
+            {/* Header: [empty] | title + count | [X] */}
             <div
               style={{
-                display: "flex",
+                display: "grid",
+                gridTemplateColumns: "40px 1fr 40px",
                 alignItems: "center",
-                justifyContent: "space-between",
-                padding: "16px 18px",
-                borderBottom: "1px solid var(--border)",
+                padding: "12px 16px 14px",
                 flexShrink: 0,
               }}
             >
-              <h2 style={{ fontSize: 16, fontWeight: 700 }}>
-                Attending · {totalCount}
-              </h2>
+              <div />
+              <div style={{ textAlign: "center" }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#F5F7FA" }}>
+                  Guests
+                </span>
+                {totalCount > 0 && (
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.40)", marginLeft: 6 }}>
+                    {totalCount}
+                  </span>
+                )}
+              </div>
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={closeSheet}
                 aria-label="Close"
                 style={{
-                  background: "none",
-                  border: "none",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   cursor: "pointer",
-                  fontSize: 22,
-                  lineHeight: 1,
-                  opacity: 0.35,
+                  justifySelf: "end",
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)",
                 }}
               >
-                ×
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path
+                    d="M1 1l10 10M11 1L1 11"
+                    stroke="#F5F7FA"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </button>
             </div>
 
-            {/* Modal body */}
+            {/* Tab switcher: Going | Interested/Maybe */}
+            <div style={{ display: "flex", gap: 8, padding: "0 20px 16px", flexShrink: 0 }}>
+              {(["going", "maybe"] as const).map((tab) => {
+                const isActive = activeTab === tab;
+                const label = tab === "going" ? "Going" : maybeLabel;
+                const count = tab === "going" ? tabGoingCount : tabMaybeCount;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    style={{
+                      flex: 1,
+                      padding: "9px 12px",
+                      borderRadius: 20,
+                      border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                      background: isActive
+                        ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                        : "rgba(255,255,255,0.07)",
+                      color: isActive ? "#fff" : "rgba(255,255,255,0.55)",
+                      fontWeight: isActive ? 700 : 500,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      transition: "background 0.15s, color 0.15s",
+                    }}
+                  >
+                    {label} · {count}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Scrollable list */}
             <div
               style={{
                 overflowY: "auto",
-                padding: "16px 18px",
-                display: "grid",
-                gap: 20,
+                flex: 1,
+                paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
               }}
             >
               {fetching ? (
-                <p style={{ opacity: 0.5, fontSize: 14 }}>Loading…</p>
+                [0, 1, 2, 3, 4].map((i) => (
+                  <SkeletonRow key={i} delay={i * 60} />
+                ))
               ) : !token ? (
-                <p style={{ opacity: 0.5, fontSize: 14 }}>
-                  {visibility === "private"
-                    ? "Sign in to see who's going to this event."
-                    : "Sign in to see which friends are going."}
-                </p>
-              ) : visibility === "private" ? (
-                // Private events: show all attendees; collapse empty sections
-                <>
-                  {going.length > 0 && (
-                    <section style={{ display: "grid", gap: 10 }}>
-                      <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                        Going · {going.length}
-                      </h3>
-                      {going.map((a, i) => <AttendeeRow key={i} a={a} />)}
-                    </section>
-                  )}
-                  {interested.length > 0 && (
-                    <section style={{ display: "grid", gap: 10 }}>
-                      <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                        Interested · {interested.length}
-                      </h3>
-                      {interested.map((a, i) => <AttendeeRow key={i} a={a} />)}
-                    </section>
-                  )}
-                  {going.length === 0 && interested.length === 0 && (
-                    <p style={{ opacity: 0.5, fontSize: 14 }}>No guests yet.</p>
-                  )}
-                </>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    minHeight: 120,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.40)",
+                      textAlign: "center",
+                      padding: "0 32px",
+                    }}
+                  >
+                    {visibility === "private"
+                      ? "Sign in to see who\u2019s going to this event."
+                      : "Sign in to see which friends are going."}
+                  </p>
+                </div>
+              ) : activeList.length === 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    minHeight: 120,
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.40)",
+                      textAlign: "center",
+                      padding: "0 32px",
+                    }}
+                  >
+                    {activeTab === "going"
+                      ? visibility === "private"
+                        ? "No guests going yet."
+                        : "No friends going yet."
+                      : visibility === "private"
+                        ? "No guests marked maybe."
+                        : "No friends marked interested."}
+                  </p>
+                </div>
               ) : (
-                // Public/unlisted: show friend responses; always render both sections with empty states
-                <>
-                  <section style={{ display: "grid", gap: 10 }}>
-                    <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                      Going · {going.length}
-                    </h3>
-                    {going.length > 0
-                      ? going.map((a, i) => <AttendeeRow key={i} a={a} />)
-                      : <p style={{ opacity: 0.5, fontSize: 14, margin: 0 }}>No friends have responded Going.</p>
-                    }
-                  </section>
-                  <section style={{ display: "grid", gap: 10 }}>
-                    <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                      Interested · {interested.length}
-                    </h3>
-                    {interested.length > 0
-                      ? interested.map((a, i) => <AttendeeRow key={i} a={a} />)
-                      : <p style={{ opacity: 0.5, fontSize: 14, margin: 0 }}>No friends have responded Interested.</p>
-                    }
-                  </section>
-                </>
+                activeList.map((a, i) => <AttendeeRow key={i} a={a} />)
               )}
             </div>
           </div>

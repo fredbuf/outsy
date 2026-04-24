@@ -538,6 +538,7 @@ export function PublicEventSwipePage(props: Props) {
               guestsCanPost={guestsCanPost}
               guestsCanReact={guestsCanReact}
               initialMoments={initialMoments}
+              visibility="public"
             />
           </div>
 

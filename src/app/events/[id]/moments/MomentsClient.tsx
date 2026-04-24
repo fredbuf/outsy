@@ -2382,6 +2382,7 @@ export function MomentsClient({
   guestsCanPost,
   guestsCanReact,
   initialMoments,
+  visibility = "public",
   embedded = false,
 }: {
   eventId: string;
@@ -2391,10 +2392,11 @@ export function MomentsClient({
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
+  visibility?: "public" | "unlisted" | "private";
   /** When true, skip the outer main/ambient/nav/tabs — parent provides the shell */
   embedded?: boolean;
 }) {
-  const { user, session } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkedMomentId = searchParams.get("moment");
@@ -2454,25 +2456,26 @@ export function MomentsClient({
           });
         });
       } else if (!data.ok) {
-        console.error("[fetchMoments] API error:", data.error);
+        // Suppress expected 403 during auth bootstrap on private events
+        if (!(res.status === 403 && visibility === "private")) {
+          console.error("[fetchMoments] API error:", data.error);
+        }
       }
     } catch (err) {
       console.error("[fetchMoments] network error:", err);
     }
-  // userId and token are stable primitives — safe deps
-  }, [eventId, userId, token]);
+  // userId, token, visibility are stable primitives — safe deps
+  }, [eventId, userId, token, visibility]);
 
-  // On mount, immediately fetch fresh moments from the API to override any stale
-  // initialMoments that the server may have delivered (router cache, data cache,
-  // or brief Supabase replication lag can all cause initialMoments to lag behind).
-  // Guard with a ref so auth-driven fetchMoments recreations don't cause extra fetches.
-  const fetchedOnMount = useRef(false);
+  // Fetch fresh moments once auth is settled.
+  // Private events: wait for auth to finish AND require a token.
+  // Public/unlisted events: fetch immediately (token optional).
   useEffect(() => {
-    if (fetchedOnMount.current) return;
-    fetchedOnMount.current = true;
+    if (authLoading) return;
+    if (visibility === "private" && !token) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMoments();
-  }, [fetchMoments]);
+  }, [authLoading, visibility, token, fetchMoments]);
 
   function handlePosted(newMoment: PostedMoment) {
     // Optimistically prepend so it appears immediately

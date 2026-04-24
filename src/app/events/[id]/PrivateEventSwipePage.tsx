@@ -544,6 +544,7 @@ export function PrivateEventSwipePage(props: Props) {
               guestsCanPost={guestsCanPost}
               guestsCanReact={guestsCanReact}
               initialMoments={initialMoments}
+              visibility="private"
             />
           </div>
 

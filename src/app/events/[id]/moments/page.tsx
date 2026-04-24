@@ -214,6 +214,7 @@ export default async function MomentsPage({
       guestsCanPost={guestsCanPost}
       guestsCanReact={guestsCanReact}
       initialMoments={moments}
+      visibility={(event as Record<string, unknown>).visibility as "public" | "unlisted" | "private" ?? "public"}
     />
   );
 }
