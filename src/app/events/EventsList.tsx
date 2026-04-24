@@ -1219,7 +1219,7 @@ export function EventsList() {
                   const infoLine = [smartDate(e.start_at), venueLabel].filter(Boolean).join(" · ");
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
-                      <div style={{ position: "relative", width: 232, height: 165, borderRadius: 14, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: 255, height: 182, borderRadius: 15, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
                         {/* Background image */}
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
@@ -1231,13 +1231,13 @@ export function EventsList() {
 
                         {/* Social avatars — top left */}
                         {rsvpCount > 0 && (
-                          <div style={{ position: "absolute", top: 7, left: 7, display: "flex", alignItems: "center" }}>
+                          <div style={{ position: "absolute", top: 8, left: 8, display: "flex", alignItems: "center" }}>
                             {[0, 1, 2].map((idx) => {
                               if (!rsvpAvatars[idx] && !rsvpNames[idx]) return null;
                               return rsvpAvatars[idx] ? (
-                                <img key={idx} src={rsvpAvatars[idx]} alt="" style={{ width: 15, height: 15, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -5 : 0 }} />
+                                <img key={idx} src={rsvpAvatars[idx]} alt="" style={{ width: 17, height: 17, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -6 : 0 }} />
                               ) : (
-                                <div key={idx} style={{ width: 15, height: 15, borderRadius: "50%", background: getAvatarColor(rsvpNames[idx]!), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 6, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -5 : 0 }}>
+                                <div key={idx} style={{ width: 17, height: 17, borderRadius: "50%", background: getAvatarColor(rsvpNames[idx]!), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -6 : 0 }}>
                                   {rsvpNames[idx]![0].toUpperCase()}
                                 </div>
                               );
@@ -1251,8 +1251,8 @@ export function EventsList() {
                           aria-label={starred ? "Remove from saved" : "Save event"}
                           onClick={(ev) => handleStar(e.id, ev)}
                           style={{
-                            position: "absolute", top: 6, right: 7,
-                            width: 24, height: 24, borderRadius: "50%", border: "none",
+                            position: "absolute", top: 7, right: 8,
+                            width: 26, height: 26, borderRadius: "50%", border: "none",
                             background: starred ? "rgba(94,168,255,0.85)" : "transparent",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             cursor: pending ? "wait" : "pointer",
@@ -1260,15 +1260,15 @@ export function EventsList() {
                             padding: 0,
                           }}
                         >
-                          <img src="/icons/IconInterested.svg" alt="" style={{ width: 14, height: 14, opacity: starred ? 1 : 0.85 }} />
+                          <img src="/icons/IconInterested.svg" alt="" style={{ width: 15, height: 15, opacity: starred ? 1 : 0.85 }} />
                         </button>
 
                         {/* Title + info — centered at bottom */}
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 8px 10px", textAlign: "center", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
-                          <div style={{ fontSize: 13, fontWeight: 800, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, marginBottom: 3 }}>
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 9px 11px", textAlign: "center", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, marginBottom: 3 }}>
                             {e.title}
                           </div>
-                          <div style={{ fontSize: 9, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
+                          <div style={{ fontSize: 10, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
                             {infoLine}
                           </div>
                         </div>
