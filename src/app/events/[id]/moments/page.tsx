@@ -52,7 +52,7 @@ async function fetchEventForMoments(id: string) {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,image_url,category_primary,creator_id,cohost_ids,is_approved,is_rejected"
+      "id,title,image_url,category_primary,creator_id,cohost_ids,is_approved,is_rejected,visibility"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -188,7 +188,11 @@ export default async function MomentsPage({
   const event = await fetchEventForMoments(id);
   if (!event) notFound();
 
-  const moments = await fetchMoments(id);
+  // Private events: skip SSR pre-load — no auth context in RSC.
+  // MomentsClient refetches immediately from the gated API route.
+  const moments = (event as Record<string, unknown>).visibility === "private"
+    ? []
+    : await fetchMoments(id);
 
   const creatorId = event.creator_id as string | null;
   const cohostIds = Array.isArray(event.cohost_ids)

@@ -181,7 +181,8 @@ function MessageBubble({
   const isDeleted = !!msg.deleted_at;
   const isEditing = editingId === msg.id;
   const canAct = isMe && !isDeleted && !msg.event_id;
-  const ageMs = Date.now() - new Date(msg.created_at).getTime();
+  const [now] = useState(() => Date.now());
+  const ageMs = now - new Date(msg.created_at).getTime();
   const canEdit = canAct && ageMs < 30_000;
   const showActions = actionMsgId === msg.id;
 

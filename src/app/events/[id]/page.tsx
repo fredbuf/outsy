@@ -253,7 +253,9 @@ export default async function EventPage({
     const cohostIds = evtExt.cohost_ids ?? [];
     const [cohostProfiles, initialMoments] = await Promise.all([
       fetchCohostProfiles(cohostIds),
-      fetchMomentsForEvent(id),
+      // Private events: skip SSR pre-load — no auth context in RSC.
+      // MomentsClient refetches immediately from the gated API route.
+      Promise.resolve([] as Awaited<ReturnType<typeof fetchMomentsForEvent>>),
     ]);
     const spotsLimited = evtExt.spots_mode === "limited" && (evtExt.spots_limit ?? 0) > 0;
     const eventPrice = typeof evtExt.price === "number" && evtExt.price > 0 ? evtExt.price : null;

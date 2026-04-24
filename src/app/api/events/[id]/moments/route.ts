@@ -19,13 +19,48 @@ async function resolveAuth(req: Request) {
   return user;
 }
 
-// GET /api/events/[id]/moments — public read, no auth required
+// GET /api/events/[id]/moments
+// Public/unlisted events: no auth required.
+// Private events: host, cohost, or RSVP'd user only.
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: eventId } = await params;
   const supabase = supabaseServer();
+
+  // Enforce event visibility before returning moments
+  const { data: event } = await supabase
+    .from("events")
+    .select("id,visibility,creator_id,cohost_ids")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (!event) {
+    return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
+  }
+
+  if ((event.visibility as string) === "private") {
+    const user = await resolveAuth(req);
+    const creatorId = event.creator_id as string | null;
+    const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
+    const isHostOrCohost = user !== null && (creatorId === user.id || cohostIds.includes(user.id));
+    if (!isHostOrCohost) {
+      let hasRsvp = false;
+      if (user) {
+        const { data: rsvp } = await supabase
+          .from("rsvps")
+          .select("id")
+          .eq("event_id", eventId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        hasRsvp = !!rsvp;
+      }
+      if (!hasRsvp) {
+        return NextResponse.json({ ok: false, error: "Not authorized." }, { status: 403 });
+      }
+    }
+  }
 
   // Fetch moments without the profiles join (avoids FK relationship assumption)
   const { data: rows, error } = await supabase

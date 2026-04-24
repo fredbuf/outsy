@@ -640,14 +640,23 @@ export function EventsList() {
   const [suggestionPool, setSuggestionPool] = useState<SuggestionItem[]>([]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterClosing, setFilterClosing] = useState(false);
   const [thisWeekOpen, setThisWeekOpen] = useState(false);
+
+  // Draft state — lives only while the filter sheet is open.
+  // Chips edit draft; X discards; ✓ commits to real filter state.
+  const [draftDateFilter, setDraftDateFilter] = useState<DateFilter>("all");
+  const [draftPickedDate, setDraftPickedDate] = useState("");
+  const [draftPickedDateEnd, setDraftPickedDateEnd] = useState("");
+  const [draftTimeFilter, setDraftTimeFilter] = useState<TimeFilter>("all");
+  const [draftTypeFilter, setDraftTypeFilter] = useState<EventType>("all");
 
   const { hide: hideNav, show: showNav } = useBottomNav();
   useEffect(() => {
-    if (filtersOpen) { hideNav(); } else { showNav(); }
+    if (filtersOpen || filterClosing) { hideNav(); } else { showNav(); }
     return () => { showNav(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersOpen]);
+  }, [filtersOpen, filterClosing]);
   const [weekBounds] = useState(() => thisWeekBoundsIso());
 
   // Full event pool fetched when any explicit filter is active.
@@ -664,25 +673,54 @@ export function EventsList() {
   // Filtered mode: any non-default filter OR non-"all" category is active.
   const isFiltered = activeFilterCount > 0 || category !== "all";
 
-  function handleResetFilters() {
-    setDateFilter("all");
-    setPickedDate("");
-    setPickedDateEnd("");
-    setTimeFilter("all");
-    setTypeFilter("all");
+  function openFilter() {
+    // Seed draft from current committed state so chips reflect what is applied.
+    setDraftDateFilter(dateFilter);
+    setDraftPickedDate(pickedDate);
+    setDraftPickedDateEnd(pickedDateEnd);
+    setDraftTimeFilter(timeFilter);
+    setDraftTypeFilter(typeFilter);
+    setFilterClosing(false);
+    setFiltersOpen(true);
   }
 
-  function handleDateTap(iso: string) {
-    if (pickedDate === "" || pickedDateEnd !== "") {
-      setPickedDate(iso);
-      setPickedDateEnd("");
-      setDateFilter("pick_date");
+  function closeFilter() {
+    setFilterClosing(true);
+    setTimeout(() => {
+      setFiltersOpen(false);
+      setFilterClosing(false);
+    }, 250);
+  }
+
+  function confirmFilters() {
+    setDateFilter(draftDateFilter);
+    setPickedDate(draftPickedDate);
+    setPickedDateEnd(draftPickedDateEnd);
+    setTimeFilter(draftTimeFilter);
+    setTypeFilter(draftTypeFilter);
+    closeFilter();
+  }
+
+  function clearDraftFilters() {
+    setDraftDateFilter("all");
+    setDraftPickedDate("");
+    setDraftPickedDateEnd("");
+    setDraftTimeFilter("all");
+    setDraftTypeFilter("all");
+  }
+
+  function handleDraftDateTap(iso: string) {
+    if (draftPickedDate === "" || draftPickedDateEnd !== "") {
+      setDraftPickedDate(iso);
+      setDraftPickedDateEnd("");
+      setDraftDateFilter("pick_date");
     } else {
-      if (iso === pickedDate) setPickedDateEnd(iso);
-      else if (iso < pickedDate) setPickedDate(iso);
-      else setPickedDateEnd(iso);
+      if (iso === draftPickedDate) setDraftPickedDateEnd(iso);
+      else if (iso < draftPickedDate) setDraftPickedDate(iso);
+      else setDraftPickedDateEnd(iso);
     }
   }
+
   const genRef = useRef(0);
   const filteredGenRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -858,6 +896,24 @@ export function EventsList() {
     });
   }, [isFiltered, filteredPool, events, category, dateFilter, pickedDate, pickedDateEnd, timeFilter, typeFilter]);
 
+  // Count of events matching draft filters — shown live in the filter sheet header.
+  const draftFilteredCount = useMemo(() => {
+    const source = isFiltered ? filteredPool : events;
+    return source.filter((e) => {
+      if (category !== "all" && e.category_primary !== category) return false;
+      if (!isInDateWindow(e.start_at, draftDateFilter, draftPickedDate, draftPickedDateEnd)) return false;
+      if (draftTimeFilter !== "all") {
+        const hour = new Date(e.start_at).getHours();
+        if (draftTimeFilter === "morning"   && !(hour >= 6  && hour < 12)) return false;
+        if (draftTimeFilter === "afternoon" && !(hour >= 12 && hour < 18)) return false;
+        if (draftTimeFilter === "evening"   && !(hour >= 18)) return false;
+      }
+      if (draftTypeFilter === "public"  && e.source === "manual") return false;
+      if (draftTypeFilter === "private" && e.source !== "manual") return false;
+      return true;
+    }).length;
+  }, [isFiltered, filteredPool, events, category, draftDateFilter, draftPickedDate, draftPickedDateEnd, draftTimeFilter, draftTypeFilter]);
+
   // Suggestions: top-5 titles from the pool, shown only when search returned nothing.
   // Fast path: word overlap. Fallback: fuzzy (Levenshtein) when overlap finds nothing.
   const suggestions = useMemo<SuggestionItem[]>(() => {
@@ -972,7 +1028,7 @@ export function EventsList() {
         {/* Filter button — matches search height and surface */}
         <button
           type="button"
-          onClick={() => setFiltersOpen(true)}
+          onClick={() => openFilter()}
           aria-label="Filters"
           style={{
             width: 40, height: 40, borderRadius: "50%",
@@ -1411,59 +1467,128 @@ export function EventsList() {
         </div>
       )}
 
-      {/* Filters bottom sheet — matches /map layout exactly */}
-      {filtersOpen && (
+      {/* Filters bottom sheet — identical to /map filter sheet */}
+      {(filtersOpen || filterClosing) && (
         <div
-          onClick={(e) => e.target === e.currentTarget && setFiltersOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+          onClick={(e) => e.target === e.currentTarget && closeFilter()}
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            zIndex: 300, display: "flex", alignItems: "flex-end",
+          }}
         >
-          <div style={{ background: "#101722", width: "100%", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", maxHeight: "85dvh", border: "1px solid rgba(255,255,255,0.06)", borderBottom: "none" }}>
+          <div
+            className={filterClosing ? "filter-sheet-exit" : "filter-sheet-enter"}
+            style={{
+              background: "linear-gradient(180deg, #1c2535 0%, #0b0f14 60%)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderBottom: "none",
+              width: "100%",
+              borderRadius: "20px 20px 0 0",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "85dvh",
+            }}
+          >
+            {/* Grab handle */}
+            <div style={{ display: "flex", justifyContent: "center", paddingTop: 10 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.40)" }} />
+            </div>
 
-            {/* Fixed header: drag handle + title + X */}
-            <div style={{ flexShrink: 0, padding: "12px 20px 0" }}>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-                <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.12)" }} />
+            {/* Header: X · title+count · ✓ */}
+            <div
+              style={{
+                flexShrink: 0,
+                padding: "12px 16px 14px",
+                borderBottom: "1px solid rgba(255,255,255,0.08)",
+                display: "grid",
+                gridTemplateColumns: "40px 1fr 40px",
+                alignItems: "center",
+              }}
+            >
+              {/* Close — discard draft */}
+              <button
+                type="button"
+                onClick={closeFilter}
+                aria-label="Close filters"
+                style={{
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  cursor: "pointer", color: "#F5F7FA",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="1" y1="1" x2="13" y2="13" /><line x1="13" y1="1" x2="1" y2="13" />
+                </svg>
+              </button>
+
+              {/* Title + live count */}
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: "#FFFFFF" }}>Filters</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
+                  {draftFilteredCount} event{draftFilteredCount !== 1 ? "s" : ""}
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 16 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", color: "#F5F7FA" }}>Filters</span>
-                <button
-                  type="button"
-                  onClick={() => setFiltersOpen(false)}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 22, opacity: 0.35, lineHeight: 1, padding: 4, color: "#F5F7FA" }}
-                >
-                  ×
-                </button>
-              </div>
+
+              {/* Confirm — commit draft */}
+              <button
+                type="button"
+                onClick={confirmFilters}
+                aria-label="Apply filters"
+                style={{
+                  width: 34, height: 34, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  cursor: "pointer", color: "#F5F7FA",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, justifySelf: "end",
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="2,8 6,12 13,3" />
+                </svg>
+              </button>
             </div>
 
             {/* Scrollable filter content */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px", display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 24 }}>
 
               {/* Date */}
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#8C98A8", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 10 }}>Date</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.07em", textTransform: "uppercase" as const, marginBottom: 10 }}>
+                  Date
+                </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {DATE_OPTIONS.map((opt) => {
                     const isPickDate = opt.id === "pick_date";
-                    const isActive   = dateFilter === opt.id;
+                    const isActive   = draftDateFilter === opt.id;
                     let label = opt.label;
-                    if (isPickDate && pickedDate) {
+                    if (isPickDate && draftPickedDate) {
                       const fmt = (iso: string) =>
                         new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-                      label = pickedDateEnd && pickedDateEnd !== pickedDate
-                        ? `${fmt(pickedDate)} → ${fmt(pickedDateEnd)}`
-                        : fmt(pickedDate);
+                      label = draftPickedDateEnd && draftPickedDateEnd !== draftPickedDate
+                        ? `${fmt(draftPickedDate)} → ${fmt(draftPickedDateEnd)}`
+                        : fmt(draftPickedDate);
                     }
                     return (
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => setDateFilter(opt.id)}
+                        onClick={() => setDraftDateFilter(opt.id)}
                         style={{
-                          padding: "7px 14px", borderRadius: 999,
-                          background: isActive ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
-                          border: isActive ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
-                          color: isActive ? "#5EA8FF" : "#C7D0DB",
+                          padding: "7px 14px", borderRadius: 20,
+                          border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                          background: isActive
+                            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                            : "rgba(255,255,255,0.07)",
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.70)",
                           fontSize: 13, fontWeight: 600, cursor: "pointer",
                         }}
                       >
@@ -1472,96 +1597,98 @@ export function EventsList() {
                     );
                   })}
                 </div>
-                {dateFilter === "pick_date" && (
+                {draftDateFilter === "pick_date" && (
                   <MiniCalendar
-                    start={pickedDate}
-                    end={pickedDateEnd}
-                    onDayTap={handleDateTap}
+                    start={draftPickedDate}
+                    end={draftPickedDateEnd}
+                    onDayTap={handleDraftDateTap}
                   />
                 )}
               </div>
 
               {/* Time */}
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#8C98A8", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 10 }}>Time</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.07em", textTransform: "uppercase" as const, marginBottom: 10 }}>
+                  Time
+                </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {TIME_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setTimeFilter(opt.id)}
-                      style={{
-                        padding: "7px 14px", borderRadius: 999,
-                        background: timeFilter === opt.id ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
-                        border: timeFilter === opt.id ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
-                        color: timeFilter === opt.id ? "#5EA8FF" : "#C7D0DB",
-                        fontSize: 13, fontWeight: 600, cursor: "pointer",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                  {TIME_OPTIONS.map((opt) => {
+                    const isActive = draftTimeFilter === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDraftTimeFilter(opt.id)}
+                        style={{
+                          padding: "7px 14px", borderRadius: 20,
+                          border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                          background: isActive
+                            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                            : "rgba(255,255,255,0.07)",
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.70)",
+                          fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Type */}
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#8C98A8", letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 10 }}>Type</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setTypeFilter(opt.id)}
-                      style={{
-                        padding: "7px 14px", borderRadius: 999,
-                        background: typeFilter === opt.id ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)",
-                        border: typeFilter === opt.id ? "1px solid rgba(94,168,255,0.30)" : "1px solid rgba(255,255,255,0.06)",
-                        color: typeFilter === opt.id ? "#5EA8FF" : "#C7D0DB",
-                        fontSize: 13, fontWeight: 600, cursor: "pointer",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", letterSpacing: "0.07em", textTransform: "uppercase" as const, marginBottom: 10 }}>
+                  Type
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {TYPE_OPTIONS.map((opt) => {
+                    const isActive = draftTypeFilter === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDraftTypeFilter(opt.id)}
+                        style={{
+                          padding: "7px 14px", borderRadius: 20,
+                          border: isActive ? "none" : "1px solid rgba(255,255,255,0.10)",
+                          background: isActive
+                            ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                            : "rgba(255,255,255,0.07)",
+                          color: isActive ? "#fff" : "rgba(255,255,255,0.70)",
+                          fontSize: 13, fontWeight: 600, cursor: "pointer",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Clear filters — only shown when filters are active; matches /map style */}
-              {activeFilterCount > 0 && (
+              {/* Clear — always shown, resets draft to defaults */}
+              <div style={{ display: "flex", justifyContent: "center", paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))" }}>
                 <button
                   type="button"
-                  onClick={handleResetFilters}
+                  onClick={clearDraftFilters}
+                  className="filter-clear-btn"
                   style={{
-                    padding: "10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    background: "rgba(255,255,255,0.04)",
-                    cursor: "pointer",
-                    fontSize: 14,
+                    padding: "9px 28px",
+                    borderRadius: 20,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,255,255,0.08)",
+                    color: "rgba(255,255,255,0.85)",
+                    fontSize: 13,
                     fontWeight: 600,
-                    color: "#8C98A8",
+                    cursor: "pointer",
+                    backdropFilter: "blur(8px)",
+                    WebkitBackdropFilter: "blur(8px)",
                   }}
                 >
-                  Clear filters
+                  Clear
                 </button>
-              )}
-
-              {/* Bottom spacer so last item clears the sticky CTA */}
-              <div style={{ height: 8 }} />
+              </div>
             </div>
-
-            {/* Sticky CTA footer */}
-            <div style={{ flexShrink: 0, padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid rgba(255,255,255,0.06)", background: "#101722" }}>
-              <button
-                type="button"
-                onClick={() => setFiltersOpen(false)}
-                style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", background: "#3B82F6", color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.01em" }}
-              >
-                {loading ? "Loading…" : `Show ${filtered.length}${!exhausted ? "+" : ""} event${filtered.length !== 1 ? "s" : ""}`}
-              </button>
-            </div>
-
           </div>
         </div>
       )}
