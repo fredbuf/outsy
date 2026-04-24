@@ -3,6 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "../../components/AuthProvider";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
@@ -134,6 +135,7 @@ type Props = {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function PublicEventSwipePage(props: Props) {
+  const { session } = useAuth();
   const {
     id, imageUrl, title, category, source,
     creatorId, creator, cohostIds,
@@ -421,6 +423,8 @@ export function PublicEventSwipePage(props: Props) {
                     initialAttendees={attendees}
                     goingCount={rsvpCounts.going}
                     maybeCount={rsvpCounts.maybe}
+                    visibility="public"
+                    token={session?.access_token ?? null}
                     avatarSize={28}
                   />
                 ) : (

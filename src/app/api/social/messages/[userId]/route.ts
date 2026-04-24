@@ -216,6 +216,7 @@ export async function POST(
         venue_name: (venueRaw as { name: string } | null)?.name ?? null,
       },
       created_at: newMessage.created_at as string,
+      deleted_at: null,
     };
 
     return NextResponse.json({ ok: true, message: messageRow });
@@ -246,6 +247,7 @@ export async function POST(
     event_id: null,
     event: null,
     created_at: newMessage.created_at as string,
+    deleted_at: null,
   };
 
   return NextResponse.json({ ok: true, message: messageRow });

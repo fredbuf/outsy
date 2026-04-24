@@ -105,7 +105,7 @@ export function PrivateEventSwipePage(props: Props) {
     previewError = null,
   } = props;
 
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const isHostOrCohost = !previewMode && Boolean(user) && (
     user!.id === creatorId || cohostIds.includes(user!.id)
   );
@@ -383,6 +383,8 @@ export function PrivateEventSwipePage(props: Props) {
                     initialAttendees={attendees}
                     goingCount={rsvpCounts.going}
                     maybeCount={rsvpCounts.maybe}
+                    visibility="private"
+                    token={session?.access_token ?? null}
                     avatarSize={28}
                   />
                 ) : (

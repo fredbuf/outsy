@@ -9,6 +9,7 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Attendee = { display_name: string | null; avatar_url: string | null; userId?: string | null };
 type FullAttendee = Attendee & { response: "going" | "maybe" };
+type RpcRow = { user_id: string; response: string; display_name: string | null; avatar_url: string | null; username: string | null };
 
 const AVATAR_COLORS = [
   "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
@@ -100,12 +101,16 @@ export function AttendeeList({
   initialAttendees,
   goingCount,
   maybeCount,
+  visibility,
+  token,
   avatarSize = 30,
 }: {
   eventId: string;
   initialAttendees: Attendee[];
   goingCount: number;
   maybeCount: number;
+  visibility: "public" | "unlisted" | "private";
+  token: string | null;
   avatarSize?: number;
 }) {
   const router = useRouter();
@@ -145,25 +150,20 @@ export function AttendeeList({
       sp.set("guests", "open");
       router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
     }
+    // Unauthenticated — modal will show a sign-in prompt; no fetch needed
+    if (!token) return;
     if (allAttendees !== null) return;
     setFetching(true);
-    const { data } = await supabaseBrowser()
-      .from("rsvps")
-      .select("response,profiles(id,display_name,avatar_url)")
-      .eq("event_id", eventId)
-      .in("response", ["going", "maybe"])
-      .order("updated_at", { ascending: false })
-      .limit(100);
 
-    type ProfileRow = { id: string; display_name: string | null; avatar_url: string | null };
-    const attendees: FullAttendee[] = [];
-    for (const row of (data ?? []) as {
-      response: string;
-      profiles: ProfileRow | ProfileRow[] | null;
-    }[]) {
-      const p = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-      if (p) attendees.push({ display_name: p.display_name, avatar_url: p.avatar_url, userId: p.id, response: row.response as "going" | "maybe" });
-    }
+    const rpcName = visibility === "private" ? "get_event_rsvp_list" : "get_friend_rsvps";
+    const { data } = await supabaseBrowser().rpc(rpcName, { p_event_id: eventId });
+
+    const attendees: FullAttendee[] = ((data as RpcRow[]) ?? []).map((row) => ({
+      display_name: row.display_name,
+      avatar_url: row.avatar_url,
+      userId: row.user_id,
+      response: row.response as "going" | "maybe",
+    }));
     setAllAttendees(attendees);
     setFetching(false);
   }
@@ -295,47 +295,56 @@ export function AttendeeList({
             >
               {fetching ? (
                 <p style={{ opacity: 0.5, fontSize: 14 }}>Loading…</p>
-              ) : (
+              ) : !token ? (
+                <p style={{ opacity: 0.5, fontSize: 14 }}>
+                  {visibility === "private"
+                    ? "Sign in to see who's going to this event."
+                    : "Sign in to see which friends are going."}
+                </p>
+              ) : visibility === "private" ? (
+                // Private events: show all attendees; collapse empty sections
                 <>
                   {going.length > 0 && (
                     <section style={{ display: "grid", gap: 10 }}>
-                      <h3
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          opacity: 0.45,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.07em",
-                        }}
-                      >
+                      <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                         Going · {going.length}
                       </h3>
-                      {going.map((a, i) => (
-                        <AttendeeRow key={i} a={a} />
-                      ))}
+                      {going.map((a, i) => <AttendeeRow key={i} a={a} />)}
                     </section>
                   )}
                   {interested.length > 0 && (
                     <section style={{ display: "grid", gap: 10 }}>
-                      <h3
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          opacity: 0.45,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.07em",
-                        }}
-                      >
+                      <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
                         Interested · {interested.length}
                       </h3>
-                      {interested.map((a, i) => (
-                        <AttendeeRow key={i} a={a} />
-                      ))}
+                      {interested.map((a, i) => <AttendeeRow key={i} a={a} />)}
                     </section>
                   )}
                   {going.length === 0 && interested.length === 0 && (
-                    <p style={{ opacity: 0.5, fontSize: 14 }}>No responses yet.</p>
+                    <p style={{ opacity: 0.5, fontSize: 14 }}>No guests yet.</p>
                   )}
+                </>
+              ) : (
+                // Public/unlisted: show friend responses; always render both sections with empty states
+                <>
+                  <section style={{ display: "grid", gap: 10 }}>
+                    <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                      Going · {going.length}
+                    </h3>
+                    {going.length > 0
+                      ? going.map((a, i) => <AttendeeRow key={i} a={a} />)
+                      : <p style={{ opacity: 0.5, fontSize: 14, margin: 0 }}>No friends have responded Going.</p>
+                    }
+                  </section>
+                  <section style={{ display: "grid", gap: 10 }}>
+                    <h3 style={{ fontSize: 11, fontWeight: 600, opacity: 0.45, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                      Interested · {interested.length}
+                    </h3>
+                    {interested.length > 0
+                      ? interested.map((a, i) => <AttendeeRow key={i} a={a} />)
+                      : <p style={{ opacity: 0.5, fontSize: 14, margin: 0 }}>No friends have responded Interested.</p>
+                    }
+                  </section>
                 </>
               )}
             </div>

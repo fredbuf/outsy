@@ -26,7 +26,8 @@ export function PrivateActionArea({
   initialAttendees: Attendee[];
   preview?: EventPreview;
 }) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const token = session?.access_token ?? null;
   const isHost =
     Boolean(user) &&
     (user!.id === creatorId || cohostIds.includes(user!.id));
@@ -38,6 +39,7 @@ export function PrivateActionArea({
       creatorId={creatorId}
       initialCounts={initialCounts}
       initialAttendees={initialAttendees}
+      token={token}
       preview={preview}
     />
   ) : (
@@ -46,6 +48,7 @@ export function PrivateActionArea({
       eventTitle={eventTitle}
       initialCounts={initialCounts}
       initialAttendees={initialAttendees}
+      token={token}
       preview={preview}
     />
   );
@@ -58,6 +61,7 @@ function HostView({
   eventTitle,
   initialCounts,
   initialAttendees,
+  token,
   preview,
 }: {
   eventId: string;
@@ -65,6 +69,7 @@ function HostView({
   creatorId: string | null;
   initialCounts: Counts;
   initialAttendees: Attendee[];
+  token: string | null;
   preview?: EventPreview;
 }) {
   return (
@@ -88,6 +93,8 @@ function HostView({
             initialAttendees={initialAttendees}
             goingCount={initialCounts.going}
             maybeCount={initialCounts.maybe}
+            visibility="private"
+            token={token}
             avatarSize={36}
           />
         ) : (
@@ -105,12 +112,14 @@ function GuestView({
   eventTitle,
   initialCounts,
   initialAttendees,
+  token,
   preview,
 }: {
   eventId: string;
   eventTitle: string;
   initialCounts: Counts;
   initialAttendees: Attendee[];
+  token: string | null;
   preview?: EventPreview;
 }) {
   return (
@@ -138,6 +147,8 @@ function GuestView({
             initialAttendees={initialAttendees}
             goingCount={initialCounts.going}
             maybeCount={initialCounts.maybe}
+            visibility="private"
+            token={token}
             avatarSize={36}
           />
         ) : (
