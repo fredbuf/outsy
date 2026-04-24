@@ -2427,11 +2427,16 @@ export function MomentsClient({
 
   const userId = user?.id ?? null;
 
+  const token = session?.access_token ?? null;
+
   const fetchMoments = useCallback(async () => {
     try {
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       const res = await fetch(`/api/events/${eventId}/moments`, {
         // Bypass browser/CDN cache — always read latest rows from Supabase.
         cache: "no-store",
+        headers,
       });
       const data = (await res.json()) as { ok: boolean; moments?: MomentRow[]; error?: string };
       if (data.ok && data.moments) {
@@ -2454,8 +2459,8 @@ export function MomentsClient({
     } catch (err) {
       console.error("[fetchMoments] network error:", err);
     }
-  // userId is a stable primitive derived from user?.id — safe dep
-  }, [eventId, userId]);
+  // userId and token are stable primitives — safe deps
+  }, [eventId, userId, token]);
 
   // On mount, immediately fetch fresh moments from the API to override any stale
   // initialMoments that the server may have delivered (router cache, data cache,
