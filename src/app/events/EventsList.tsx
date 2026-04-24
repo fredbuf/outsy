@@ -1212,54 +1212,66 @@ export function EventsList() {
                   const rsvpCount = tileRsvp.counts[e.id] ?? 0;
                   const rsvpNames = tileRsvp.names[e.id] ?? [];
                   const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
-                  const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                   const isRecurring = recurringSet.has(e.id);
+                  const venueLabel = e.venues?.name
+                    ? `${isRecurring ? "↻ " : ""}${e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}`
+                    : null;
+                  const infoLine = [smartDate(e.start_at), venueLabel].filter(Boolean).join(" · ");
                   return (
                     <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
-                      <div style={{ position: "relative", width: "min(82vw, 320px)", height: 245, borderRadius: 28, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
+                      <div style={{ position: "relative", width: 232, height: 165, borderRadius: 14, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
+                        {/* Background image */}
                         {e.image_url && (
                           <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
-                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)" }} />
+                        {/* Top gradient: darkens top edge for avatar/button contrast */}
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(28,28,28,0.6) 0%, rgba(28,28,28,0) 21%)", pointerEvents: "none" }} />
+                        {/* Bottom gradient: fades to #1c1c1c for text legibility */}
+                        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(28,28,28,0.13) 69%, #1c1c1c 100%)", pointerEvents: "none" }} />
+
+                        {/* Social avatars — top left */}
+                        {rsvpCount > 0 && (
+                          <div style={{ position: "absolute", top: 7, left: 7, display: "flex", alignItems: "center" }}>
+                            {[0, 1, 2].map((idx) => {
+                              if (!rsvpAvatars[idx] && !rsvpNames[idx]) return null;
+                              return rsvpAvatars[idx] ? (
+                                <img key={idx} src={rsvpAvatars[idx]} alt="" style={{ width: 15, height: 15, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -5 : 0 }} />
+                              ) : (
+                                <div key={idx} style={{ width: 15, height: 15, borderRadius: "50%", background: getAvatarColor(rsvpNames[idx]!), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 6, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -5 : 0 }}>
+                                  {rsvpNames[idx]![0].toUpperCase()}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Interested button — top right */}
                         <button
                           type="button"
                           aria-label={starred ? "Remove from saved" : "Save event"}
                           onClick={(ev) => handleStar(e.id, ev)}
                           style={{
-                            position: "absolute", top: 8, right: 8,
-                            width: 30, height: 30, borderRadius: "50%", border: "none",
-                            background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)",
+                            position: "absolute", top: 6, right: 7,
+                            width: 24, height: 24, borderRadius: "50%", border: "none",
+                            background: starred ? "rgba(94,168,255,0.85)" : "transparent",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             cursor: pending ? "wait" : "pointer",
-                            color: starred ? "#fff" : "rgba(255,255,255,0.8)",
                             opacity: pending ? 0.6 : 1,
+                            padding: 0,
                           }}
                         >
-                          <HeartIcon filled={starred} />
+                          <img src="/icons/IconInterested.svg" alt="" style={{ width: 14, height: 14, opacity: starred ? 1 : 0.85 }} />
                         </button>
-                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
-                          <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
-                          {eEdition && (
-                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
-                          )}
-                          {e.venues?.name && (
-                            <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
-                            </div>
-                          )}
-                        </div>
-                        {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
-                          <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
-                            {rsvpAvatars[0] ? (
-                              <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
-                            ) : (
-                              <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                                {rsvpNames[0]![0].toUpperCase()}
-                              </div>
-                            )}
+
+                        {/* Title + info — centered at bottom */}
+                        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 8px 10px", textAlign: "center", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, marginBottom: 3 }}>
+                            {e.title}
                           </div>
-                        )}
+                          <div style={{ fontSize: 9, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
+                            {infoLine}
+                          </div>
+                        </div>
                       </div>
                     </Link>
                   );
