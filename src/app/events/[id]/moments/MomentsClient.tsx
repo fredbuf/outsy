@@ -1798,55 +1798,46 @@ function SurveyBlock({
   currentUserId: string | null;
   token: string | null;
 }) {
-  const myVotedOptionId = currentUserId
-    ? options.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
-    : null;
-  const hasVoted = myVotedOptionId !== null;
-
-  // Local optimistic state: map option_id → vote count + whether I voted
   const [localOptions, setLocalOptions] = useState<SurveyOptionRow[]>(options);
   const [voting, setVoting] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalClosing, setModalClosing] = useState(false);
+  // breakdown: which option id to drill into (null = main list view)
+  const [breakdownId, setBreakdownId] = useState<string | null>(null);
+  // scale feedback per option
+  const [pressedId, setPressedId] = useState<string | null>(null);
 
-  // Sync when props change (e.g. background fetchMoments)
-  useEffect(() => {
-    setLocalOptions(options);
-  }, [options]);
+  useEffect(() => { setLocalOptions(options); }, [options]);
 
   const localTotal = localOptions.reduce((s, o) => s + o.votes.length, 0);
+  const localMyVote = currentUserId
+    ? localOptions.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
+    : null;
 
   async function handleVote(optionId: string) {
     if (!token || voting) return;
     const myPrevVote = currentUserId
       ? localOptions.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
       : null;
-
-    // Optimistic update
     setLocalOptions((prev) =>
       prev.map((o) => {
         if (o.id === myPrevVote && myPrevVote !== optionId) {
-          // Remove old vote
           return { ...o, votes: o.votes.filter((v) => v.user_id !== currentUserId) };
         }
         if (o.id === optionId) {
           if (myPrevVote === optionId) {
-            // Toggle off
             return { ...o, votes: o.votes.filter((v) => v.user_id !== currentUserId) };
           }
-          // Add vote (optimistic — profile fields filled in on next background fetch)
-          return { ...o, votes: [...o.votes, { user_id: currentUserId!, display_name: null, avatar_url: null }] };
+          return { ...o, votes: [...o.votes, { user_id: currentUserId!, display_name: null, avatar_url: null, username: null }] };
         }
         return o;
       })
     );
-
     setVoting(true);
     try {
       await fetch(`/api/events/${eventId}/moments/${momentId}/survey-vote`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ option_id: optionId }),
       });
     } finally {
@@ -1854,79 +1845,369 @@ function SurveyBlock({
     }
   }
 
-  const localMyVote = currentUserId
-    ? localOptions.find((o) => o.votes.some((v) => v.user_id === currentUserId))?.id ?? null
-    : null;
+  function openModal() {
+    setBreakdownId(null);
+    setModalClosing(false);
+    setModalOpen(true);
+    document.body.style.overflow = "hidden";
+  }
 
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, lineHeight: 1.3 }}>
+  function closeModal() {
+    setModalClosing(true);
+    setTimeout(() => {
+      setModalOpen(false);
+      setModalClosing(false);
+      setBreakdownId(null);
+      document.body.style.overflow = "";
+    }, 180);
+  }
+
+  // ── Preview (inline in card) ────────────────────────────────────────────────
+  const preview = (
+    <div
+      style={{ marginBottom: 12, cursor: "pointer" }}
+      onClick={openModal}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && openModal()}
+      aria-label="Open survey"
+    >
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, lineHeight: 1.3, color: "#F5F7FA" }}>
         {question}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {localOptions.map((opt) => {
           const count = opt.votes.length;
           const pct = localTotal > 0 ? Math.round((count / localTotal) * 100) : 0;
           const isSelected = localMyVote === opt.id;
-          const showResults = hasVoted || localMyVote !== null;
-
           return (
-            <button
+            <div
               key={opt.id}
-              type="button"
-              onClick={() => void handleVote(opt.id)}
-              disabled={voting || !token}
               style={{
                 position: "relative", overflow: "hidden",
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 12px", borderRadius: 10,
+                padding: "9px 11px", borderRadius: 10, gap: 8,
                 border: isSelected
-                  ? "1px solid rgba(167,139,250,0.55)"
-                  : "1px solid rgba(255,255,255,0.10)",
-                background: "rgba(255,255,255,0.04)",
-                cursor: token && !voting ? "pointer" : "default",
-                color: "inherit", textAlign: "left",
-                transition: "border-color 0.15s",
-                gap: 8,
+                  ? "1px solid rgba(94,168,255,0.45)"
+                  : "1px solid rgba(255,255,255,0.09)",
+                background: isSelected
+                  ? "rgba(94,168,255,0.08)"
+                  : "rgba(255,255,255,0.04)",
               }}
             >
               {/* Fill bar */}
-              {showResults && (
-                <span style={{
-                  position: "absolute", inset: 0, right: `${100 - pct}%`,
-                  background: isSelected ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.05)",
-                  transition: "right 0.3s ease",
-                  pointerEvents: "none",
-                }} />
-              )}
-              {/* Option text */}
-              <span style={{ position: "relative", fontSize: 14, fontWeight: isSelected ? 600 : 400, flex: 1 }}>
+              <span style={{
+                position: "absolute", inset: 0, right: `${100 - pct}%`,
+                background: isSelected
+                  ? "rgba(94,168,255,0.12)"
+                  : "rgba(255,255,255,0.04)",
+                transition: "right 0.4s ease",
+                pointerEvents: "none",
+              }} />
+              <span style={{ position: "relative", fontSize: 13, fontWeight: isSelected ? 600 : 400, flex: 1, color: "#F5F7FA" }}>
                 {opt.text}
               </span>
-              {/* Right side: voter avatars (when results visible) or empty placeholder */}
               <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                {showResults && count > 0 && (
-                  <VoterAvatars voters={opt.votes as SurveyVoter[]} />
-                )}
-                {showResults && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 600, minWidth: 28, textAlign: "right",
-                    color: isSelected ? "#a78bfa" : "rgba(255,255,255,0.35)",
-                  }}>
-                    {pct}%
-                  </span>
-                )}
+                {count > 0 && <VoterAvatars voters={opt.votes as SurveyVoter[]} />}
+                <span style={{
+                  fontSize: 11, fontWeight: 600, minWidth: 26, textAlign: "right",
+                  color: isSelected ? "#5EA8FF" : "rgba(255,255,255,0.35)",
+                }}>
+                  {pct}%
+                </span>
               </span>
-            </button>
+            </div>
           );
         })}
       </div>
       {localTotal > 0 && (
-        <div style={{ marginTop: 6, fontSize: 11, opacity: 0.35 }}>
-          {localTotal} {localTotal === 1 ? "vote" : "votes"}
+        <div style={{ marginTop: 5, fontSize: 11, color: "rgba(255,255,255,0.30)" }}>
+          {localTotal} {localTotal === 1 ? "vote" : "votes"} · tap to expand
+        </div>
+      )}
+      {localTotal === 0 && (
+        <div style={{ marginTop: 5, fontSize: 11, color: "rgba(255,255,255,0.30)" }}>
+          No votes yet · tap to vote
         </div>
       )}
     </div>
+  );
+
+  // ── Modal body content ─────────────────────────────────────────────────────
+  const breakdownOpt = breakdownId ? localOptions.find((o) => o.id === breakdownId) : null;
+
+  const modalContent = breakdownOpt ? (
+    // Drill-down: voter list for one option
+    <>
+      {/* Back header */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "40px 1fr 40px",
+        alignItems: "center", padding: "18px 16px 14px", flexShrink: 0,
+      }}>
+        <button
+          type="button"
+          onClick={() => setBreakdownId(null)}
+          aria-label="Back"
+          style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+          }}
+        >
+          <svg width="8" height="14" viewBox="0 0 8 14" fill="none">
+            <path d="M7 1L1 7l6 6" stroke="#F5F7FA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.2 }}>
+            Voted for
+          </div>
+          <div style={{
+            fontSize: 12, color: "rgba(255,255,255,0.50)", marginTop: 2,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            padding: "0 8px",
+          }}>
+            {breakdownOpt.text}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={closeModal}
+          aria-label="Close"
+          style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", justifySelf: "end",
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M1 1l9 9M10 1L1 10" stroke="#F5F7FA" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Voter list */}
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 16 }}>
+        {breakdownOpt.votes.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 32px" }}>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.38)", textAlign: "center" }}>No votes yet.</p>
+          </div>
+        ) : (
+          breakdownOpt.votes.map((v, i) => (
+            <Link key={i} href={`/profile/${v.user_id}`} style={{ display: "block", textDecoration: "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 20px" }}>
+                {/* Avatar */}
+                <div style={{
+                  width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+                  overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
+                  background: voterAvatarColor(v.user_id), fontSize: 14, fontWeight: 700, color: "#fff",
+                }}>
+                  {v.avatar_url
+                    ? <img src={v.avatar_url} alt={v.display_name ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : voterInitials(v.display_name)
+                  }
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, color: "#F5F7FA", lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {v.display_name ?? "Anonymous"}
+                  </span>
+                  {v.username && (
+                    <span style={{ fontSize: 12, color: "rgba(255,255,255,0.38)" }}>@{v.username}</span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
+    </>
+  ) : (
+    // Main modal: full options list
+    <>
+      {/* Header */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "40px 1fr 40px",
+        alignItems: "center", padding: "18px 16px 14px", flexShrink: 0,
+      }}>
+        <div />
+        <div style={{ textAlign: "center" }}>
+          <div style={{
+            fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.3,
+            overflow: "hidden", textOverflow: "ellipsis",
+            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
+          }}>
+            {question}
+          </div>
+          {localTotal > 0 && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", marginTop: 3 }}>
+              {localTotal} {localTotal === 1 ? "vote" : "votes"}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={closeModal}
+          aria-label="Close"
+          style={{
+            width: 32, height: 32, borderRadius: "50%",
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.10)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", justifySelf: "end",
+            backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+            <path d="M1 1l9 9M10 1L1 10" stroke="#F5F7FA" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Options list */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {localOptions.length === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 32px" }}>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.38)", textAlign: "center" }}>No votes yet.</p>
+          </div>
+        ) : localOptions.map((opt) => {
+          const count = opt.votes.length;
+          const pct = localTotal > 0 ? Math.round((count / localTotal) * 100) : 0;
+          const isSelected = localMyVote === opt.id;
+          const isPressed = pressedId === opt.id;
+
+          return (
+            <div key={opt.id} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <button
+                type="button"
+                onPointerDown={() => setPressedId(opt.id)}
+                onPointerUp={() => setPressedId(null)}
+                onPointerLeave={() => setPressedId(null)}
+                onClick={() => {
+                  if (isSelected) {
+                    // Tap selected → drill-down
+                    setBreakdownId(opt.id);
+                  } else {
+                    void handleVote(opt.id);
+                  }
+                }}
+                disabled={voting && !isSelected}
+                style={{
+                  position: "relative", overflow: "hidden",
+                  display: "flex", alignItems: "center",
+                  padding: "13px 14px", borderRadius: 14, gap: 10,
+                  border: isSelected
+                    ? "1px solid rgba(94,168,255,0.50)"
+                    : "1px solid rgba(255,255,255,0.09)",
+                  background: isSelected
+                    ? "rgba(94,168,255,0.10)"
+                    : "rgba(255,255,255,0.05)",
+                  boxShadow: isSelected ? "0 0 0 1px rgba(94,168,255,0.18) inset" : "none",
+                  cursor: "pointer", color: "inherit", textAlign: "left",
+                  transition: "border-color 0.15s, background 0.15s, transform 0.1s",
+                  transform: isPressed ? "scale(0.98)" : "scale(1)",
+                }}
+              >
+                {/* Fill bar */}
+                <span style={{
+                  position: "absolute", inset: 0, right: `${100 - pct}%`,
+                  background: isSelected
+                    ? "linear-gradient(90deg, rgba(94,168,255,0.18) 0%, rgba(37,99,235,0.10) 100%)"
+                    : "rgba(255,255,255,0.04)",
+                  transition: "right 0.4s cubic-bezier(0.4,0,0.2,1)",
+                  pointerEvents: "none",
+                  borderRadius: 14,
+                }} />
+
+                {/* Option text */}
+                <span style={{
+                  position: "relative", fontSize: 15,
+                  fontWeight: isSelected ? 700 : 500, flex: 1,
+                  color: isSelected ? "#F5F7FA" : "rgba(255,255,255,0.82)",
+                  lineHeight: 1.35,
+                }}>
+                  {opt.text}
+                </span>
+
+                {/* Right: avatars + pct */}
+                <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  {count > 0 && <VoterAvatars voters={opt.votes as SurveyVoter[]} />}
+                  <span style={{
+                    fontSize: 13, fontWeight: 700, minWidth: 32, textAlign: "right",
+                    color: isSelected ? "#5EA8FF" : "rgba(255,255,255,0.35)",
+                  }}>
+                    {pct}%
+                  </span>
+                </span>
+              </button>
+
+              {/* "See voters" affordance — always visible when count > 0 */}
+              {count > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setBreakdownId(opt.id)}
+                  style={{
+                    alignSelf: "flex-start", marginLeft: 6, marginTop: 4,
+                    background: "none", border: "none", padding: "2px 0",
+                    cursor: "pointer", color: "rgba(255,255,255,0.30)",
+                    fontSize: 11, display: "flex", alignItems: "center", gap: 3,
+                  }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <circle cx="5" cy="4" r="2" stroke="currentColor" strokeWidth="1.2" />
+                    <path d="M1 9c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                  </svg>
+                  {count} {count === 1 ? "voter" : "voters"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {!token && (
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", textAlign: "center", marginTop: 8 }}>
+            Sign in to vote.
+          </p>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {preview}
+
+      {modalOpen && createPortal(
+        <div
+          onClick={(e) => e.target === e.currentTarget && closeModal()}
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.60)",
+            backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+            zIndex: 400,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "24px 16px",
+          }}
+        >
+          <div
+            className={modalClosing ? "modal-zoom-exit" : "modal-zoom-enter"}
+            style={{
+              width: "100%", maxWidth: 420,
+              height: "min(540px, 82dvh)",
+              display: "flex", flexDirection: "column",
+              borderRadius: 24, overflow: "hidden",
+              background: "rgba(13,18,28,0.96)",
+              backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
+            }}
+          >
+            {modalContent}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 

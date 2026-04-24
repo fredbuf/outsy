@@ -16,6 +16,7 @@ export type SurveyVoter = {
   user_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  username?: string | null;
 };
 
 export type SurveyOptionRow = {
@@ -139,16 +140,17 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
 
       // Batch-fetch voter profiles
       const voterIds = [...new Set((voteRows ?? []).map((v) => (v as { user_id: string }).user_id))];
-      const voterProfilesMap = new Map<string, { display_name: string | null; avatar_url: string | null }>();
+      const voterProfilesMap = new Map<string, { display_name: string | null; avatar_url: string | null; username: string | null }>();
       if (voterIds.length > 0) {
         const { data: voterProfiles } = await supabase
           .from("profiles")
-          .select("id,display_name,avatar_url")
+          .select("id,display_name,avatar_url,username")
           .in("id", voterIds);
         for (const p of voterProfiles ?? []) {
           voterProfilesMap.set(p.id as string, {
             display_name: p.display_name as string | null,
             avatar_url: p.avatar_url as string | null,
+            username: p.username as string | null,
           });
         }
       }
@@ -158,7 +160,7 @@ async function fetchMoments(eventId: string): Promise<MomentRow[]> {
         const userId = (v as { user_id: string }).user_id;
         const profile = voterProfilesMap.get(userId);
         const arr = votesMap.get(optId) ?? [];
-        arr.push({ user_id: userId, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null });
+        arr.push({ user_id: userId, display_name: profile?.display_name ?? null, avatar_url: profile?.avatar_url ?? null, username: profile?.username ?? null });
         votesMap.set(optId, arr);
       }
     }

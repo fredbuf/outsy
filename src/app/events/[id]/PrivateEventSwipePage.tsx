@@ -383,9 +383,13 @@ export function PrivateEventSwipePage(props: Props) {
                     initialAttendees={attendees}
                     goingCount={rsvpCounts.going}
                     maybeCount={rsvpCounts.maybe}
+                    cantGoCount={rsvpCounts.cant_go}
                     visibility="private"
                     token={session?.access_token ?? null}
                     avatarSize={28}
+                    creatorId={creatorId}
+                    creator={creator}
+                    cohostProfiles={cohostProfiles}
                   />
                 ) : (
                   <span style={{ fontSize: 12, opacity: 0.45 }}>

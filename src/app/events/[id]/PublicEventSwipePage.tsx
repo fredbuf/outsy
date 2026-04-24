@@ -423,9 +423,12 @@ export function PublicEventSwipePage(props: Props) {
                     initialAttendees={attendees}
                     goingCount={rsvpCounts.going}
                     maybeCount={rsvpCounts.maybe}
+                    cantGoCount={rsvpCounts.cant_go}
                     visibility="public"
                     token={session?.access_token ?? null}
                     avatarSize={28}
+                    creatorId={creatorId}
+                    creator={creator}
                   />
                 ) : (
                   <span style={{ fontSize: 12, opacity: 0.45 }}>No guests yet — be first!</span>
