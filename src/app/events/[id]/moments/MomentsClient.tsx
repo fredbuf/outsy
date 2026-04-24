@@ -1555,7 +1555,25 @@ function InlineComments({
       {loading && (
         <p style={{ fontSize: 12, opacity: 0.35, margin: "0 0 8px" }}>Loading…</p>
       )}
-      {!loading && loadError && (
+      {!loading && loadError && loadError === "Not authorized." && !token && (
+        <div style={{ margin: "0 0 8px" }}>
+          <p style={{ fontSize: 12, opacity: 0.55, margin: "0 0 6px" }}>
+            Sign in to see the comments.
+          </p>
+          <button
+            onClick={() => window.dispatchEvent(new Event("outsy:open-signin"))}
+            style={{
+              fontSize: 12, fontWeight: 600,
+              background: "none", border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 6, padding: "4px 12px",
+              color: "inherit", cursor: "pointer",
+            }}
+          >
+            Sign in
+          </button>
+        </div>
+      )}
+      {!loading && loadError && !(loadError === "Not authorized." && !token) && (
         <p style={{ fontSize: 12, color: "#ef4444", margin: "0 0 8px" }}>{loadError}</p>
       )}
 

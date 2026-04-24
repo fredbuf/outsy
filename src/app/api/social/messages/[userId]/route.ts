@@ -25,6 +25,7 @@ export type MessageRow = {
   event_id: string | null;
   event: MessageEventSummary | null;
   created_at: string;
+  deleted_at: string | null;
 };
 
 // GET /api/social/messages/[userId]
@@ -50,7 +51,7 @@ export async function GET(
   const [messagesResult, profileResult] = await Promise.all([
     supabase
       .from("messages")
-      .select("id,sender_id,body,event_id,created_at")
+      .select("id,sender_id,body,event_id,created_at,deleted_at")
       .or(
         `and(sender_id.eq.${user.id},recipient_id.eq.${otherId}),and(sender_id.eq.${otherId},recipient_id.eq.${user.id})`
       )
@@ -107,6 +108,7 @@ export async function GET(
       event_id: eid,
       event: eid ? (eventsMap.get(eid) ?? null) : null,
       created_at: m.created_at as string,
+      deleted_at: (m.deleted_at as string | null) ?? null,
     };
   });
 
@@ -247,4 +249,128 @@ export async function POST(
   };
 
   return NextResponse.json({ ok: true, message: messageRow });
+}
+
+// PATCH /api/social/messages/[userId]
+// Body: { messageId: string, body: string }
+// Edit a message body. Caller must be the sender. Only allowed within 30 seconds of creation.
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  const user = await getAuthUser(req);
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  await params; // consume params — not needed for this operation
+
+  let bodyJson: unknown;
+  try {
+    bodyJson = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const { messageId, body: newBody } = bodyJson as Record<string, unknown>;
+  if (typeof messageId !== "string" || !messageId.trim()) {
+    return NextResponse.json({ ok: false, error: "messageId is required." }, { status: 400 });
+  }
+  if (typeof newBody !== "string" || !newBody.trim()) {
+    return NextResponse.json({ ok: false, error: "body is required." }, { status: 400 });
+  }
+  if (newBody.length > 2000) {
+    return NextResponse.json({ ok: false, error: "Message too long (max 2000 chars)." }, { status: 400 });
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: msg } = await supabase
+    .from("messages")
+    .select("id,sender_id,created_at,deleted_at")
+    .eq("id", messageId.trim())
+    .maybeSingle();
+
+  if (!msg) {
+    return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
+  }
+  if (msg.sender_id !== user.id) {
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
+  if (msg.deleted_at) {
+    return NextResponse.json({ ok: false, error: "Cannot edit a deleted message." }, { status: 403 });
+  }
+
+  const ageMs = Date.now() - new Date(msg.created_at as string).getTime();
+  if (ageMs > 30_000) {
+    return NextResponse.json({ ok: false, error: "Edit window has expired." }, { status: 403 });
+  }
+
+  const { error: updateError } = await supabase
+    .from("messages")
+    .update({ body: newBody.trim() })
+    .eq("id", messageId.trim());
+
+  if (updateError) {
+    return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+// DELETE /api/social/messages/[userId]
+// Body: { messageId: string }
+// Soft-delete a message. Sets deleted_at = now() and clears body. Caller must be the sender.
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  const user = await getAuthUser(req);
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  await params; // consume params — not needed for this operation
+
+  let bodyJson: unknown;
+  try {
+    bodyJson = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const { messageId } = bodyJson as Record<string, unknown>;
+  if (typeof messageId !== "string" || !messageId.trim()) {
+    return NextResponse.json({ ok: false, error: "messageId is required." }, { status: 400 });
+  }
+
+  const supabase = supabaseServer();
+
+  const { data: msg } = await supabase
+    .from("messages")
+    .select("id,sender_id,deleted_at")
+    .eq("id", messageId.trim())
+    .maybeSingle();
+
+  if (!msg) {
+    return NextResponse.json({ ok: false, error: "Message not found." }, { status: 404 });
+  }
+  if (msg.sender_id !== user.id) {
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
+  if (msg.deleted_at) {
+    // Already deleted — idempotent
+    return NextResponse.json({ ok: true });
+  }
+
+  const { error: updateError } = await supabase
+    .from("messages")
+    .update({ deleted_at: new Date().toISOString(), body: "" })
+    .eq("id", messageId.trim());
+
+  if (updateError) {
+    return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

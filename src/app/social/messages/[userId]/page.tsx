@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -124,6 +124,164 @@ function EventCard({ msg }: { msg: MessageRow }) {
   );
 }
 
+// ── Long-press hook ────────────────────────────────────────────────────────────
+
+function useLongPress(onLongPress: () => void, ms = 500) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const start = useCallback(() => {
+    timer.current = setTimeout(onLongPress, ms);
+  }, [onLongPress, ms]);
+
+  const cancel = useCallback(() => {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+  }, []);
+
+  return {
+    onPointerDown: start,
+    onPointerUp: cancel,
+    onPointerLeave: cancel,
+    onPointerCancel: cancel,
+  };
+}
+
+// ── Message bubble ─────────────────────────────────────────────────────────────
+
+function MessageBubble({
+  msg,
+  isMe,
+  actionMsgId,
+  editingId,
+  editDraft,
+  editError,
+  deleteError,
+  onLongPress,
+  onEditOpen,
+  onEditDraftChange,
+  onEditSave,
+  onEditCancel,
+  onDelete,
+  onActionClose,
+}: {
+  msg: MessageRow;
+  isMe: boolean;
+  actionMsgId: string | null;
+  editingId: string | null;
+  editDraft: string;
+  editError: string | null;
+  deleteError: string | null;
+  onLongPress: (msg: MessageRow) => void;
+  onEditOpen: (msg: MessageRow) => void;
+  onEditDraftChange: (v: string) => void;
+  onEditSave: (msg: MessageRow) => void;
+  onEditCancel: () => void;
+  onDelete: (msg: MessageRow) => void;
+  onActionClose: () => void;
+}) {
+  const isDeleted = !!msg.deleted_at;
+  const isEditing = editingId === msg.id;
+  const canAct = isMe && !isDeleted && !msg.event_id;
+  const ageMs = Date.now() - new Date(msg.created_at).getTime();
+  const canEdit = canAct && ageMs < 30_000;
+  const showActions = actionMsgId === msg.id;
+
+  const longPress = useLongPress(() => {
+    if (canAct) onLongPress(msg);
+  });
+
+  if (isEditing) {
+    return (
+      <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+        <textarea
+          autoFocus
+          value={editDraft}
+          onChange={(e) => onEditDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEditSave(msg); }
+            if (e.key === "Escape") onEditCancel();
+          }}
+          maxLength={2000}
+          rows={2}
+          style={{
+            width: "100%", minWidth: 180, resize: "none", borderRadius: 14,
+            border: "1px solid rgba(94,168,255,0.45)", padding: "8px 12px",
+            fontSize: 15, lineHeight: 1.5, background: "rgba(255,255,255,0.10)",
+            color: "#fff", outline: "none", fontFamily: "inherit",
+          }}
+        />
+        {editError && <span style={{ fontSize: 12, color: "#f87171" }}>{editError}</span>}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={onEditCancel} style={{ fontSize: 12, background: "none", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "4px 10px", color: "rgba(255,255,255,0.6)", cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => onEditSave(msg)} style={{ fontSize: 12, background: "rgba(37,99,235,0.8)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", cursor: "pointer", fontWeight: 600 }}>Save</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div
+        className={isMe ? "msg-enter-me" : "msg-enter-them"}
+        {...(canAct ? longPress : {})}
+        style={{
+          maxWidth: "72%",
+          padding: "10px 15px",
+          borderRadius: isMe ? "18px 18px 5px 18px" : "18px 18px 18px 5px",
+          background: isDeleted
+            ? "rgba(255,255,255,0.04)"
+            : isMe
+            ? "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)"
+            : "rgba(255,255,255,0.08)",
+          border: isDeleted
+            ? "1px solid rgba(255,255,255,0.06)"
+            : isMe
+            ? "1px solid rgba(94,168,255,0.20)"
+            : "1px solid rgba(255,255,255,0.09)",
+          boxShadow: isMe && !isDeleted ? "0 2px 12px rgba(59,130,246,0.25)" : "none",
+          color: "#fff",
+          fontSize: 15,
+          lineHeight: 1.5,
+          wordBreak: "break-word",
+          userSelect: canAct ? "none" : undefined,
+          touchAction: canAct ? "none" : undefined,
+        }}
+      >
+        {isDeleted
+          ? <span style={{ opacity: 0.35, fontStyle: "italic", fontSize: 14 }}>Message deleted</span>
+          : msg.body
+        }
+      </div>
+
+      {/* Inline action strip */}
+      {showActions && (
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          {canEdit && (
+            <button
+              onClick={() => { onActionClose(); onEditOpen(msg); }}
+              style={{ fontSize: 12, fontWeight: 600, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 12px", color: "#fff", cursor: "pointer" }}
+            >
+              Edit
+            </button>
+          )}
+          <button
+            onClick={() => onDelete(msg)}
+            style={{ fontSize: 12, fontWeight: 600, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.30)", borderRadius: 8, padding: "5px 12px", color: "#f87171", cursor: "pointer" }}
+          >
+            Delete
+          </button>
+          <button
+            onClick={onActionClose}
+            style={{ fontSize: 12, background: "none", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 8, padding: "5px 10px", color: "rgba(255,255,255,0.4)", cursor: "pointer" }}
+          >
+            ×
+          </button>
+          {deleteError && <span style={{ fontSize: 12, color: "#f87171", alignSelf: "center" }}>{deleteError}</span>}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
@@ -140,6 +298,13 @@ export default function ChatPage() {
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatRef     = useRef<HTMLDivElement>(null);
+
+  // Message actions
+  const [actionMsg, setActionMsg]       = useState<MessageRow | null>(null);
+  const [editingId, setEditingId]       = useState<string | null>(null);
+  const [editDraft, setEditDraft]       = useState("");
+  const [editError, setEditError]       = useState<string | null>(null);
+  const [deleteError, setDeleteError]   = useState<string | null>(null);
 
   async function fetchMessages() {
     if (!session) return;
@@ -230,6 +395,43 @@ export default function ChatPage() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  }
+
+  async function handleEdit(msg: MessageRow) {
+    if (!session) return;
+    setEditError(null);
+    const trimmed = editDraft.trim();
+    if (!trimmed) return;
+    const res = await fetch(`/api/social/messages/${otherId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ messageId: msg.id, body: trimmed }),
+    });
+    const data = (await res.json()) as { ok: boolean; error?: string };
+    if (data.ok) {
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, body: trimmed } : m));
+      setEditingId(null);
+      setEditDraft("");
+    } else {
+      setEditError(data.error ?? "Failed to edit.");
+    }
+  }
+
+  async function handleDelete(msg: MessageRow) {
+    if (!session) return;
+    setDeleteError(null);
+    const res = await fetch(`/api/social/messages/${otherId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ messageId: msg.id }),
+    });
+    const data = (await res.json()) as { ok: boolean; error?: string };
+    if (data.ok) {
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, body: "", deleted_at: new Date().toISOString() } : m));
+      setActionMsg(null);
+    } else {
+      setDeleteError(data.error ?? "Failed to delete.");
     }
   }
 
@@ -350,10 +552,7 @@ export default function ChatPage() {
         ) : (
           messages.map((msg, i) => {
             const isMe = msg.sender_id === user.id;
-            const isEventShare = !!msg.event_id;
             const prevMsg = i > 0 ? messages[i - 1] : null;
-            // Collapse timestamp when consecutive messages from same sender
-            // are sent within 3 minutes
             const showTime = !prevMsg
               || prevMsg.sender_id !== msg.sender_id
               || (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime()) > 3 * 60 * 1000;
@@ -369,32 +568,25 @@ export default function ChatPage() {
                   marginTop: showTime ? 10 : 2,
                 }}
               >
-                {isEventShare ? (
+                {msg.event_id ? (
                   <EventCard msg={msg} />
                 ) : (
-                  <div
-                    className={isMe ? "msg-enter-me" : "msg-enter-them"}
-                    style={{
-                      maxWidth: "72%",
-                      padding: "10px 15px",
-                      borderRadius: isMe ? "18px 18px 5px 18px" : "18px 18px 18px 5px",
-                      background: isMe
-                        ? "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)"
-                        : "rgba(255,255,255,0.08)",
-                      border: isMe
-                        ? "1px solid rgba(94,168,255,0.20)"
-                        : "1px solid rgba(255,255,255,0.09)",
-                      boxShadow: isMe
-                        ? "0 2px 12px rgba(59,130,246,0.25)"
-                        : "none",
-                      color: "#fff",
-                      fontSize: 15,
-                      lineHeight: 1.5,
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {msg.body}
-                  </div>
+                  <MessageBubble
+                    msg={msg}
+                    isMe={isMe}
+                    actionMsgId={actionMsg?.id ?? null}
+                    editingId={editingId}
+                    editDraft={editDraft}
+                    editError={editError}
+                    deleteError={deleteError}
+                    onLongPress={(m) => { setActionMsg(m); setDeleteError(null); }}
+                    onEditOpen={(m) => { setEditingId(m.id); setEditDraft(m.body); }}
+                    onEditDraftChange={setEditDraft}
+                    onEditSave={(m) => void handleEdit(m)}
+                    onEditCancel={() => { setEditingId(null); setEditDraft(""); setEditError(null); }}
+                    onDelete={(m) => void handleDelete(m)}
+                    onActionClose={() => { setActionMsg(null); setDeleteError(null); }}
+                  />
                 )}
                 {showTime && (
                   <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", paddingInline: 4, marginTop: 1 }}>
