@@ -404,12 +404,36 @@ function ComposeArea({
     setImageError(null);
     setUploadingImage(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
+      let uploadBlob: Blob = file;
+      let mimeType = file.type || "image/jpeg";
+
+      // Convert HEIC/HEIF to JPEG client-side — iOS camera roll may send these
+      const isHeic = mimeType === "image/heic" || mimeType === "image/heif"
+        || /\.(heic|heif)$/i.test(file.name);
+      if (isHeic) {
+        try {
+          const bitmap = await createImageBitmap(file);
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+          bitmap.close();
+          const converted = await new Promise<Blob | null>((res) =>
+            canvas.toBlob(res, "image/jpeg", 0.88)
+          );
+          if (converted) { uploadBlob = converted; mimeType = "image/jpeg"; }
+        } catch {
+          setImageError("Could not read HEIC image. Try exporting as JPEG first.");
+          setUploadingImage(false);
+          return;
+        }
+      }
+
+      // Send raw binary with explicit Content-Type (server reads the header directly)
       const res = await fetch("/api/events/upload-image", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": mimeType },
+        body: uploadBlob,
       });
       const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
       if (data.ok && data.url) setImageUrl(data.url);
@@ -506,7 +530,7 @@ function ComposeArea({
       <input
         ref={imageInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         style={{ display: "none" }}
         onChange={handleImagePick}
       />
@@ -611,11 +635,16 @@ function ComposeArea({
                     display: "block",
                   }}
                 />
-                {title.length > BODY_MAX * 0.85 && (
-                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.30)", textAlign: "right", marginTop: 2 }}>
-                    {title.length}/{BODY_MAX}
-                  </div>
-                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.22)" }}>
+                    First line becomes the title
+                  </span>
+                  {title.length > BODY_MAX * 0.85 && (
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>
+                      {title.length}/{BODY_MAX}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Content previews */}
@@ -888,13 +917,13 @@ function EditSheet({
   onSaved: (updated: EditedMoment) => void;
   onClose: () => void;
 }) {
-  // Parse stored body back into title + details (same format as ComposeArea)
+  // Reconstruct full body for the single auto-growing textarea
   const firstBreak = moment.body.indexOf("\n\n");
-  const initTitle = firstBreak === -1 ? moment.body : moment.body.slice(0, firstBreak);
-  const initDetails = firstBreak === -1 ? "" : moment.body.slice(firstBreak + 2);
+  const initBody = firstBreak === -1
+    ? moment.body
+    : moment.body.slice(0, firstBreak) + "\n\n" + moment.body.slice(firstBreak + 2);
 
-  const [title, setTitle] = useState(initTitle);
-  const [details, setDetails] = useState(initDetails);
+  const [body, setBody] = useState(initBody);
   const [linkUrl, setLinkUrl] = useState(moment.linkUrl ?? "");
   const [showLinkInput, setShowLinkInput] = useState(moment.linkUrl != null);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -906,11 +935,30 @@ function EditSheet({
   const [commentsEnabled, setCommentsEnabled] = useState(moment.commentsEnabled);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
+  const [closing, setClosing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
+  }, [body]);
 
   useEffect(() => {
-    setTimeout(() => titleRef.current?.focus(), 80);
+    document.body.style.overflow = "hidden";
+    setTimeout(() => textareaRef.current?.focus(), 80);
+    return () => { document.body.style.overflow = ""; };
   }, []);
+
+  function handleClose() {
+    setClosing(true);
+    setTimeout(() => {
+      setClosing(false);
+      onClose();
+    }, 180);
+  }
 
   async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -919,19 +967,38 @@ function EditSheet({
     setImageError(null);
     setUploadingImage(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
+      let uploadBlob: Blob = file;
+      let mimeType = file.type || "image/jpeg";
+
+      const isHeic = mimeType === "image/heic" || mimeType === "image/heif"
+        || /\.(heic|heif)$/i.test(file.name);
+      if (isHeic) {
+        try {
+          const bitmap = await createImageBitmap(file);
+          const canvas = document.createElement("canvas");
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+          bitmap.close();
+          const converted = await new Promise<Blob | null>((res) =>
+            canvas.toBlob(res, "image/jpeg", 0.88)
+          );
+          if (converted) { uploadBlob = converted; mimeType = "image/jpeg"; }
+        } catch {
+          setImageError("Could not read HEIC image. Try exporting as JPEG first.");
+          setUploadingImage(false);
+          return;
+        }
+      }
+
       const res = await fetch("/api/events/upload-image", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": mimeType },
+        body: uploadBlob,
       });
       const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
-      if (data.ok && data.url) {
-        setImageUrl(data.url);
-      } else {
-        setImageError(data.error ?? "Upload failed.");
-      }
+      if (data.ok && data.url) setImageUrl(data.url);
+      else setImageError(data.error ?? "Upload failed.");
     } catch {
       setImageError("Network error during upload.");
     } finally {
@@ -940,26 +1007,22 @@ function EditSheet({
   }
 
   async function handleSave() {
-    const body = [title.trim(), details.trim()].filter(Boolean).join("\n\n");
-    if (!body || saving) return;
+    const trimmed = body.trim();
+    if (!trimmed || saving) return;
     if (linkUrl.trim() && !/^https?:\/\/.{3,}/.test(linkUrl.trim())) {
       setLinkError("Enter a valid URL starting with http:// or https://");
       return;
     }
     const finalLink = linkUrl.trim() && /^https?:\/\/.{3,}/.test(linkUrl.trim())
-      ? linkUrl.trim()
-      : null;
+      ? linkUrl.trim() : null;
     setSaving(true);
     setError(null);
     try {
       const res = await fetch(`/api/events/${eventId}/moments/${moment.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          body,
+          body: trimmed,
           link_url: finalLink,
           image_url: imageUrl,
           reactions_enabled: reactionsEnabled,
@@ -969,7 +1032,7 @@ function EditSheet({
       const data = (await res.json()) as { ok: boolean; moment?: EditedMoment; error?: string };
       if (data.ok && data.moment) {
         onSaved(data.moment);
-        onClose();
+        handleClose();
       } else {
         setError(data.error ?? "Failed to save.");
       }
@@ -980,269 +1043,235 @@ function EditSheet({
     }
   }
 
+  const hasContent = Boolean(body.trim());
+
   const overlayStyle: React.CSSProperties = {
     position: "fixed", inset: 0, zIndex: 400,
-    background: "rgba(0,0,0,0.72)",
-    display: "flex", alignItems: "flex-end", justifyContent: "center",
-  };
-  const sheetStyle: React.CSSProperties = {
-    background: "#111110",
-    color: "#eae8e4",
-    borderRadius: "20px 20px 0 0",
-    width: "100%",
-    maxWidth: 540,
-    display: "flex",
-    flexDirection: "column",
-    minHeight: "90dvh",
-    maxHeight: "96dvh",
-    overflow: "hidden",
-  };
-  const sheetHeaderStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "16px 16px 14px",
-    borderBottom: "1px solid rgba(255,255,255,0.08)",
-    flexShrink: 0,
-  };
-  const iconBtnStyle: React.CSSProperties = {
-    width: 36, height: 36, borderRadius: "50%",
-    background: "rgba(255,255,255,0.08)",
-    border: "none", cursor: "pointer", color: "inherit",
+    background: "rgba(0,0,0,0.60)",
+    backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
     display: "flex", alignItems: "center", justifyContent: "center",
-    flexShrink: 0,
+    padding: "24px 16px",
   };
 
+  const glassPanel: React.CSSProperties = {
+    width: "100%", maxWidth: 480,
+    display: "flex", flexDirection: "column",
+    borderRadius: 24, overflow: "hidden",
+    background: "rgba(13,18,28,0.97)",
+    backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    boxShadow: "0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset",
+    maxHeight: "min(680px, 90dvh)",
+  };
+
+  const circleBtn: React.CSSProperties = {
+    width: 34, height: 34, borderRadius: "50%",
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    cursor: "pointer", color: "inherit", flexShrink: 0,
+  };
+
+  const toolBtn = (active: boolean): React.CSSProperties => ({
+    display: "flex", alignItems: "center", gap: 5,
+    padding: "6px 11px", borderRadius: 20,
+    border: `1px solid ${active ? "rgba(94,168,255,0.35)" : "rgba(255,255,255,0.09)"}`,
+    background: active ? "rgba(94,168,255,0.12)" : "rgba(255,255,255,0.05)",
+    color: active ? "#5EA8FF" : "rgba(255,255,255,0.50)",
+    fontSize: 12, fontWeight: 500, cursor: "pointer",
+    transition: "background 0.15s, color 0.15s",
+  });
+
   return createPortal(
-    <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={sheetStyle}>
+    <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && handleClose()}>
+      <div className={closing ? "modal-zoom-exit" : "modal-zoom-enter"} style={glassPanel}>
         {/* Hidden file input */}
         <input
           ref={imageInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
           style={{ display: "none" }}
           onChange={handleImagePick}
         />
 
         {/* Header */}
-        <div style={sheetHeaderStyle}>
-          <button type="button" onClick={onClose} style={iconBtnStyle} aria-label="Close">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        <div style={{
+          display: "grid", gridTemplateColumns: "40px 1fr 40px",
+          alignItems: "center", padding: "16px 14px 12px", flexShrink: 0,
+        }}>
+          <button type="button" onClick={handleClose} style={circleBtn} aria-label="Close">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <path d="M1 1l9 9M10 1L1 10" stroke="#F5F7FA" strokeWidth="1.7" strokeLinecap="round"/>
             </svg>
           </button>
-          <span style={{ fontSize: 16, fontWeight: 700 }}>Edit moment</span>
+          <span style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: "#F5F7FA" }}>
+            Edit moment
+          </span>
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={!title.trim() || saving}
+            disabled={!hasContent || saving}
             aria-label="Save"
             style={{
-              ...iconBtnStyle,
-              background: title.trim() && !saving ? "#a78bfa" : "rgba(255,255,255,0.08)",
-              opacity: title.trim() && !saving ? 1 : 0.45,
+              ...circleBtn,
+              background: hasContent && !saving
+                ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                : "rgba(255,255,255,0.07)",
+              border: hasContent && !saving ? "none" : "1px solid rgba(255,255,255,0.09)",
+              opacity: hasContent && !saving ? 1 : 0.4,
+              justifySelf: "end",
+              transition: "background 0.2s, opacity 0.2s",
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </button>
         </div>
 
-        {/* Fields */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 0 }}>
-          <input
-            ref={titleRef}
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="What's happening?"
-            maxLength={200}
-            style={{
-              width: "100%", boxSizing: "border-box",
-              background: "transparent", border: "none",
-              outline: "none", color: "inherit",
-              fontSize: 20, fontWeight: 600,
-              fontFamily: "inherit", lineHeight: 1.3,
-              marginBottom: 16,
-              caretColor: "#a78bfa",
-            }}
-          />
-          <textarea
-            value={details}
-            onChange={(e) => setDetails(e.target.value)}
-            placeholder="Add details… (optional)"
-            maxLength={BODY_MAX}
-            rows={6}
-            style={{
-              width: "100%", boxSizing: "border-box",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.09)",
-              borderRadius: 12,
-              outline: "none", color: "inherit",
-              fontSize: 16, lineHeight: 1.55,
-              resize: "none", fontFamily: "inherit",
-              padding: "12px 14px",
-              caretColor: "#a78bfa",
-              flex: 1,
-            }}
-          />
-          {details.length > BODY_MAX * 0.85 && (
-            <div style={{ marginTop: 4, fontSize: 11, opacity: 0.45, textAlign: "right" }}>
-              {details.length}/{BODY_MAX}
-            </div>
-          )}
-
-          {/* Link input */}
-          {showLinkInput && (
-            <div style={{ marginTop: 14 }}>
-              <input
-                type="url"
-                value={linkUrl}
-                onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null); }}
-                placeholder="https://…"
-                style={{
-                  width: "100%", boxSizing: "border-box",
-                  background: "rgba(255,255,255,0.05)",
-                  border: linkError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.09)",
-                  borderRadius: 12, outline: "none",
-                  color: "inherit", fontSize: 16,
-                  fontFamily: "inherit", padding: "11px 14px",
-                  caretColor: "#a78bfa",
-                }}
-              />
-              {linkError && (
-                <div style={{ marginTop: 5, fontSize: 12, color: "#ef4444" }}>{linkError}</div>
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+          {/* Auto-growing textarea */}
+          <div style={{ padding: "8px 20px 8px" }}>
+            <textarea
+              ref={textareaRef}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="What's happening?"
+              maxLength={BODY_MAX}
+              rows={2}
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: "transparent", border: "none",
+                outline: "none", color: "#F5F7FA",
+                fontSize: 17, fontWeight: 500,
+                fontFamily: "inherit", lineHeight: 1.5,
+                resize: "none", overflow: "hidden",
+                minHeight: 56,
+                caretColor: "#5EA8FF",
+                display: "block",
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.22)" }}>
+                First line becomes the title
+              </span>
+              {body.length > BODY_MAX * 0.85 && (
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.30)" }}>
+                  {body.length}/{BODY_MAX}
+                </span>
               )}
             </div>
-          )}
+          </div>
 
-          {/* Image preview */}
-          {imageUrl && (
-            <div style={{ marginTop: 14, position: "relative" }}>
-              <img
-                src={imageUrl}
-                alt="Attached image"
-                style={{
-                  width: "100%", borderRadius: 12,
-                  maxHeight: 220, objectFit: "cover",
-                  display: "block",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setImageUrl(null)}
-                aria-label="Remove image"
-                style={{
-                  position: "absolute", top: 8, right: 8,
-                  width: 28, height: 28, borderRadius: "50%",
-                  background: "rgba(0,0,0,0.65)",
-                  border: "none", cursor: "pointer", color: "#fff",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
-            </div>
-          )}
-          {imageError && (
-            <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444" }}>{imageError}</div>
-          )}
+          {/* Content previews */}
+          <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {imageUrl && (
+              <div style={{ position: "relative", borderRadius: 12, overflow: "hidden" }}>
+                <img src={imageUrl} alt="Attached image"
+                  style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block", borderRadius: 12, border: "1px solid rgba(255,255,255,0.09)" }}
+                />
+                <button type="button" onClick={() => setImageUrl(null)} aria-label="Remove image"
+                  style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: "50%", background: "rgba(0,0,0,0.70)", border: "none", cursor: "pointer", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1l8 8M9 1L1 9" stroke="#fff" strokeWidth="1.6" strokeLinecap="round"/></svg>
+                </button>
+              </div>
+            )}
+            {imageError && <div style={{ fontSize: 12, color: "#ef4444" }}>{imageError}</div>}
 
-          {/* Survey notice (read-only if present) */}
-          {moment.surveyQuestion && (
-            <div style={{
-              marginTop: 14, padding: "10px 14px", borderRadius: 10,
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              fontSize: 13, opacity: 0.5,
-            }}>
-              Survey options cannot be edited after posting.
+            {showLinkInput && (
+              <div>
+                <input type="url" value={linkUrl}
+                  onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null); }}
+                  placeholder="https://…"
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    background: "rgba(255,255,255,0.05)",
+                    border: linkError ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.09)",
+                    borderRadius: 10, outline: "none",
+                    color: "#F5F7FA", fontSize: 14,
+                    fontFamily: "inherit", padding: "10px 12px",
+                    caretColor: "#5EA8FF",
+                  }}
+                />
+                {linkError && <div style={{ marginTop: 4, fontSize: 12, color: "#ef4444" }}>{linkError}</div>}
+                {linkUrl.trim() && !linkError && (
+                  <div style={{ marginTop: 6, padding: "8px 12px", borderRadius: 10, background: "rgba(94,168,255,0.07)", border: "1px solid rgba(94,168,255,0.18)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    <span style={{ fontSize: 12, color: "#5EA8FF", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{linkUrl.trim()}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Survey notice — read-only */}
+            {moment.surveyQuestion && (
+              <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", fontSize: 12, color: "rgba(255,255,255,0.38)" }}>
+                Poll options cannot be edited after posting.
+              </div>
+            )}
+          </div>
+
+          {error && <div style={{ padding: "8px 20px 4px", fontSize: 12, color: "#ef4444" }}>{error}</div>}
+
+          {/* Settings — reactions + comments toggles */}
+          <div style={{ padding: "16px 16px 4px" }}>
+            <div style={{ borderRadius: 16, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+              <Toggle checked={reactionsEnabled} onChange={setReactionsEnabled} label="Let people react" />
+              <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "0 20px" }} />
+              <Toggle checked={commentsEnabled} onChange={setCommentsEnabled} label="Let people comment" />
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Tools row */}
+        {/* Toolbar */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 4,
-          padding: "12px 16px",
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          flexShrink: 0,
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "12px 20px",
+          paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+          flexShrink: 0, overflowX: "auto",
         }}>
-          <button
-            type="button"
-            onClick={() => setShowLinkInput((v) => !v)}
-            aria-label="Add link"
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 12px", borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: showLinkInput ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
-              color: showLinkInput ? "#a78bfa" : "rgba(255,255,255,0.55)",
-              fontSize: 13, fontWeight: 500, cursor: "pointer",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <button type="button" onClick={() => setShowLinkInput((v) => !v)} aria-label="Add link" style={toolBtn(showLinkInput || Boolean(linkUrl.trim()))}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
-            {linkUrl.trim() ? "Link added" : "Link"}
+            Link
           </button>
-
-          <button
-            type="button"
-            onClick={() => imageInputRef.current?.click()}
-            disabled={uploadingImage}
-            aria-label="Add image"
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 12px", borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: imageUrl ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.06)",
-              color: imageUrl ? "#a78bfa" : "rgba(255,255,255,0.55)",
-              fontSize: 13, fontWeight: 500,
-              cursor: uploadingImage ? "wait" : "pointer",
-              opacity: uploadingImage ? 0.6 : 1,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Add image"
+            style={{ ...toolBtn(Boolean(imageUrl)), opacity: uploadingImage ? 0.6 : 1, cursor: uploadingImage ? "wait" : "pointer" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
               <circle cx="8.5" cy="8.5" r="1.5"/>
               <polyline points="21 15 16 10 5 21"/>
             </svg>
-            {uploadingImage ? "Uploading…" : imageUrl ? "Image added" : "Image"}
+            {uploadingImage ? "Uploading…" : "Photo"}
           </button>
-        </div>
 
-        {/* Toggles */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 }}>
-          <Toggle checked={reactionsEnabled} onChange={setReactionsEnabled} label="Allow reactions" />
-          <Toggle checked={commentsEnabled} onChange={setCommentsEnabled} label="Allow comments" />
-        </div>
-
-        {/* Error + Save button */}
-        {error && (
-          <div style={{ padding: "8px 20px 0", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>
-            {error}
-          </div>
-        )}
-        <div style={{ padding: "16px 20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", flexShrink: 0 }}>
+          {/* Save button inline in toolbar for quick access */}
           <button
             type="button"
             onClick={() => void handleSave()}
-            disabled={!title.trim() || saving}
+            disabled={!hasContent || saving}
             style={{
-              width: "100%", padding: "15px",
-              borderRadius: 14, border: "none",
-              background: !title.trim() || saving ? "rgba(167,139,250,0.45)" : "#a78bfa",
-              color: "#fff", fontSize: 16, fontWeight: 700,
-              cursor: !title.trim() || saving ? "not-allowed" : "pointer",
-              transition: "background 0.15s",
+              marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
+              padding: "7px 16px", borderRadius: 20, border: "none",
+              background: hasContent && !saving
+                ? "linear-gradient(135deg, #5EA8FF 0%, #2563EB 100%)"
+                : "rgba(255,255,255,0.07)",
+              color: "#fff", fontSize: 13, fontWeight: 700,
+              cursor: !hasContent || saving ? "not-allowed" : "pointer",
+              opacity: !hasContent || saving ? 0.5 : 1,
+              boxShadow: hasContent && !saving ? "0 2px 12px rgba(37,99,235,0.35)" : "none",
+              transition: "opacity 0.15s",
+              flexShrink: 0,
             }}
           >
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const BUCKET = "event-images";
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   if (!ALLOWED_MIME.has(mimeType)) {
     console.log("[upload-image] rejected mime type:", mimeType);
     return NextResponse.json(
-      { ok: false, error: "Only JPG, PNG, and WebP images are accepted." },
+      { ok: false, error: "Only JPG, PNG, WEBP, or HEIC images are accepted." },
       { status: 400 }
     );
   }
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : "jpg";
+  const ext = mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : mimeType === "image/heic" ? "heic" : mimeType === "image/heif" ? "heif" : "jpg";
   const path = `events/${crypto.randomUUID()}.${ext}`;
   console.log("[upload-image] storage path:", path, "contentType:", mimeType);
 
