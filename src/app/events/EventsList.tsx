@@ -1265,10 +1265,10 @@ export function EventsList() {
 
                         {/* Title + info — centered at bottom */}
                         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 9px 11px", textAlign: "center", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
-                          <div style={{ fontSize: 14, fontWeight: 800, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, marginBottom: 3 }}>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, marginBottom: 3 }}>
                             {e.title}
                           </div>
-                          <div style={{ fontSize: 10, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
                             {infoLine}
                           </div>
                         </div>
