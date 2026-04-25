@@ -206,6 +206,22 @@ body.settings-open .bottom-nav {
 /* prev month enters from the left */
 .cal-slide-prev { animation: cal-from-left  0.24s ease-out forwards; }
 
+/* ── Category page slide transitions ───────────────────────────────────── */
+@keyframes page-slide-in-right {
+  from { transform: translateX(100%); opacity: 0.85; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes page-slide-out-right {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0.85; }
+}
+.page-slide-enter {
+  animation: page-slide-in-right 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.page-slide-exit {
+  animation: page-slide-out-right 0.25s ease-in both;
+}
+
 /* ── Skeleton pulse ─────────────────────────────────────────────────────── */
 @keyframes sk-pulse {
   0%, 100% { opacity: 1; }

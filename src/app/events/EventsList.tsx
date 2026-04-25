@@ -688,8 +688,7 @@ export function EventsList() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterClosing, setFilterClosing] = useState(false);
-  const [thisWeekOpen, setThisWeekOpen] = useState(false);
-  const [tonightOpen, setTonightOpen] = useState(false);
+
 
   // Draft state — lives only while the filter sheet is open.
   // Chips edit draft; X discards; ✓ commits to real filter state.
@@ -1271,16 +1270,15 @@ export function EventsList() {
             <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>This week</h2>
-                <button
-                  type="button"
-                  onClick={() => setThisWeekOpen(true)}
-                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
+                <Link
+                  href="/events/category/this-week"
+                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", textDecoration: "none", fontWeight: 500 }}
                 >
                   See all
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                     <path d="M4.5 2.5L8 6L4.5 9.5" stroke="#5EA8FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                </button>
+                </Link>
               </div>
               <div className="events-week-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {thisWeekEvents.map((e) => {
@@ -1370,16 +1368,15 @@ export function EventsList() {
             <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>Happening Tonight</h2>
-                <button
-                  type="button"
-                  onClick={() => setTonightOpen(true)}
-                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
+                <Link
+                  href="/events/category/happening-tonight"
+                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", textDecoration: "none", fontWeight: 500 }}
                 >
                   See all
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                     <path d="M4.5 2.5L8 6L4.5 9.5" stroke="#5EA8FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                </button>
+                </Link>
               </div>
               <div className="events-week-scroll" style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {tonightEvents.map((e) => (
@@ -1523,148 +1520,6 @@ export function EventsList() {
               {loadingMore ? "Loading…" : "Load more"}
             </button>
           )}
-        </div>
-      )}
-
-      {/* ── This week sheet ──────────────────────────────────────────── */}
-      {thisWeekOpen && (
-        <div
-          onClick={(e) => e.target === e.currentTarget && setThisWeekOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
-        >
-          <div style={{ background: "#101722", width: "100%", maxHeight: "90dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.06)", borderBottom: "none" }}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "-0.02em", color: "#F5F7FA" }}>This week</h2>
-              <button
-                type="button"
-                onClick={() => setThisWeekOpen(false)}
-                aria-label="Close"
-                style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.35, padding: 4, color: "#F5F7FA" }}
-              >
-                ×
-              </button>
-            </div>
-            {/* Cards */}
-            <div style={{ overflowY: "auto", padding: "16px 20px 24px", flex: 1 }}>
-              <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
-                {thisWeekAll.map((e) => {
-                  const rsvpCount = tileRsvp.counts[e.id] ?? 0;
-                  const rsvpNames = tileRsvp.names[e.id] ?? [];
-                  const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
-                  const starred = starredIds.has(e.id);
-                  const pending = starPending.has(e.id);
-                  const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
-                  const isRecurring = recurringSet.has(e.id);
-                  return (
-                    <Link key={e.id} href={`/events/${e.id}`} onClick={() => setThisWeekOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
-                      <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
-                        <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
-                          {e.image_url && (
-                            <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                          )}
-                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
-                          <button
-                            type="button"
-                            aria-label={starred ? "Remove from saved" : "Save event"}
-                            onClick={(ev) => handleStar(e.id, ev)}
-                            style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94, 168, 255, 0.80)" : "rgba(11, 15, 20, 0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}
-                          >
-                            <HeartIcon filled={starred} />
-                          </button>
-                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
-                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
-                            {eEdition && (
-                              <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
-                            )}
-                            {e.venues?.name && (
-                              <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
-                              </div>
-                            )}
-                          </div>
-                          {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
-                            <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
-                              {rsvpAvatars[0] ? (
-                                <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
-                              ) : (
-                                <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                                  {rsvpNames[0]![0].toUpperCase()}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </article>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Tonight sheet ────────────────────────────────────────────── */}
-      {tonightOpen && (
-        <div
-          onClick={(e) => e.target === e.currentTarget && setTonightOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
-        >
-          <div style={{ background: "#101722", width: "100%", maxHeight: "90dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.06)", borderBottom: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "-0.02em", color: "#F5F7FA" }}>Happening Tonight</h2>
-              <button type="button" onClick={() => setTonightOpen(false)} aria-label="Close" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.35, padding: 4, color: "#F5F7FA" }}>×</button>
-            </div>
-            <div style={{ overflowY: "auto", padding: "16px 20px 24px", flex: 1 }}>
-              <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
-                {tonightEvents.map((e) => {
-                  const rsvpCount = tileRsvp.counts[e.id] ?? 0;
-                  const rsvpNames = tileRsvp.names[e.id] ?? [];
-                  const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
-                  const starred = starredIds.has(e.id);
-                  const pending = starPending.has(e.id);
-                  const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
-                  const isRecurring = recurringSet.has(e.id);
-                  return (
-                    <Link key={e.id} href={`/events/${e.id}`} onClick={() => setTonightOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
-                      <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
-                        <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
-                          {e.image_url && <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
-                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
-                          <button type="button" aria-label={starred ? "Remove from saved" : "Save event"} onClick={(ev) => handleStar(e.id, ev)} style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94,168,255,0.80)" : "rgba(11,15,20,0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}>
-                            <HeartIcon filled={starred} />
-                          </button>
-                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
-                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
-                            {eEdition && <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>}
-                            {e.venues?.name && (
-                              <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
-                              </div>
-                            )}
-                          </div>
-                          {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
-                            <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
-                              {rsvpAvatars[0] ? (
-                                <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
-                              ) : (
-                                <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                                  {rsvpNames[0]![0].toUpperCase()}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </article>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
