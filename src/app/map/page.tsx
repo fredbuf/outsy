@@ -1877,17 +1877,22 @@ export default function MapPage() {
               </div>
             )}
 
-            {/* Tile row — single card centered, multiple cards scroll */}
+            {/* Tile row — single card centered, multiple cards scroll.
+                paddingLeft/Right on a scroll container keeps the first/last tile
+                16px away from the screen edge. scrollPaddingLeft aligns snap
+                targets with the padded content edge (not the container edge). */}
             <div
               className="chip-row"
               style={{
                 display: "flex",
-                gap: 10,
+                gap: 12,
                 overflowX: venueEvents.length > 1 ? "auto" : "visible",
-                // Center single card; let multi-card start from left edge with padding
                 justifyContent: venueEvents.length === 1 ? "center" : "flex-start",
-                padding: venueEvents.length > 1 ? "0 16px 4px" : "0 16px 4px",
+                paddingLeft: 16,
+                paddingRight: 16,
+                paddingBottom: 4,
                 scrollSnapType: "x mandatory",
+                scrollPaddingLeft: 16,
               }}
             >
               {(venueEvents.length > 1 ? venueEvents : [selected]).map((evt, i) => {

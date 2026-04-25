@@ -11,7 +11,7 @@ import { useAuth } from "./AuthProvider";
 // Right: avatar → /profile  (sign-in trigger for guests)
 
 export function AppTopBar() {
-  const { user, loading } = useAuth();
+  const { user, loading, session } = useAuth();
 
   function openSignIn() {
     window.dispatchEvent(new CustomEvent("outsy:open-signin"));
@@ -19,14 +19,29 @@ export function AppTopBar() {
 
   const meta = user?.user_metadata as { avatar_url?: string; full_name?: string } | undefined;
 
-  // Local override: updated immediately when the user changes their avatar.
-  // This is the reliable path — user_metadata.avatar_url comes from the OAuth
-  // provider (e.g. Google) and may not reflect Outsy-specific uploads even
-  // after a session refresh, because the JWT is generated from cached claims.
-  // The "outsy:avatar-updated" event is dispatched by profile/page.tsx right
-  // after a successful upload, so this override wins on the same tick.
+  // profileAvatar: loaded on mount from /api/profile (Supabase profiles table).
+  // This is the source of truth — it reflects Outsy-specific uploads.
+  // avatarOverride: set immediately when the user uploads a new avatar on the
+  // same session (via the "outsy:avatar-updated" custom event), so the Home
+  // avatar updates without a reload.
+  //
+  // Priority: avatarOverride → profileAvatar → meta.avatar_url (Google OAuth fallback)
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
 
+  // Fetch Supabase profile avatar on mount / whenever the user changes.
+  useEffect(() => {
+    if (!user || !session) return;
+    fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.avatar_url) setProfileAvatar(data.avatar_url);
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Listen for immediate avatar-updated events dispatched after upload.
   useEffect(() => {
     function onAvatarUpdated(e: Event) {
       const url = (e as CustomEvent<{ url: string }>).detail?.url;
@@ -36,8 +51,7 @@ export function AppTopBar() {
     return () => window.removeEventListener("outsy:avatar-updated", onAvatarUpdated);
   }, []);
 
-  // avatarOverride takes precedence; fall back to the OAuth-provided URL.
-  const avatarUrl = avatarOverride ?? meta?.avatar_url;
+  const avatarUrl = avatarOverride ?? profileAvatar ?? meta?.avatar_url;
   const initials = (() => {
     const name = meta?.full_name;
     if (!name) return (user?.email?.[0] ?? "?").toUpperCase();
