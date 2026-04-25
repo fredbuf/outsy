@@ -425,6 +425,52 @@ function thisWeekBoundsIso(): { start: string; end: string } {
   return { start, end: montrealDayStart(nextMondayStr) };
 }
 
+// Returns the Tonight time window in ISO strings (America/Toronto).
+// Window: today 5:00 PM → tomorrow 3:00 AM.
+// An event is included while it started within the last 1 hour (grace period).
+// Pure computation — call once via useState initializer.
+function tonightBoundsIso(): { windowStart: string; windowEnd: string; graceCutoff: string } {
+  const now = new Date();
+  const tz = "America/Toronto";
+
+  // Resolve today's date string in Montréal time
+  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz }); // "YYYY-MM-DD"
+  const [y, m, d] = todayStr.split("-").map(Number);
+
+  // tonight starts at today 17:00 local = UTC offset applied
+  // We construct the local time as a Date using the Montreal UTC offset.
+  // Simplest reliable approach: build an ISO string that represents that local clock time,
+  // then convert to UTC via the browser engine which knows the tz rules.
+  const toUtcMs = (dateStr: string, hour: number, minute = 0): number => {
+    // dateStr = "YYYY-MM-DD", interpret hour:minute as America/Toronto local
+    // Use Intl to find the UTC offset at that moment
+    const approxUtc = new Date(`${dateStr}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`);
+    const localStr = approxUtc.toLocaleString("en-CA", { timeZone: tz, hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    // localStr = "YYYY-MM-DD, HH:MM:SS"
+    const [datePart, timePart] = localStr.split(", ");
+    const utcGuess = new Date(`${datePart}T${timePart}Z`);
+    const offsetMs = approxUtc.getTime() - utcGuess.getTime();
+    return new Date(`${dateStr}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`).getTime() + offsetMs;
+  };
+
+  const windowStartMs = toUtcMs(todayStr, 17); // today 17:00
+  // tomorrow = y-m-(d+1), handle month rollover via Date
+  const tomorrowDate = new Date(Date.UTC(y, m - 1, d + 1));
+  const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
+  const windowEndMs = toUtcMs(tomorrowStr, 3); // tomorrow 03:00
+
+  // Grace cutoff: now minus 1 hour — events started before this are dropped
+  const graceCutoffMs = now.getTime() - 60 * 60 * 1000;
+
+  return {
+    windowStart: new Date(windowStartMs).toISOString(),
+    windowEnd: new Date(windowEndMs).toISOString(),
+    graceCutoff: new Date(graceCutoffMs).toISOString(),
+  };
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   all:          "All",
   concerts:     "Concerts",
@@ -643,6 +689,7 @@ export function EventsList() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterClosing, setFilterClosing] = useState(false);
   const [thisWeekOpen, setThisWeekOpen] = useState(false);
+  const [tonightOpen, setTonightOpen] = useState(false);
 
   // Draft state — lives only while the filter sheet is open.
   // Chips edit draft; X discards; ✓ commits to real filter state.
@@ -659,6 +706,7 @@ export function EventsList() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtersOpen, filterClosing]);
   const [weekBounds] = useState(() => thisWeekBoundsIso());
+  const [tonightBounds] = useState(() => tonightBoundsIso());
 
   // Full event pool fetched when any explicit filter is active.
   // Avoids the paginated feed's inability to surface future-date events up front.
@@ -940,20 +988,45 @@ export function EventsList() {
 
   // Full set of this week's events — used for exclusion from "All events".
   // Must NOT be sliced so that events 21+ of the week don't leak into "All events".
+  // Tonight events are excluded to avoid duplication across sections.
   const thisWeekAll = useMemo<EventRow[]>(() => {
     if (debouncedQuery.trim()) return [];
-    return filtered.filter((e) => e.start_at >= weekBounds.start && e.start_at < weekBounds.end);
-  }, [filtered, debouncedQuery, weekBounds]);
+    return filtered.filter(
+      (e) =>
+        e.start_at >= weekBounds.start &&
+        e.start_at < weekBounds.end &&
+        !(
+          e.start_at >= tonightBounds.windowStart &&
+          e.start_at < tonightBounds.windowEnd &&
+          e.start_at >= tonightBounds.graceCutoff
+        )
+    );
+  }, [filtered, debouncedQuery, weekBounds, tonightBounds]);
 
   // Subset rendered in the horizontal scroll row (capped for performance).
   const thisWeekEvents = useMemo(() => thisWeekAll.slice(0, 20), [thisWeekAll]);
 
   const thisWeekAllIds = useMemo(() => new Set(thisWeekAll.map((e) => e.id)), [thisWeekAll]);
 
-  // "All events" excludes the FULL weekly set, not just the rendered slice.
+  // Tonight: events in the 5 PM → 3 AM window, still within 1-hour grace period,
+  // sorted ascending by start time.
+  const tonightEvents = useMemo<EventRow[]>(() => {
+    if (debouncedQuery.trim()) return [];
+    return filtered
+      .filter((e) =>
+        e.start_at >= tonightBounds.windowStart &&
+        e.start_at < tonightBounds.windowEnd &&
+        e.start_at >= tonightBounds.graceCutoff
+      )
+      .sort((a, b) => a.start_at.localeCompare(b.start_at));
+  }, [filtered, debouncedQuery, tonightBounds]);
+
+  const tonightIds = useMemo(() => new Set(tonightEvents.map((e) => e.id)), [tonightEvents]);
+
+  // "All events" excludes the FULL weekly set + tonight, not just the rendered slice.
   const allEventsFiltered = useMemo(
-    () => filtered.filter((e) => !thisWeekAllIds.has(e.id)),
-    [filtered, thisWeekAllIds]
+    () => filtered.filter((e) => !thisWeekAllIds.has(e.id) && !tonightIds.has(e.id)),
+    [filtered, thisWeekAllIds, tonightIds]
   );
 
   // Detect recurring series across all visible events (this week + all events).
@@ -1292,6 +1365,45 @@ export function EventsList() {
             </section>
           )}
 
+          {/* ── Happening Tonight: small tile carousel ───────────────────── */}
+          {tonightEvents.length > 0 && (
+            <section style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>Happening Tonight</h2>
+                <button
+                  type="button"
+                  onClick={() => setTonightOpen(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
+                >
+                  See all
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M4.5 2.5L8 6L4.5 9.5" stroke="#5EA8FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              <div className="events-week-scroll" style={{ display: "flex", gap: 9, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+                {tonightEvents.map((e) => (
+                  <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
+                    <div style={{ position: "relative", width: 106, height: 156, borderRadius: 15, overflow: "hidden", background: categoryBg(e.category_primary), border: "1px solid rgba(255,255,255,0.11)" }}>
+                      {e.image_url && (
+                        <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                      )}
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 0%, rgba(28,28,28,0.12) 59%, #1c1c1c 100%)", pointerEvents: "none" }} />
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 6px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, color: "#F5F7FA", textAlign: "center", lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", width: "100%" }}>
+                          {e.title}
+                        </div>
+                        <div style={{ background: "rgba(18,25,36,0.65)", borderRadius: 28, padding: "2px 7px", fontSize: 6, fontWeight: 800, color: "#F5F7FA", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                          {CATEGORY_LABELS[e.category_primary] ?? e.category_primary}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* ── All events ───────────────────────────────────────────────── */}
           <section style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1466,6 +1578,68 @@ export function EventsList() {
                             {eEdition && (
                               <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>
                             )}
+                            {e.venues?.name && (
+                              <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
+                              </div>
+                            )}
+                          </div>
+                          {rsvpCount > 0 && (rsvpAvatars[0] || rsvpNames[0]) && (
+                            <div style={{ position: "absolute", bottom: 10, right: 10, width: 20, height: 20 }}>
+                              {rsvpAvatars[0] ? (
+                                <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
+                              ) : (
+                                <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
+                                  {rsvpNames[0]![0].toUpperCase()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tonight sheet ────────────────────────────────────────────── */}
+      {tonightOpen && (
+        <div
+          onClick={(e) => e.target === e.currentTarget && setTonightOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 300, display: "flex", alignItems: "flex-end" }}
+        >
+          <div style={{ background: "#101722", width: "100%", maxHeight: "90dvh", borderRadius: "20px 20px 0 0", display: "flex", flexDirection: "column", border: "1px solid rgba(255,255,255,0.06)", borderBottom: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", flexShrink: 0, position: "relative" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "-0.02em", color: "#F5F7FA" }}>Happening Tonight</h2>
+              <button type="button" onClick={() => setTonightOpen(false)} aria-label="Close" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, opacity: 0.35, padding: 4, color: "#F5F7FA" }}>×</button>
+            </div>
+            <div style={{ overflowY: "auto", padding: "16px 20px 24px", flex: 1 }}>
+              <div className="events-grid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+                {tonightEvents.map((e) => {
+                  const rsvpCount = tileRsvp.counts[e.id] ?? 0;
+                  const rsvpNames = tileRsvp.names[e.id] ?? [];
+                  const rsvpAvatars = tileRsvp.avatars[e.id] ?? [];
+                  const starred = starredIds.has(e.id);
+                  const pending = starPending.has(e.id);
+                  const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
+                  const isRecurring = recurringSet.has(e.id);
+                  return (
+                    <Link key={e.id} href={`/events/${e.id}`} onClick={() => setTonightOpen(false)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
+                      <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
+                        <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
+                          {e.image_url && <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.50) 40%, rgba(0,0,0,0.08) 70%, transparent 100%)" }} />
+                          <button type="button" aria-label={starred ? "Remove from saved" : "Save event"} onClick={(ev) => handleStar(e.id, ev)} style={{ position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: "50%", border: "none", background: starred ? "rgba(94,168,255,0.80)" : "rgba(11,15,20,0.52)", display: "flex", alignItems: "center", justifyContent: "center", cursor: pending ? "wait" : "pointer", color: starred ? "#fff" : "rgba(255,255,255,0.85)", opacity: pending ? 0.6 : 1 }}>
+                            <HeartIcon filled={starred} />
+                          </button>
+                          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px 16px", display: "flex", flexDirection: "column", gap: 3 }}>
+                            <div style={{ fontSize: 11, color: "rgba(199,208,219,0.9)", fontWeight: 500, letterSpacing: "0.01em" }}>{smartDate(e.start_at)}</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F7FA", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: eEdition ? 1 : 2, WebkitBoxOrient: "vertical" }}>{eSeriesTitle}</div>
+                            {eEdition && <div style={{ fontSize: 11, color: "rgba(199,208,219,0.75)", fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{eEdition}</div>}
                             {e.venues?.name && (
                               <div style={{ fontSize: 11, color: "rgba(140,152,168,0.90)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {isRecurring ? "↻ " : ""}{e.venues.city ? `${e.venues.name}, ${e.venues.city}` : e.venues.name}
