@@ -6,52 +6,85 @@ import Script from "next/script";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { useAuth } from "../components/AuthProvider";
 import { BackButton } from "../events/[id]/BackButton";
 
 const MONTREAL = { lat: 45.5017, lng: -73.5673 };
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-// Required for AdvancedMarkerElement (round image markers).
-// Create a Map ID in Google Cloud Console → Maps → Manage Map IDs,
-// then add NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID to .env.local.
+// MAP_ID is intentionally NOT passed to the Map constructor.
+//
+// Google Maps has two renderers:
+//   • Raster (no mapId): respects the `styles` array → custom map styling works.
+//   • Vector (mapId present): ignores `styles` entirely → Cloud Console only.
+//
+// AdvancedMarkerElement (round photo markers) requires a mapId on the Map instance.
+// That creates an irreconcilable conflict with the `styles` array.
+//
+// Current choice: raster renderer → custom styles apply → markers use styled
+// circles (MARKER_DEFAULT / MARKER_SELECTED, Outsy blue #2563EB, white border).
+//
+// To restore photo markers AND keep custom styles, create a **Raster-type** Map ID
+// in Google Cloud Console (Maps → Manage Map IDs → renderer = Raster), set
+// NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID to that ID, then re-enable the mapId spread below
+// and restore the AdvancedMarker conditionals.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 // ── Custom map style ──────────────────────────────────────────────────────────
-// Outsy dark palette — tuned ~12% darker than base spec so the map reads as
-// a quiet background behind UI overlays.
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  // Base geometry — slightly darker than app bg so tiles recede
-  { elementType: "geometry",                                stylers: [{ color: "#090c11" }] },
-  { elementType: "labels.text.stroke",                      stylers: [{ color: "#090c11" }] },
-  { elementType: "labels.text.fill",                        stylers: [{ color: "#7e8fa2" }] },
-  // Water — deep navy, pushed darker
-  { featureType: "water", elementType: "geometry",          stylers: [{ color: "#0c1422" }] },
-  { featureType: "water", elementType: "labels.text.fill",  stylers: [{ color: "#1c2d44" }] },
-  // Landscape — just above base
-  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#0a0f15" }] },
-  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#0d1520" }] },
-  // Parks — barely perceptible tint, quieter green
-  { featureType: "poi.park", elementType: "geometry",           stylers: [{ color: "#09101c" }] },
-  { featureType: "poi.park", elementType: "labels.text.fill",   stylers: [{ color: "#1c3026" }] },
-  { featureType: "poi.park", elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-  // POIs — all icons off, business hidden, text nearly invisible
-  { featureType: "poi",          elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  { featureType: "poi.business",                                    stylers: [{ visibility: "off" }] },
-  { featureType: "poi",          elementType: "labels.text.fill",   stylers: [{ color: "#161f2c" }] },
-  // Roads — readable hierarchy, slightly quieter
-  { featureType: "road",          elementType: "geometry",           stylers: [{ color: "#192230" }] },
-  { featureType: "road",          elementType: "geometry.stroke",    stylers: [{ color: "#111925" }] },
-  { featureType: "road.arterial", elementType: "geometry",           stylers: [{ color: "#20293c" }] },
-  { featureType: "road.highway",  elementType: "geometry",           stylers: [{ color: "#2b3449" }] },
-  { featureType: "road.highway",  elementType: "geometry.stroke",    stylers: [{ color: "#192538" }] },
-  { featureType: "road",          elementType: "labels.text.fill",   stylers: [{ color: "#38506c" }] },
-  { featureType: "road",          elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-  // Transit — hidden icons, near-invisible lines
-  { featureType: "transit",         elementType: "labels.icon",       stylers: [{ visibility: "off" }] },
-  { featureType: "transit.line",    elementType: "geometry",          stylers: [{ color: "#0e1422" }] },
-  { featureType: "transit.station", elementType: "labels.text.fill",  stylers: [{ color: "#161f2c" }] },
-  // Administrative — quieter area labels
-  { featureType: "administrative.locality",     elementType: "labels.text.fill", stylers: [{ color: "#4d6479" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#2d3f53" }] },
+  // ── Base text ────────────────────────────────────────────────────────────
+  { featureType: "all",                    elementType: "labels.text.fill",   stylers: [{ color: "#c8d4e0" }] },
+  { featureType: "all",                    elementType: "labels.text.stroke", stylers: [{ color: "#0b1520" }, { weight: 2 }] },
+
+  // ── Administrative (keep neighborhood + city names, quiet borders) ───────
+  { featureType: "administrative",         elementType: "geometry.stroke",    stylers: [{ color: "#1a3a4a" }, { weight: 1 }] },
+  { featureType: "administrative.locality",elementType: "labels.text.fill",   stylers: [{ color: "#e2eaf2" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#7fa8c0" }] },
+  { featureType: "administrative.neighborhood", elementType: "labels.text.stroke", stylers: [{ weight: 1 }] },
+
+  // ── Landscape ────────────────────────────────────────────────────────────
+  { featureType: "landscape",              elementType: "all",                stylers: [{ color: "#08304b" }] },
+
+  // ── POI: hide noisy categories ───────────────────────────────────────────
+  // All POI labels off by default — only parks get a label below.
+  { featureType: "poi",                    elementType: "geometry",           stylers: [{ color: "#0c3a4a" }] },
+  { featureType: "poi",                    elementType: "labels",             stylers: [{ visibility: "off" }] },
+  // Hide specific noisy POI types entirely
+  { featureType: "poi.business",           elementType: "all",                stylers: [{ visibility: "off" }] },
+  { featureType: "poi.medical",            elementType: "all",                stylers: [{ visibility: "off" }] },
+  { featureType: "poi.school",             elementType: "all",                stylers: [{ visibility: "off" }] },
+  { featureType: "poi.place_of_worship",   elementType: "all",                stylers: [{ visibility: "off" }] },
+  { featureType: "poi.government",         elementType: "all",                stylers: [{ visibility: "off" }] },
+  { featureType: "poi.sports_complex",     elementType: "all",                stylers: [{ visibility: "off" }] },
+  // Parks: keep geometry + subtle label only
+  { featureType: "poi.park",               elementType: "geometry",           stylers: [{ color: "#0d3d1e" }] },
+  { featureType: "poi.park",               elementType: "labels.text.fill",   stylers: [{ visibility: "on" }, { color: "#3d8a55" }] },
+  { featureType: "poi.park",               elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
+  // Keep attraction labels visible but muted
+  { featureType: "poi.attraction",         elementType: "labels.text.fill",   stylers: [{ visibility: "on" }, { color: "#6b99b0" }] },
+  { featureType: "poi.attraction",         elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
+
+  // ── Roads ────────────────────────────────────────────────────────────────
+  { featureType: "road.highway",           elementType: "geometry.fill",      stylers: [{ color: "#0a1a24" }] },
+  { featureType: "road.highway",           elementType: "geometry.stroke",    stylers: [{ color: "#0b434f" }, { lightness: 25 }] },
+  { featureType: "road.highway",           elementType: "labels.text.fill",   stylers: [{ color: "#8ab0c0" }] },
+  // Hide highway number shields (the green/blue route badges)
+  { featureType: "road.highway",           elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
+  { featureType: "road.arterial",          elementType: "geometry.fill",      stylers: [{ color: "#000000" }] },
+  { featureType: "road.arterial",          elementType: "geometry.stroke",    stylers: [{ color: "#0b3d51" }, { lightness: 16 }] },
+  { featureType: "road.arterial",          elementType: "labels.text.fill",   stylers: [{ color: "#6a90a0" }] },
+  { featureType: "road.local",             elementType: "geometry",           stylers: [{ color: "#000000" }] },
+  // Hide local road labels — too much clutter at city zoom
+  { featureType: "road.local",             elementType: "labels",             stylers: [{ visibility: "off" }] },
+
+  // ── Transit ──────────────────────────────────────────────────────────────
+  { featureType: "transit",                elementType: "geometry",           stylers: [{ color: "#146474" }] },
+  { featureType: "transit",                elementType: "labels.text.fill",   stylers: [{ color: "#5a8a96" }] },
+  { featureType: "transit",                elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
+
+  // ── Water ────────────────────────────────────────────────────────────────
+  { featureType: "water",                  elementType: "geometry",           stylers: [{ color: "#021019" }] },
+  { featureType: "water",                  elementType: "labels.text.fill",   stylers: [{ color: "#3d6e7e" }] },
 ];
 
 // ── Legacy circle icons (fallback when MAP_ID is not set) ─────────────────────
@@ -93,9 +126,8 @@ function markerBg(category: string): string {
   return CATEGORY_COLORS[category] ?? "#4c1d95";
 }
 
-// Single-element circle — AdvancedMarkerElement anchors at bottom-center of the
-// content element, so one div is correct; wrapping with translate(-50%,-50%)
-// conflicts with the API's own positioning and must not be added.
+// Circular event image div used by AvatarMarker (OverlayView).
+// translate(-50%,-50%) centering is applied by AvatarMarker.draw(), not here.
 function createMarkerEl(imageUrl: string | null, selected: boolean, category = ""): HTMLElement {
   const size   = selected ? 52 : 40;
   const border = selected ? "3px solid #fff" : "2px solid rgba(255,255,255,0.90)";
@@ -133,6 +165,40 @@ function updateMarkerEl(el: HTMLElement, selected: boolean): void {
   el.style.boxShadow = selected
     ? "0 0 0 3px rgba(37,99,235,0.70), 0 4px 24px rgba(37,99,235,0.30), 0 4px 20px rgba(0,0,0,0.50)"
     : "0 2px 10px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.10)";
+}
+
+// ── Tile helpers (mirrors EventsList design) ──────────────────────────────────
+
+function categoryBg(cat: string): string {
+  switch (cat) {
+    case "concerts":
+    case "music":     return "#0D1520";
+    case "nightlife": return "#0A1018";
+    case "arts_culture":
+    case "art":       return "#0E1319";
+    case "comedy":    return "#0F1318";
+    case "sports":    return "#0A1216";
+    case "family":    return "#0C1220";
+    default:          return "#0B0F14";
+  }
+}
+
+function smartDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const toKey = (dt: Date) => dt.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const eventDay = toKey(d);
+  const today = toKey(now);
+  const tomorrow = toKey(new Date(now.getTime() + 86_400_000));
+  const rawTime = d.toLocaleString("en-US", { timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true });
+  const timeStr = rawTime.replace(/:00\s/, " ").replace(/\s/, "").toLowerCase();
+  if (eventDay === today) return `Today at ${timeStr}`;
+  if (eventDay === tomorrow) return `Tomorrow at ${timeStr}`;
+  const diffMs = d.getTime() - now.getTime();
+  if (diffMs > 0 && diffMs < 7 * 86_400_000) {
+    return `${d.toLocaleDateString("en-US", { timeZone: "America/Toronto", weekday: "long" })} at ${timeStr}`;
+  }
+  return `${d.toLocaleDateString("en-US", { timeZone: "America/Toronto", month: "short", day: "numeric" })} at ${timeStr}`;
 }
 
 type MapEvent = {
@@ -284,137 +350,6 @@ function wordOverlapScore(query: string, candidate: string): number {
 }
 
 
-function formatEventDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const isToday =
-    d.toLocaleDateString("en-CA", { timeZone: "America/Toronto" }) ===
-    now.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-
-  const time = d.toLocaleString("en-US", {
-    timeZone: "America/Toronto",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  if (isToday) return `Today · ${time}`;
-
-  return d.toLocaleString("en-US", {
-    timeZone: "America/Toronto",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-// ── Shared event card used in both single-card and carousel modes ─────────────
-function EventCard({ event, avatars }: { event: MapEvent; avatars: TileAvatar[] }) {
-  return (
-    <div style={{ position: "relative", width: "100%", paddingBottom: "62%", background: "#1a1020" }}>
-      {event.image_url && (
-        <img
-          src={event.image_url}
-          alt=""
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      )}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.1) 75%, transparent 100%)",
-        }}
-      />
-
-      {/* Star badge */}
-      <div
-        style={{
-          position: "absolute",
-          top: 8,
-          right: 8,
-          width: 30,
-          height: 30,
-          borderRadius: "50%",
-          background: "rgba(0,0,0,0.42)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      </div>
-
-      {/* Attendee avatars */}
-      {avatars.length > 0 && (
-        <div style={{ position: "absolute", bottom: 10, right: 10, display: "flex", flexDirection: "row-reverse" }}>
-          {avatars.map((a, i) =>
-            a.url ? (
-              <img
-                key={i}
-                src={a.url}
-                alt=""
-                style={{
-                  width: 22, height: 22, borderRadius: "50%", objectFit: "cover",
-                  border: "2px solid rgba(0,0,0,0.5)", marginLeft: i > 0 ? -6 : 0,
-                }}
-              />
-            ) : (
-              <div
-                key={i}
-                style={{
-                  width: 22, height: 22, borderRadius: "50%",
-                  background: getAvatarColor(a.name),
-                  border: "2px solid rgba(0,0,0,0.5)", marginLeft: i > 0 ? -6 : 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 8, fontWeight: 700, color: "#fff",
-                }}
-              >
-                {getInitials(a.name)}
-              </div>
-            )
-          )}
-        </div>
-      )}
-
-      {/* Text overlay */}
-      <div
-        style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
-          padding: "8px 12px 12px", display: "flex", flexDirection: "column", gap: 2,
-        }}
-      >
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>
-          {formatEventDate(event.start_at)}
-        </div>
-        <div
-          style={{
-            fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.25,
-            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}
-        >
-          {event.title}
-        </div>
-        {event.venues?.name && (
-          <div
-            style={{
-              fontSize: 12, color: "rgba(255,255,255,0.55)",
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}
-          >
-            {event.venues.name}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Inline mini calendar for "Pick a date" ────────────────────────────────────
 function MiniCalendar({
   start,
@@ -559,11 +494,16 @@ function MiniCalendar({
 }
 
 export default function MapPage() {
+  const { user, session } = useAuth();
   const router = useRouter();
   const mapDivRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const markersRef = useRef<Map<string, any>>(new Map());
+  // AvatarMarker class is defined lazily inside initMap (google.maps.OverlayView
+  // is only available after the Maps API script loads). Stored here for reuse.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const avatarMarkerClassRef = useRef<any>(null);
   const prevSelectedIdRef = useRef<string | null>(null);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const userPosRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -573,6 +513,9 @@ export default function MapPage() {
   const [deepLinkedEvent, setDeepLinkedEvent] = useState<MapEvent | null>(null);
   const [mapsLoaded, setMapsLoaded] = useState(false);
   const [selectedAvatars, setSelectedAvatars] = useState<TileAvatar[]>([]);
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+  const [starPending, setStarPending] = useState<Set<string>>(new Set());
+  const [starPressed, setStarPressed] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<MapCategory>("all");
@@ -1197,6 +1140,47 @@ export default function MapPage() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [mapSuggestions.length]);
 
+  // ── Star / interested handler ──────────────────────────────────────────────
+  async function handleStar(eventId: string, ev: React.MouseEvent) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!user || !session) {
+      window.dispatchEvent(new CustomEvent("outsy:open-signin"));
+      return;
+    }
+    const wasStarred = starredIds.has(eventId);
+    setStarPending((p) => { const s = new Set(p); s.add(eventId); return s; });
+    setStarredIds((p) => { const s = new Set(p); if (wasStarred) s.delete(eventId); else s.add(eventId); return s; });
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp`, {
+        method: wasStarred ? "DELETE" : "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        ...(wasStarred ? {} : { body: JSON.stringify({ response: "maybe" }) }),
+      });
+      if (!res.ok) setStarredIds((p) => { const s = new Set(p); if (wasStarred) s.add(eventId); else s.delete(eventId); return s; });
+    } catch {
+      setStarredIds((p) => { const s = new Set(p); if (wasStarred) s.add(eventId); else s.delete(eventId); return s; });
+    } finally {
+      setStarPending((p) => { const s = new Set(p); s.delete(eventId); return s; });
+    }
+  }
+
+  // Also load the current user's starred events for the visible event set.
+  useEffect(() => {
+    if (!user) return;
+    const ids = [...filteredEvents.map((e) => e.id), ...(deepLinkedEvent ? [deepLinkedEvent.id] : [])];
+    if (ids.length === 0) return;
+    supabaseBrowser()
+      .from("rsvps")
+      .select("event_id")
+      .eq("user_id", user.id)
+      .in("event_id", ids)
+      .then(({ data }) => {
+        if (data) setStarredIds(new Set(data.map((r: { event_id: string }) => r.event_id)));
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, filteredEvents.map((e) => e.id).join(","), deepLinkedEvent?.id]);
+
   // Shared helper: store position, place/update the blue dot.
   // Skips panTo when a deep-link event is active so geolocation doesn't override
   // the venue-centered view. isDeepLinkActiveRef is set SYNCHRONOUSLY on mount
@@ -1237,6 +1221,9 @@ export default function MapPage() {
   const initMap = useCallback(() => {
     if (!mapDivRef.current || mapRef.current) return;
 
+    // renderingType: RASTER is required — as of Maps JS API v3.55+, the vector
+    // renderer is the default even without a mapId. The styles array is silently
+    // ignored on the vector renderer. Explicitly forcing RASTER ensures styles apply.
     const map = new google.maps.Map(mapDivRef.current, {
       zoom: 13,
       center: MONTREAL,
@@ -1247,14 +1234,82 @@ export default function MapPage() {
       rotateControl: false,
       cameraControl: false,
       clickableIcons: false,
-      // mapId enables AdvancedMarkerElement; styles applies the dark palette on
-      // raster maps (vector renderer ignores styles, so both are passed and each
-      // takes effect in its respective mode).
-      ...(MAP_ID ? { mapId: MAP_ID } : {}),
+      renderingType: google.maps.RenderingType.RASTER,
       styles: MAP_STYLES,
     });
 
+    // Force-apply styles immediately after creation as a second guarantee.
+    // Some API versions don't honour styles set in the constructor options alone.
+    map.setOptions({ styles: MAP_STYLES });
+
+    console.log(
+      "[Outsy map] created — mapTypeId:", map.getMapTypeId(),
+      "| renderingType:", map.getRenderingType?.(),
+      "| styles count:", MAP_STYLES.length,
+    );
+
     mapRef.current = map;
+
+    // ── AvatarMarker — custom HTML marker via OverlayView ──────────────────────
+    // AdvancedMarkerElement requires a mapId (vector renderer) which breaks the
+    // styles array. OverlayView works on any renderer: we render a circular img
+    // div ourselves and handle positioning in draw().
+    class AvatarMarker extends google.maps.OverlayView {
+      private _pos: google.maps.LatLng;
+      content: HTMLElement;
+      private _zIndex = 1;
+
+      constructor(
+        pos: google.maps.LatLngLiteral,
+        imageUrl: string | null,
+        category: string,
+        zIndex: number,
+        onClick: () => void,
+      ) {
+        super();
+        this._pos = new google.maps.LatLng(pos.lat, pos.lng);
+        this._zIndex = zIndex;
+        this.content = createMarkerEl(imageUrl, false, category);
+        this.content.addEventListener("click", (e) => {
+          e.stopPropagation();
+          onClick();
+        });
+      }
+
+      // Expose zIndex as a settable property so the icon-swap effect can write
+      // m.zIndex = 10 and have it immediately reflected in the CSS z-index.
+      get zIndex(): number { return this._zIndex; }
+      set zIndex(z: number) {
+        this._zIndex = z;
+        this.content.style.zIndex = String(z);
+      }
+
+      onAdd() {
+        // overlayMouseTarget pane sits on top and receives pointer events.
+        this.getPanes()!.overlayMouseTarget.appendChild(this.content);
+      }
+
+      draw() {
+        const proj = this.getProjection();
+        if (!proj) return;
+        const point = proj.fromLatLngToDivPixel(this._pos);
+        if (!point) return;
+        // position: absolute within the pane; translate(-50%,-50%) centers the
+        // circle on the geo-coordinate and auto-adjusts when size changes.
+        this.content.style.position = "absolute";
+        this.content.style.left = `${point.x}px`;
+        this.content.style.top  = `${point.y}px`;
+        this.content.style.transform = "translate(-50%, -50%)";
+        this.content.style.zIndex = String(this._zIndex);
+      }
+
+      onRemove() {
+        if (this.content.parentNode) {
+          this.content.parentNode.removeChild(this.content);
+        }
+      }
+    }
+    avatarMarkerClassRef.current = AvatarMarker;
 
     // Tapping the map background dismisses the preview card
     map.addListener("click", () => setSelected(null));
@@ -1326,11 +1381,9 @@ export default function MapPage() {
     markersRef.current = new Map();
     prevSelectedIdRef.current = null;
 
-    // AdvancedMarkerElement requires a mapId on the Map instance.
-    // Only available when MAP_ID is configured; otherwise falls back to legacy Marker.
-    const AdvancedMarker = MAP_ID
-      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
-      : null;
+    // AvatarMarker uses OverlayView — raster-compatible custom HTML markers.
+    const AvatarMarkerClass = avatarMarkerClassRef.current;
+    if (!AvatarMarkerClass) return;
 
     filteredEvents.forEach((event) => {
       const lat = event.venues?.lat;
@@ -1342,32 +1395,17 @@ export default function MapPage() {
       const venueKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
       const leader   = venueLeaderMapRef.current.get(venueKey) ?? event;
 
-      let marker;
-
-      if (AdvancedMarker) {
-        marker = new AdvancedMarker({
-          map,
-          position: { lat, lng },
-          content: createMarkerEl(leader.image_url, false, leader.category_primary),
-          title: leader.title,
-          zIndex: 1,
-        });
-      } else {
-        // True last-resort fallback (marker library absent)
-        marker = new google.maps.Marker({
-          map,
-          position: { lat, lng },
-          title: leader.title,
-          icon: MARKER_DEFAULT,
-          zIndex: 1,
-        });
-      }
-
-      marker.addListener("click", () => {
-        setSelected(event); // keep filteredEvents id so icon-swap + dismiss logic works
-        map.panTo({ lat, lng });
-      });
-
+      const marker = new AvatarMarkerClass(
+        { lat, lng },
+        leader.image_url,
+        leader.category_primary,
+        1,
+        () => {
+          setSelected(event); // keep filteredEvents id so icon-swap + dismiss logic works
+          map.panTo({ lat, lng });
+        },
+      );
+      marker.setMap(map);
       markersRef.current.set(event.id, marker);
     });
   }, [filteredEvents, mapsLoaded, deepLinkedEvent]);
@@ -1385,32 +1423,20 @@ export default function MapPage() {
     if (typeof lat !== "number" || typeof lng !== "number") return;
     console.log("[map deep-link] placing marker at", lat, lng, deepLinkedEvent.title);
 
-    const AdvancedMarker = MAP_ID
-      ? (google.maps.marker as typeof google.maps.marker)?.AdvancedMarkerElement ?? null
-      : null;
+    const AvatarMarkerClass = avatarMarkerClassRef.current;
+    if (!AvatarMarkerClass) return;
 
-    let marker;
-    if (AdvancedMarker) {
-      marker = new AdvancedMarker({
-        map,
-        position: { lat, lng },
-        content: createMarkerEl(deepLinkedEvent.image_url, false, deepLinkedEvent.category_primary),
-        title: deepLinkedEvent.title,
-        zIndex: 1,
-      });
-    } else {
-      marker = new google.maps.Marker({
-        map,
-        position: { lat, lng },
-        title: deepLinkedEvent.title,
-        icon: MARKER_DEFAULT,
-        zIndex: 1,
-      });
-    }
-    marker.addListener("click", () => {
-      setSelected(deepLinkedEvent);
-      map.panTo({ lat, lng });
-    });
+    const marker = new AvatarMarkerClass(
+      { lat, lng },
+      deepLinkedEvent.image_url,
+      deepLinkedEvent.category_primary,
+      1,
+      () => {
+        setSelected(deepLinkedEvent);
+        map.panTo({ lat, lng });
+      },
+    );
+    marker.setMap(map);
     markersRef.current.set(deepLinkedEvent.id, marker);
   }, [deepLinkedEvent, mapsLoaded, filteredEvents]);
 
@@ -1451,47 +1477,37 @@ export default function MapPage() {
         onLoad={initMap}
       />
 
-      {/* Full-height container below the sticky header */}
-      <div style={{ position: "relative", height: "calc(100dvh - 57px)", overflow: "hidden" }}>
+      {/* Full-viewport map container — position:fixed removes it from the
+          document flow so body:has(.bottom-nav) padding-bottom doesn't create
+          a white strip below the map. Covers the full screen behind BottomNav. */}
+      <div style={{ position: "fixed", inset: 0, overflow: "hidden" }}>
 
-        {/* Google Maps canvas — brightness/saturation reduced so UI dominates */}
+        {/* Google Maps canvas — no CSS filter; style array carries the visual design */}
         <div
           ref={mapDivRef}
           style={{
             width: "100%",
             height: "100%",
-            filter: "brightness(0.80) saturate(0.82)",
           }}
         />
 
-        {/* Brand tint — very subtle blue wash to unify map tones with app accent */}
+        {/* Top edge fade — subtle vignette to anchor search bar; much lighter than before */}
         <div
           aria-hidden="true"
           style={{
-            position: "absolute", inset: 0,
-            background: "rgba(94,168,255,0.05)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-
-        {/* Top edge fade — anchors search bar into app chrome */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute", top: 0, left: 0, right: 0, height: 160,
-            background: "linear-gradient(to bottom, #0B0F14 0%, rgba(11,15,20,0.90) 35%, rgba(11,15,20,0.55) 65%, transparent 100%)",
+            position: "absolute", top: 0, left: 0, right: 0, height: 110,
+            background: "linear-gradient(to bottom, rgba(11,15,20,0.72) 0%, rgba(11,15,20,0.30) 55%, transparent 100%)",
             pointerEvents: "none",
             zIndex: 8,
           }}
         />
 
-        {/* Bottom edge fade — grounds map into nav + event cards */}
+        {/* Bottom edge fade — light vignette, event card shadow does the separation */}
         <div
           aria-hidden="true"
           style={{
-            position: "absolute", bottom: 0, left: 0, right: 0, height: 200,
-            background: "linear-gradient(to top, #0B0F14 0%, rgba(11,15,20,0.90) 35%, rgba(11,15,20,0.55) 65%, transparent 100%)",
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 120,
+            background: "linear-gradient(to top, rgba(11,15,20,0.60) 0%, rgba(11,15,20,0.20) 60%, transparent 100%)",
             pointerEvents: "none",
             zIndex: 8,
           }}
@@ -1522,11 +1538,11 @@ export default function MapPage() {
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                border: "1px solid rgba(255,255,255,0.10)",
-                background: "rgba(16,23,34,0.82)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(13,19,28,0.88)",
                 backdropFilter: "blur(16px) saturate(160%)",
                 WebkitBackdropFilter: "blur(16px) saturate(160%)",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.50)",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.60), 0 1px 3px rgba(0,0,0,0.40)",
                 cursor: "pointer",
                 color: "#F5F7FA",
                 touchAction: "manipulation",
@@ -1551,13 +1567,13 @@ export default function MapPage() {
                   width: "100%",
                   height: 44,
                   borderRadius: mapSuggestions.length > 0 ? "22px 22px 0 0" : 22,
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  border: "1px solid rgba(255,255,255,0.12)",
                   padding: searchQuery ? "0 40px 0 16px" : "0 16px",
                   fontSize: 16,
-                  background: "rgba(16,23,34,0.82)",
+                  background: "rgba(13,19,28,0.88)",
                   backdropFilter: "blur(16px) saturate(160%)",
                   WebkitBackdropFilter: "blur(16px) saturate(160%)",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.50)",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.60), 0 1px 3px rgba(0,0,0,0.40)",
                   color: "#F5F7FA",
                   boxSizing: "border-box",
                 }}
@@ -1606,13 +1622,13 @@ export default function MapPage() {
                     top: "100%",
                     left: 0,
                     right: 0,
-                    background: "rgba(16,23,34,0.96)",
+                    background: "rgba(13,19,28,0.96)",
                     backdropFilter: "blur(20px) saturate(160%)",
                     WebkitBackdropFilter: "blur(20px) saturate(160%)",
                     borderRadius: "0 0 16px 16px",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.10)",
                     borderTop: "none",
-                    boxShadow: "0 8px 28px rgba(0,0,0,0.55)",
+                    boxShadow: "0 12px 36px rgba(0,0,0,0.65), 0 2px 6px rgba(0,0,0,0.40)",
                     overflow: "hidden",
                     zIndex: 20,
                   }}
@@ -1694,13 +1710,13 @@ export default function MapPage() {
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                border: filterActive ? "none" : "1px solid rgba(255,255,255,0.10)",
-                background: filterActive ? "#2563EB" : "rgba(16,23,34,0.82)",
+                border: filterActive ? "none" : "1px solid rgba(255,255,255,0.12)",
+                background: filterActive ? "#2563EB" : "rgba(13,19,28,0.88)",
                 backdropFilter: filterActive ? "none" : "blur(16px) saturate(160%)",
                 WebkitBackdropFilter: filterActive ? "none" : "blur(16px) saturate(160%)",
                 boxShadow: filterActive
-                  ? "0 2px 14px rgba(37,99,235,0.45)"
-                  : "0 4px 20px rgba(0,0,0,0.50)",
+                  ? "0 2px 16px rgba(37,99,235,0.55), 0 1px 4px rgba(0,0,0,0.40)"
+                  : "0 4px 24px rgba(0,0,0,0.60), 0 1px 3px rgba(0,0,0,0.40)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1737,8 +1753,8 @@ export default function MapPage() {
                     flexShrink: 0,
                     padding: "7px 14px",
                     borderRadius: 20,
-                    border: isActive ? "none" : "1px solid rgba(255,255,255,0.09)",
-                    background: isActive ? "#2563EB" : "rgba(16,23,34,0.80)",
+                    border: isActive ? "none" : "1px solid rgba(255,255,255,0.11)",
+                    background: isActive ? "#2563EB" : "rgba(13,19,28,0.88)",
                     backdropFilter: isActive ? "none" : "blur(14px) saturate(150%)",
                     WebkitBackdropFilter: isActive ? "none" : "blur(14px) saturate(150%)",
                     color: "#F5F7FA",
@@ -1746,8 +1762,8 @@ export default function MapPage() {
                     fontWeight: 600,
                     cursor: "pointer",
                     boxShadow: isActive
-                      ? "0 2px 10px rgba(37,99,235,0.40)"
-                      : "0 2px 10px rgba(0,0,0,0.40)",
+                      ? "0 2px 12px rgba(37,99,235,0.50)"
+                      : "0 3px 14px rgba(0,0,0,0.55), 0 1px 3px rgba(0,0,0,0.35)",
                     touchAction: "manipulation",
                   }}
                 >
@@ -1764,14 +1780,14 @@ export default function MapPage() {
                 style={{
                   padding: "4px 12px",
                   borderRadius: 20,
-                  background: "rgba(16,23,34,0.75)",
+                  background: "rgba(13,19,28,0.88)",
                   backdropFilter: "blur(12px)",
                   WebkitBackdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.10)",
                   fontSize: 11,
                   fontWeight: 600,
-                  color: "rgba(245,247,250,0.60)",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+                  color: "rgba(245,247,250,0.65)",
+                  boxShadow: "0 3px 14px rgba(0,0,0,0.55)",
                   letterSpacing: "0.02em",
                 }}
               >
@@ -1791,17 +1807,17 @@ export default function MapPage() {
             style={{
               position: "absolute",
               right: 12,
-              bottom: selected ? 250 : 24,
+              bottom: selected ? "max(272px, calc(env(safe-area-inset-bottom, 0px) + 264px))" : 24,
               transition: "bottom 0.2s ease",
               zIndex: 9,
               width: 44,
               height: 44,
               borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "rgba(16,23,34,0.82)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(13,19,28,0.88)",
               backdropFilter: "blur(16px) saturate(160%)",
               WebkitBackdropFilter: "blur(16px) saturate(160%)",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.50)",
+              boxShadow: "0 4px 24px rgba(0,0,0,0.60), 0 1px 3px rgba(0,0,0,0.40)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -1816,35 +1832,14 @@ export default function MapPage() {
           </button>
         )}
 
-        {/* Event preview — single card or venue carousel */}
-        {selected && venueEvents.length === 1 && (
-          /* ── Single event: existing centered card ─────────────────────── */
-          <Link href={`/events/${selected.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-            <div
-              style={{
-                position: "absolute",
-                bottom: "calc(26px + env(safe-area-inset-bottom, 0px))",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: "calc(100% - 48px)",
-                maxWidth: 340,
-                zIndex: 10,
-                borderRadius: 16,
-                overflow: "hidden",
-                boxShadow: "0 8px 40px rgba(0,0,0,0.32)",
-              }}
-            >
-              <EventCard event={selected} avatars={selectedAvatars} />
-            </div>
-          </Link>
-        )}
-
-        {selected && venueEvents.length > 1 && (
-          /* ── Multi-event venue carousel ───────────────────────────────── */
+        {/* Event preview — single card or venue carousel
+            bottom clears the floating BottomNav (≈76px tall + 16px bottom margin)
+            plus safe-area-inset-bottom on iPhone. 96px covers this on all devices. */}
+        {selected && (
           <div
             style={{
               position: "absolute",
-              bottom: "calc(26px + env(safe-area-inset-bottom, 0px))",
+              bottom: "max(96px, calc(env(safe-area-inset-bottom, 0px) + 96px))",
               left: 0,
               right: 0,
               zIndex: 10,
@@ -1853,21 +1848,21 @@ export default function MapPage() {
               gap: 8,
             }}
           >
-            {/* Venue pill header */}
-            {selected.venues?.name && (
+            {/* Venue pill — shown only for multi-event venues */}
+            {venueEvents.length > 1 && selected.venues?.name && (
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <div
                   style={{
                     padding: "5px 14px",
                     borderRadius: 20,
-                    background: "rgba(16,23,34,0.85)",
+                    background: "rgba(16,23,34,0.88)",
                     backdropFilter: "blur(14px) saturate(160%)",
                     WebkitBackdropFilter: "blur(14px) saturate(160%)",
                     border: "1px solid rgba(255,255,255,0.09)",
                     fontSize: 12,
                     fontWeight: 700,
                     color: "#F5F7FA",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.45)",
+                    boxShadow: "0 2px 12px rgba(0,0,0,0.50)",
                     maxWidth: "calc(100% - 48px)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
@@ -1882,37 +1877,116 @@ export default function MapPage() {
               </div>
             )}
 
-            {/* Scrollable row of event cards */}
+            {/* Tile row — single card centered, multiple cards scroll */}
             <div
               className="chip-row"
               style={{
                 display: "flex",
                 gap: 10,
-                overflowX: "auto",
-                padding: "0 16px 2px",
+                overflowX: venueEvents.length > 1 ? "auto" : "visible",
+                // Center single card; let multi-card start from left edge with padding
+                justifyContent: venueEvents.length === 1 ? "center" : "flex-start",
+                padding: venueEvents.length > 1 ? "0 16px 4px" : "0 16px 4px",
+                scrollSnapType: "x mandatory",
               }}
             >
-              {venueEvents.map((evt, i) => (
-                <Link
-                  key={evt.id}
-                  href={`/events/${evt.id}`}
-                  style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}
-                >
-                  <div
+              {(venueEvents.length > 1 ? venueEvents : [selected]).map((evt, i) => {
+                const starred = starredIds.has(evt.id);
+                const pending = starPending.has(evt.id);
+                const pressed = starPressed.has(evt.id);
+                const avatars = i === 0 ? selectedAvatars : [];
+                const venueLabel = evt.venues?.name ?? null;
+                const infoLine = [smartDate(evt.start_at), venueLabel].filter(Boolean).join(" · ");
+                return (
+                  <Link
+                    key={evt.id}
+                    href={`/events/${evt.id}`}
+                    onClick={(e) => { e.stopPropagation(); router.push(`/events/${evt.id}`); e.preventDefault(); }}
                     style={{
-                      width: "min(72vw, 230px)",
-                      borderRadius: 14,
-                      overflow: "hidden",
-                      boxShadow: "0 6px 28px rgba(0,0,0,0.30)",
+                      textDecoration: "none",
+                      color: "inherit",
+                      flexShrink: 0,
+                      scrollSnapAlign: "start",
+                      display: "block",
+                      // Single card: 100% of padded width up to 340px.
+                      // Multi-card: fixed width matching This week tiles.
+                      width: venueEvents.length === 1 ? "min(calc(100vw - 32px), 340px)" : 255,
                     }}
                   >
-                    <EventCard
-                      event={evt}
-                      avatars={i === 0 ? selectedAvatars : []}
-                    />
-                  </div>
-                </Link>
-              ))}
+                    <div
+                      style={{
+                        position: "relative",
+                        width: "100%",
+                        height: venueEvents.length === 1 ? 200 : 182,
+                        borderRadius: 15,
+                        overflow: "hidden",
+                        transform: "translateZ(0)",
+                        background: categoryBg(evt.category_primary),
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.40)",
+                      }}
+                    >
+                      {/* Image */}
+                      {evt.image_url && (
+                        <img src={evt.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                      )}
+                      {/* Top gradient — darkens for avatar/button contrast */}
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(28,28,28,0.6) 0%, rgba(28,28,28,0) 22%)", pointerEvents: "none" }} />
+                      {/* Bottom gradient — text legibility */}
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(28,28,28,0.13) 68%, #1c1c1c 100%)", pointerEvents: "none" }} />
+
+                      {/* Attendee avatars — top left */}
+                      {avatars.length > 0 && (
+                        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", alignItems: "center" }}>
+                          {avatars.slice(0, 3).map((a, idx) =>
+                            a.url ? (
+                              <img key={idx} src={a.url} alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -6 : 0 }} />
+                            ) : (
+                              <div key={idx} style={{ width: 19, height: 19, borderRadius: "50%", background: getAvatarColor(a.name), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -6 : 0 }}>
+                                {getInitials(a.name)}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      {/* Star / interested button — top right */}
+                      <button
+                        type="button"
+                        aria-label={starred ? "Remove from saved" : "Save event"}
+                        onClick={(ev) => handleStar(evt.id, ev)}
+                        onPointerDown={() => setStarPressed((s) => { const n = new Set(s); n.add(evt.id); return n; })}
+                        onPointerUp={() => setStarPressed((s) => { const n = new Set(s); n.delete(evt.id); return n; })}
+                        onPointerLeave={() => setStarPressed((s) => { const n = new Set(s); n.delete(evt.id); return n; })}
+                        style={{
+                          position: "absolute", top: 7, right: 8,
+                          width: 26, height: 26, borderRadius: "50%", border: "none",
+                          background: starred ? "rgba(94,168,255,0.85)" : "transparent",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: pending ? "wait" : "pointer",
+                          opacity: pending ? 0.6 : 1,
+                          padding: 0,
+                          transform: pressed ? "scale(0.95)" : "scale(1)",
+                          transition: "transform 0.12s ease, background 0.15s ease",
+                        }}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 18 18" fill={starred ? "#fff" : "none"} stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path fillRule="evenodd" clipRule="evenodd" d="M8.81244 3.375C8.74419 3.375 8.57619 3.39375 8.48694 3.57225L7.11744 6.3105C6.90069 6.74325 6.48294 7.044 5.99994 7.113L2.93394 7.55475C2.73144 7.584 2.66244 7.734 2.64144 7.797C2.62269 7.85775 2.59269 8.01225 2.73219 8.14575L4.94919 10.2758C5.30244 10.6155 5.46294 11.1053 5.37894 11.5845L4.85694 14.592C4.82469 14.7802 4.94244 14.8897 4.99494 14.9272C5.05044 14.9692 5.19894 15.0525 5.38269 14.9565L8.12394 13.5353C8.55594 13.3125 9.07044 13.3125 9.50094 13.5353L12.2414 14.9557C12.4259 15.051 12.5744 14.9677 12.6307 14.9272C12.6832 14.8897 12.8009 14.7802 12.7687 14.592L12.2452 11.5845C12.1612 11.1053 12.3217 10.6155 12.6749 10.2758L14.8919 8.14575C15.0322 8.01225 15.0022 7.857 14.9827 7.797C14.9624 7.734 14.8934 7.584 14.6909 7.55475L11.6249 7.113C11.1427 7.044 10.7249 6.74325 10.5082 6.30975L9.13719 3.57225C9.04869 3.39375 8.88069 3.375 8.81244 3.375Z" />
+                        </svg>
+                      </button>
+
+                      {/* Title + info — centered at bottom */}
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 9px 11px", textAlign: "center" }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: "#F5F7FA", lineHeight: 1.15, marginBottom: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          {evt.title}
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 500, color: "#F5F7FA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3, opacity: 0.85 }}>
+                          {infoLine}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}
