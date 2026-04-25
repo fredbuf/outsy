@@ -59,32 +59,13 @@ export function AppTopBar() {
       }}
     >
       {/* ── Location label ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          color: "#F5F7FA",
-        }}
-      >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#8C98A8"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ flexShrink: 0 }}
-          aria-hidden
-        >
-          <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
-          <circle cx="12" cy="10" r="3" />
-        </svg>
-        <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.025em", color: "#F5F7FA" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ fontSize: 25, fontWeight: 900, color: "#F5F7FA", letterSpacing: "-0.03em", lineHeight: 1 }}>
           Montréal
         </span>
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden style={{ flexShrink: 0, marginTop: 3 }}>
+          <path d="M2 3.5L5 6.5L8 3.5" stroke="#8C98A8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
 
       {/* ── Avatar / sign-in ── */}
