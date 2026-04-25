@@ -12,7 +12,7 @@ import { useBottomNav } from "../components/BottomNavContext";
 
 const PAGE_SIZE = 50;
 
-type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
+type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family" | "food_beverages" | "experiences";
 type SourceType = "ticketmaster" | "manual" | "eventbrite" | "venue_newcitygas" | "venue_sat";
 
 
@@ -432,25 +432,29 @@ function thisWeekBoundsIso(): { start: string; end: string } {
 
 
 const CATEGORY_LABELS: Record<string, string> = {
-  all:          "All",
-  concerts:     "Concerts",
-  nightlife:    "Nightlife",
-  arts_culture: "Arts & Culture",
-  comedy:       "Comedy",
-  sports:       "Sports",
-  family:       "Family",
+  all:             "All",
+  concerts:        "Concerts",
+  nightlife:       "Nightlife",
+  arts_culture:    "Arts & Culture",
+  comedy:          "Comedy",
+  sports:          "Sports",
+  family:          "Family",
+  food_beverages:  "Food & Beverages",
+  experiences:     "Experiences",
 };
 
 
 function categoryBg(cat: Category): string {
   switch (cat) {
-    case "concerts":     return "#0D1520";
-    case "nightlife":    return "#0A1018";
-    case "arts_culture": return "#0E1319";
-    case "comedy":       return "#0F1318";
-    case "sports":       return "#0A1216";
-    case "family":       return "#0C1220";
-    default:             return "#0B0F14";
+    case "concerts":       return "#0D1520";
+    case "nightlife":      return "#0A1018";
+    case "arts_culture":   return "#0E1319";
+    case "comedy":         return "#0F1318";
+    case "sports":         return "#0A1216";
+    case "family":         return "#0C1220";
+    case "food_beverages": return "#0E1510";
+    case "experiences":    return "#0F1018";
+    default:               return "#0B0F14";
   }
 }
 
@@ -1111,9 +1115,9 @@ export function EventsList() {
         </button>
       </div>
 
-      {/* Category chip row — liquid glass */}
+      {/* Category chip row — liquid glass (Figma: Fill #FFF 5% / Stroke #FFF 10% default; #3B82F6 35% fill / no stroke selected) */}
       <div className="chip-row" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, minWidth: 0 }}>
-        {(["all", "concerts", "nightlife", "arts_culture", "comedy", "sports", "family"] as const).map((c) => {
+        {(["all", "concerts", "nightlife", "arts_culture", "comedy", "sports", "family", "experiences", "food_beverages"] as const).map((c) => {
           const active = category === c;
           return (
             <button
@@ -1123,23 +1127,15 @@ export function EventsList() {
               style={{
                 padding: "8px 18px",
                 borderRadius: 999,
-                border: `1px solid ${active ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
-                background: active
-                  ? "rgba(255,255,255,0.14)"
-                  : "rgba(255,255,255,0.06)",
-                backdropFilter: "blur(20px) saturate(1.6)",
-                WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-                color: active ? "#F5F7FA" : "rgba(255,255,255,0.55)",
-                fontWeight: active ? 600 : 400,
+                border: active ? "none" : "1px solid rgba(255,255,255,0.10)",
+                background: active ? "rgba(59,130,246,0.35)" : "rgba(255,255,255,0.05)",
+                color: active ? "#ffffff" : "#8C98A8",
+                fontWeight: active ? 600 : 500,
                 fontSize: 13,
-                letterSpacing: "-0.01em",
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
-                transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease",
-                boxShadow: active
-                  ? "inset 0 1.5px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.12), 0 2px 12px rgba(0,0,0,0.28)"
-                  : "inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.08), 0 1px 6px rgba(0,0,0,0.18)",
+                transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease",
               }}
             >
               {CATEGORY_LABELS[c]}
