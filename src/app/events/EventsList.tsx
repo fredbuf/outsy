@@ -1197,13 +1197,16 @@ export function EventsList() {
           {thisWeekEvents.length > 0 && (
             <section style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>This week</h2>
+                <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>This week</h2>
                 <button
                   type="button"
                   onClick={() => setThisWeekOpen(true)}
-                  style={{ fontSize: 13, color: "#8C98A8", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
+                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
                 >
                   See all
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M4.5 2.5L8 6L4.5 9.5" stroke="#5EA8FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
               </div>
               <div className="events-week-scroll" style={{ display: "flex", gap: 12, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
@@ -1292,14 +1295,17 @@ export function EventsList() {
           {/* ── All events ───────────────────────────────────────────────── */}
           <section style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h2 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>All events</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.025em", color: "#F5F7FA" }}>All events</h2>
               {(category !== "all" || dateFilter !== "all" || timeFilter !== "all" || typeFilter !== "all") && (
                 <button
                   type="button"
                   onClick={() => { setCategory("all"); setDateFilter("all"); setPickedDate(""); setPickedDateEnd(""); setTimeFilter("all"); setTypeFilter("all"); }}
-                  style={{ fontSize: 13, color: "#8C98A8", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
+                  style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#5EA8FF", background: "none", border: "none", cursor: "pointer", fontWeight: 500, padding: 0 }}
                 >
                   See all
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M4.5 2.5L8 6L4.5 9.5" stroke="#5EA8FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
               )}
             </div>
