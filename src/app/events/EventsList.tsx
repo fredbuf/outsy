@@ -1381,19 +1381,19 @@ export function EventsList() {
                   </svg>
                 </button>
               </div>
-              <div className="events-week-scroll" style={{ display: "flex", gap: 9, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
+              <div className="events-week-scroll" style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {tonightEvents.map((e) => (
                   <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
-                    <div style={{ position: "relative", width: 106, height: 156, borderRadius: 15, overflow: "hidden", background: categoryBg(e.category_primary), border: "1px solid rgba(255,255,255,0.11)" }}>
+                    <div style={{ position: "relative", width: 117, height: 172, borderRadius: 17, overflow: "hidden", background: categoryBg(e.category_primary), border: "1px solid rgba(255,255,255,0.11)" }}>
                       {e.image_url && (
                         <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                       )}
                       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 0%, rgba(28,28,28,0.12) 59%, #1c1c1c 100%)", pointerEvents: "none" }} />
-                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 6px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: "#F5F7FA", textAlign: "center", lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", width: "100%" }}>
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 7px 9px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#F5F7FA", textAlign: "center", lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", width: "100%" }}>
                           {e.title}
                         </div>
-                        <div style={{ background: "rgba(18,25,36,0.65)", borderRadius: 28, padding: "2px 7px", fontSize: 6, fontWeight: 800, color: "#F5F7FA", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+                        <div style={{ background: "rgba(18,25,36,0.65)", borderRadius: 28, padding: "2px 8px", fontSize: 7, fontWeight: 800, color: "#F5F7FA", textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
                           {CATEGORY_LABELS[e.category_primary] ?? e.category_primary}
                         </div>
                       </div>
