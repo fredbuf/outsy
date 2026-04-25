@@ -35,7 +35,8 @@ export function AppTopBar() {
     fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        if (data?.avatar_url) setProfileAvatar(data.avatar_url);
+        // /api/profile returns { ok, profile: { avatar_url, ... }, ... }
+        if (data?.profile?.avatar_url) setProfileAvatar(data.profile.avatar_url);
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
