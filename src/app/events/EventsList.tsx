@@ -3,7 +3,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { tonightBoundsIso } from "@/lib/tonight-bounds";
+import { useTileTransition } from "@/app/components/TileTransitionProvider";
 import { useAuth } from "../components/AuthProvider";
 import { useBottomNav } from "../components/BottomNavContext";
 
@@ -236,7 +239,9 @@ function buildPageQuery(
     .eq("is_approved", true)
     .eq("is_rejected", false)
     .eq("visibility", "public")
-    .gte("start_at", new Date().toISOString());
+    // Fetch from 1 hour ago so the Tonight grace period works even when the
+    // user opens the page after an event has already started.
+    .gte("start_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
 
   if (searchQuery) {
     const escaped = escapeIlike(searchQuery.trim());
@@ -263,7 +268,7 @@ function buildFullQuery(
     .eq("is_approved", true)
     .eq("is_rejected", false)
     .eq("visibility", "public")
-    .gte("start_at", new Date().toISOString());
+    .gte("start_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
 
   if (searchQuery) {
     const escaped = escapeIlike(searchQuery.trim());
@@ -425,51 +430,6 @@ function thisWeekBoundsIso(): { start: string; end: string } {
   return { start, end: montrealDayStart(nextMondayStr) };
 }
 
-// Returns the Tonight time window in ISO strings (America/Toronto).
-// Window: today 5:00 PM → tomorrow 3:00 AM.
-// An event is included while it started within the last 1 hour (grace period).
-// Pure computation — call once via useState initializer.
-function tonightBoundsIso(): { windowStart: string; windowEnd: string; graceCutoff: string } {
-  const now = new Date();
-  const tz = "America/Toronto";
-
-  // Resolve today's date string in Montréal time
-  const todayStr = now.toLocaleDateString("en-CA", { timeZone: tz }); // "YYYY-MM-DD"
-  const [y, m, d] = todayStr.split("-").map(Number);
-
-  // tonight starts at today 17:00 local = UTC offset applied
-  // We construct the local time as a Date using the Montreal UTC offset.
-  // Simplest reliable approach: build an ISO string that represents that local clock time,
-  // then convert to UTC via the browser engine which knows the tz rules.
-  const toUtcMs = (dateStr: string, hour: number, minute = 0): number => {
-    // dateStr = "YYYY-MM-DD", interpret hour:minute as America/Toronto local
-    // Use Intl to find the UTC offset at that moment
-    const approxUtc = new Date(`${dateStr}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`);
-    const localStr = approxUtc.toLocaleString("en-CA", { timeZone: tz, hour12: false,
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    // localStr = "YYYY-MM-DD, HH:MM:SS"
-    const [datePart, timePart] = localStr.split(", ");
-    const utcGuess = new Date(`${datePart}T${timePart}Z`);
-    const offsetMs = approxUtc.getTime() - utcGuess.getTime();
-    return new Date(`${dateStr}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`).getTime() + offsetMs;
-  };
-
-  const windowStartMs = toUtcMs(todayStr, 17); // today 17:00
-  // tomorrow = y-m-(d+1), handle month rollover via Date
-  const tomorrowDate = new Date(Date.UTC(y, m - 1, d + 1));
-  const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
-  const windowEndMs = toUtcMs(tomorrowStr, 3); // tomorrow 03:00
-
-  // Grace cutoff: now minus 1 hour — events started before this are dropped
-  const graceCutoffMs = now.getTime() - 60 * 60 * 1000;
-
-  return {
-    windowStart: new Date(windowStartMs).toISOString(),
-    windowEnd: new Date(windowEndMs).toISOString(),
-    graceCutoff: new Date(graceCutoffMs).toISOString(),
-  };
-}
 
 const CATEGORY_LABELS: Record<string, string> = {
   all:          "All",
@@ -660,6 +620,24 @@ function SkeletonResults() {
 
 export function EventsList() {
   const { user, session } = useAuth();
+  const router = useRouter();
+  const { triggerTransition } = useTileTransition();
+
+  function handleTileClick(
+    ev: React.MouseEvent<HTMLAnchorElement>,
+    imageUrl: string | null,
+    category: string,
+    href: string,
+  ) {
+    ev.preventDefault();
+    const rect = ev.currentTarget.getBoundingClientRect();
+    triggerTransition({
+      rect: { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left },
+      imageUrl,
+      category,
+    });
+    router.push(href);
+  }
   const [events, setEvents] = useState<EventRow[]>([]);
   const [nextPage, setNextPage] = useState(1);
   const [exhausted, setExhausted] = useState(false);
@@ -1023,8 +1001,15 @@ export function EventsList() {
   const tonightIds = useMemo(() => new Set(tonightEvents.map((e) => e.id)), [tonightEvents]);
 
   // "All events" excludes the FULL weekly set + tonight, not just the rendered slice.
+  // Also excludes already-started events: the 1-hour grace fetch window can bring
+  // them into the pool, but they belong in the Tonight section, not here.
   const allEventsFiltered = useMemo(
-    () => filtered.filter((e) => !thisWeekAllIds.has(e.id) && !tonightIds.has(e.id)),
+    () => {
+      const nowIso = new Date().toISOString();
+      return filtered.filter(
+        (e) => !thisWeekAllIds.has(e.id) && !tonightIds.has(e.id) && e.start_at >= nowIso
+      );
+    },
     [filtered, thisWeekAllIds, tonightIds]
   );
 
@@ -1294,7 +1279,7 @@ export function EventsList() {
                     : null;
                   const infoLine = [smartDate(e.start_at), venueLabel].filter(Boolean).join(" · ");
                   return (
-                    <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
+                    <Link key={e.id} href={`/events/${e.id}`} onClick={(ev) => handleTileClick(ev, e.image_url, e.category_primary, `/events/${e.id}`)} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
                       <div style={{ position: "relative", width: 255, height: 182, borderRadius: 15, overflow: "hidden", transform: "translateZ(0)", background: categoryBg(e.category_primary) }}>
                         {/* Background image */}
                         {e.image_url && (
@@ -1380,7 +1365,7 @@ export function EventsList() {
               </div>
               <div className="events-week-scroll" style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", minWidth: 0, paddingRight: 12, paddingBottom: 4, scrollSnapType: "x mandatory" }}>
                 {tonightEvents.map((e) => (
-                  <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
+                  <Link key={e.id} href={`/events/${e.id}`} onClick={(ev) => handleTileClick(ev, e.image_url, e.category_primary, `/events/${e.id}`)} style={{ textDecoration: "none", color: "inherit", flexShrink: 0, scrollSnapAlign: "start", display: "block" }}>
                     <div style={{ position: "relative", width: 117, height: 172, borderRadius: 17, overflow: "hidden", background: categoryBg(e.category_primary), border: "1px solid rgba(255,255,255,0.11)" }}>
                       {e.image_url && (
                         <img src={e.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
@@ -1428,7 +1413,7 @@ export function EventsList() {
                 const { series: eSeriesTitle, edition: eEdition } = splitSeriesTitle(e.title);
                 const isRecurring = recurringSet.has(e.id);
                 return (
-                  <Link key={e.id} href={`/events/${e.id}`} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
+                  <Link key={e.id} href={`/events/${e.id}`} onClick={(ev) => handleTileClick(ev, e.image_url, e.category_primary, `/events/${e.id}`)} style={{ textDecoration: "none", color: "inherit", display: "block", minWidth: 0 }}>
                     <article style={{ borderRadius: 20, overflow: "hidden", position: "relative", width: "100%", maxWidth: "100%" }}>
                       <div style={{ position: "relative", width: "100%", paddingBottom: "65%", background: categoryBg(e.category_primary) }}>
                         {e.image_url && (

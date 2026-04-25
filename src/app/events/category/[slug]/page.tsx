@@ -1,6 +1,7 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
+import { tonightBoundsIso } from "@/lib/tonight-bounds";
 import { CategoryEventsPage } from "./CategoryEventsPage";
 
 export const dynamic = "force-dynamic";
@@ -63,26 +64,6 @@ function thisWeekBounds(now: Date): { start: string; end: string } {
   return { start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() };
 }
 
-function tonightBounds(now: Date): { windowStart: string; windowEnd: string; graceCutoff: string } {
-  const tz = "America/Toronto";
-  const todayStr = toTorontoDateStr(now);
-  const [y, m, d] = todayStr.split("-").map(Number);
-
-  const windowStartMs = torontoLocalToUtcMs(todayStr, 17);
-  const tomorrowStr = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
-  const windowEndMs = torontoLocalToUtcMs(tomorrowStr, 3);
-  const graceCutoffMs = now.getTime() - 60 * 60 * 1000;
-
-  // suppress unused import warning — tz is used in torontoLocalToUtcMs indirectly
-  void tz;
-
-  return {
-    windowStart: new Date(windowStartMs).toISOString(),
-    windowEnd: new Date(windowEndMs).toISOString(),
-    graceCutoff: new Date(graceCutoffMs).toISOString(),
-  };
-}
-
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
 async function fetchCategoryEvents(slug: string): Promise<CategoryEventRow[]> {
@@ -91,51 +72,34 @@ async function fetchCategoryEvents(slug: string): Promise<CategoryEventRow[]> {
 
   let startAt: string;
   let endAt: string;
-  let graceCutoff: string | null = null;
 
   if (slug === "this-week") {
     const bounds = thisWeekBounds(now);
     startAt = bounds.start;
     endAt = bounds.end;
   } else if (slug === "happening-tonight") {
-    const bounds = tonightBounds(now);
+    // Use the shared helper — same logic as the Home category preview.
+    // No grace cutoff applied here: See All shows every event in the tonight
+    // window (5 PM → 3 AM) regardless of whether it has already started.
+    // The 1-hour grace on Home is a feed-freshness detail, not a page rule.
+    const bounds = tonightBoundsIso(now);
     startAt = bounds.windowStart;
     endAt = bounds.windowEnd;
-    graceCutoff = bounds.graceCutoff;
   } else {
     return [];
   }
 
-  let query = supabase
+  const { data, error } = await supabase
     .from("events")
     .select("id,title,start_at,category_primary,image_url,source_url,min_price,venues(name,city)")
     .eq("is_approved", true)
     .eq("is_rejected", false)
     .eq("visibility", "public")
-    .gte("start_at", graceCutoff ?? startAt)
+    .gte("start_at", startAt)
     .lt("start_at", endAt)
     .order("start_at", { ascending: true })
     .limit(200);
 
-  // For tonight: also apply the window start lower bound (events can't be before 5pm)
-  if (graceCutoff) {
-    query = query.gte("start_at", graceCutoff).gte("start_at", startAt);
-    // Re-apply both bounds — Supabase merges multiple .gte() for the same column
-    // by taking the largest, so pass the max of graceCutoff and windowStart
-    const effectiveStart = graceCutoff > startAt ? graceCutoff : startAt;
-    query = supabase
-      .from("events")
-      .select("id,title,start_at,category_primary,image_url,source_url,min_price,venues(name,city)")
-      .eq("is_approved", true)
-      .eq("is_rejected", false)
-      .eq("visibility", "public")
-      .gte("start_at", effectiveStart)
-      .lt("start_at", endAt)
-      .order("start_at", { ascending: true })
-      .limit(200);
-  }
-
-  const { data, error } = await query;
   if (error) {
     console.error("[category/page] fetch error:", error.message);
     return [];

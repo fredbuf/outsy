@@ -5,6 +5,7 @@ import { AuthProvider } from "./components/AuthProvider";
 import { Header } from "./components/Header";
 import { BottomNav } from "./components/BottomNav";
 import { BottomNavProvider } from "./components/BottomNavContext";
+import { TileTransitionProvider } from "./components/TileTransitionProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,9 +43,11 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased`}>
         <AuthProvider>
           <BottomNavProvider>
-            <Header />
-            {children}
-            <BottomNav />
+            <TileTransitionProvider>
+              <Header />
+              {children}
+              <BottomNav />
+            </TileTransitionProvider>
           </BottomNavProvider>
         </AuthProvider>
       </body>

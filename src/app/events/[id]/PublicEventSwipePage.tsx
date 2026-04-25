@@ -1,9 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../components/AuthProvider";
+import { useTileTransition } from "../../components/TileTransitionProvider";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
@@ -156,6 +157,17 @@ export function PublicEventSwipePage(props: Props) {
 
   const [page, setPage] = useState(0); // 0 = about, 1 = moments
 
+  // Hero entry animation — start hidden if a tile transition is in progress,
+  // then reveal as the expansion overlay fades out.
+  const { isTransitioning } = useTileTransition();
+  const [heroVisible, setHeroVisible] = useState(!isTransitioning);
+  useEffect(() => {
+    if (!isTransitioning && !heroVisible) {
+      setHeroVisible(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTransitioning]);
+
   // Compute share preview client-side from startAt
   const sharePreview: EventPreview = {
     imageUrl,
@@ -198,7 +210,13 @@ export function PublicEventSwipePage(props: Props) {
     }}>
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <div style={{ position: "relative", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
+      <div style={{
+        position: "relative",
+        borderRadius: "0 0 50px 50px",
+        overflow: "hidden",
+        opacity: heroVisible ? 1 : 0,
+        transition: heroVisible ? "opacity 0.28s ease-out" : "none",
+      }}>
         {imageUrl ? (
           <img
             src={imageUrl}

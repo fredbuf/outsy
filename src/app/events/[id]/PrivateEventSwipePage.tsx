@@ -1,9 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../components/AuthProvider";
+import { useTileTransition } from "../../components/TileTransitionProvider";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
 import { ActionBar } from "./ActionBar";
@@ -112,6 +113,16 @@ export function PrivateEventSwipePage(props: Props) {
 
   const [page, setPage] = useState(0); // 0 = about, 1 = moments
 
+  // Hero entry animation — mirrors PublicEventSwipePage
+  const { isTransitioning } = useTileTransition();
+  const [heroVisible, setHeroVisible] = useState(!isTransitioning);
+  useEffect(() => {
+    if (!isTransitioning && !heroVisible) {
+      setHeroVisible(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTransitioning]);
+
   // CSS custom properties inherited by child components (ActionBar, ShareButton, etc.)
   const cssVars = {
     "--border":         "rgba(255,255,255,0.10)",
@@ -152,7 +163,13 @@ export function PrivateEventSwipePage(props: Props) {
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
       {/* 9/10 aspect ratio, large bottom-radius — no gap to content below   */}
-      <div style={{ position: "relative", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
+      <div style={{
+        position: "relative",
+        borderRadius: "0 0 50px 50px",
+        overflow: "hidden",
+        opacity: heroVisible ? 1 : 0,
+        transition: heroVisible ? "opacity 0.28s ease-out" : "none",
+      }}>
 
         {imageUrl ? (
           <img

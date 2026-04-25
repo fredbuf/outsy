@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { useTileTransition } from "@/app/components/TileTransitionProvider";
 import type { CategoryEventRow } from "./page";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -67,6 +68,23 @@ export function CategoryEventsPage({
 }) {
   const router = useRouter();
   const { user, session } = useAuth();
+  const { triggerTransition } = useTileTransition();
+
+  function handleRowClick(
+    ev: React.MouseEvent<HTMLAnchorElement>,
+    imageUrl: string | null,
+    category: string,
+    href: string,
+  ) {
+    ev.preventDefault();
+    const rect = ev.currentTarget.getBoundingClientRect();
+    triggerTransition({
+      rect: { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left },
+      imageUrl,
+      category,
+    });
+    router.push(href);
+  }
 
   // Page transition
   const [closing, setClosing] = useState(false);
@@ -232,6 +250,7 @@ export function CategoryEventsPage({
                     )}
                     <Link
                       href={`/events/${e.id}`}
+                      onClick={(ev) => handleRowClick(ev, e.image_url, e.category_primary, `/events/${e.id}`)}
                       style={{ textDecoration: "none", color: "inherit", display: "block" }}
                     >
                       <div style={{
