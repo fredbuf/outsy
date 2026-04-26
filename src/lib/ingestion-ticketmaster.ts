@@ -39,19 +39,32 @@ type TicketmasterEvent = {
 };
 type TicketmasterPageResponse = {
   _embedded?: { events?: TicketmasterEvent[] };
-  page?: { totalPages?: number };
+  page?: { totalPages?: number; totalElements?: number };
 };
 
 type IngestOptions = {
   maxPages: number;
   size: number;
   startPage?: number;
+  /** ISO 8601 — overrides the default "now" start. Must include time and Z suffix. */
+  startDateTime?: string;
+  /** ISO 8601 — overrides the default "now + 9 months" end. Must include time and Z suffix. */
+  endDateTime?: string;
+  /**
+   * When true, fetches and logs all page metadata but skips every DB write
+   * (venue upserts, event upserts, ingest_run rows).  Use this to probe window
+   * coverage without touching the database.
+   */
+  dryRun?: boolean;
 };
 
 type IngestResult = {
   ok: true;
   ingested: number;
+  inserted: number;
+  updated: number;
   skipped: number;
+  errors: number;
   venuesUpserted: number;
   descriptionsNulled: number;
   announcedCount: number;
@@ -59,6 +72,7 @@ type IngestResult = {
   startPageUsed: number;
   endPageReached: number;
   totalPagesReportedByTicketmaster: number;
+  totalElementsReportedByTicketmaster: number | null;
   maxPagesUsed: number;
   sizeUsed: number;
   runId: string | null;
@@ -288,7 +302,12 @@ function pickCategory(tm: TicketmasterEvent): Category {
   return "concerts";
 }
 
-async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<TicketmasterPageResponse> {
+async function fetchTicketmasterMontreal(
+  page = 0,
+  size = 50,
+  startDateTimeOverride?: string,
+  endDateTimeOverride?: string,
+): Promise<TicketmasterPageResponse> {
   const apiKey = process.env.TICKETMASTER_API_KEY;
   if (!apiKey) throw new Error("Missing TICKETMASTER_API_KEY");
 
@@ -298,8 +317,8 @@ async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<Ticketmas
   const now = new Date();
   const nineMonthsLater = new Date(now);
   nineMonthsLater.setMonth(nineMonthsLater.getMonth() + 9);
-  const startDateTime = now.toISOString().slice(0, 19) + "Z";
-  const endDateTime = nineMonthsLater.toISOString().slice(0, 19) + "Z";
+  const startDateTime = startDateTimeOverride ?? (now.toISOString().slice(0, 19) + "Z");
+  const endDateTime = endDateTimeOverride ?? (nineMonthsLater.toISOString().slice(0, 19) + "Z");
 
   const url = new URL("https://app.ticketmaster.com/discovery/v2/events.json");
   url.searchParams.set("apikey", apiKey);
@@ -314,11 +333,28 @@ async function fetchTicketmasterMontreal(page = 0, size = 50): Promise<Ticketmas
   url.searchParams.set("startDateTime", startDateTime);
   url.searchParams.set("endDateTime", endDateTime);
 
+  console.log(
+    `[tm:fetch] page=${page} size=${size}` +
+    ` startDateTime=${startDateTime} endDateTime=${endDateTime}` +
+    ` sort=date,asc radius=35km classificationName=music,arts,sports`
+  );
+
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Ticketmaster fetch failed: ${res.status} ${await res.text()}`);
   }
-  return (await res.json()) as TicketmasterPageResponse;
+  const json = (await res.json()) as TicketmasterPageResponse;
+
+  const eventsOnPage = json?._embedded?.events?.length ?? 0;
+  const totalPages = json?.page?.totalPages ?? 0;
+  const totalElements = json?.page?.totalElements ?? null;
+  console.log(
+    `[tm:page] page=${page} eventsReturned=${eventsOnPage}` +
+    ` totalPages=${totalPages}` +
+    (totalElements !== null ? ` totalElements=${totalElements}` : " totalElements=n/a")
+  );
+
+  return json;
 }
 
 export async function ingestTicketmasterMontreal(options: IngestOptions): Promise<IngestResult> {
@@ -334,16 +370,22 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
     options.startPage >= 0
       ? Math.floor(options.startPage)
       : 0;
+  const dryRun = options.dryRun === true;
+  const startDateTimeOpt = options.startDateTime;
+  const endDateTimeOpt = options.endDateTime;
 
   const supabase = supabaseServer();
 
-  // Record ingestion run start.
-  const { data: runRow } = await supabase
-    .from("ingest_runs")
-    .insert({ source: "ticketmaster", started_at: new Date().toISOString(), status: "running" })
-    .select("id")
-    .single();
-  const runId: string | null = runRow?.id ?? null;
+  // Record ingestion run start (skipped in dry-run mode).
+  let runId: string | null = null;
+  if (!dryRun) {
+    const { data: runRow } = await supabase
+      .from("ingest_runs")
+      .insert({ source: "ticketmaster", started_at: new Date().toISOString(), status: "running" })
+      .select("id")
+      .single();
+    runId = runRow?.id ?? null;
+  }
 
   async function finishRun(patch: Record<string, unknown>) {
     if (!runId) return;
@@ -353,25 +395,57 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
       .eq("id", runId);
   }
 
+  console.log(
+    `[tm:run:start] maxPages=${maxPagesSafe} size=${sizeSafe} startPage=${startPageSafe}` +
+    (startDateTimeOpt ? ` startDateTime=${startDateTimeOpt}` : "") +
+    (endDateTimeOpt ? ` endDateTime=${endDateTimeOpt}` : "") +
+    (dryRun ? " dryRun=true" : "")
+  );
+
   let page = startPageSafe;
   let totalPages = 1;
+  let totalElements: number | null = null;
   let ingested = 0;
+  let inserted = 0;
+  let updated = 0;
   let skipped = 0;
+  let errors = 0;
   let venuesUpserted = 0;
   let descriptionsNulled = 0;
   let announcedCount = 0;
 
   try {
     while (page < totalPages && page < startPageSafe + maxPagesSafe) {
-      const json = await fetchTicketmasterMontreal(page, sizeSafe);
+      const json = await fetchTicketmasterMontreal(page, sizeSafe, startDateTimeOpt, endDateTimeOpt);
       const events = json?._embedded?.events ?? [];
       totalPages = json?.page?.totalPages ?? 0;
+      if (json?.page?.totalElements !== undefined) {
+        totalElements = json.page.totalElements ?? null;
+      }
+
+      // Batch-check which of this page's events already exist so we can
+      // distinguish inserts from updates in the logs without extra per-row queries.
+      // Skipped in dry-run mode (no DB access).
+      let existingIds = new Set<string>();
+      if (!dryRun) {
+        const pageIds = events
+          .map((tm) => String(tm?.id ?? ""))
+          .filter(Boolean);
+        const { data: existingRows } = pageIds.length
+          ? await supabase
+              .from("events")
+              .select("source_event_id")
+              .eq("source", "ticketmaster")
+              .in("source_event_id", pageIds)
+          : { data: [] };
+        existingIds = new Set((existingRows ?? []).map((r) => r.source_event_id));
+      }
 
       for (const tm of events) {
         const v = tm?._embedded?.venues?.[0];
         let venueId: string | null = null;
 
-        if (v?.name) {
+        if (v?.name && !dryRun) {
           const result = await upsertVenue(supabase, {
             name: v.name,
             address_line1: v?.address?.line1 ?? null,
@@ -470,30 +544,87 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
           is_approved: true,
         };
 
-        const { error } = await supabase
-          .from("events")
-          .upsert(payload, { onConflict: "source,source_event_id" });
+        if (!dryRun) {
+          const { error } = await supabase
+            .from("events")
+            .upsert(payload, { onConflict: "source,source_event_id" });
 
-        if (error) throw error;
+          if (error) {
+            errors += 1;
+            console.error(
+              `[tm:upsert:error] "${tm.name}" id=${sourceEventId} error=${error.message}`
+            );
+            throw error;
+          }
+        }
+
         ingested += 1;
+        if (existingIds.has(sourceEventId)) {
+          updated += 1;
+        } else {
+          inserted += 1;
+        }
       }
+
+      console.log(
+        `[tm:page:done] page=${page}` +
+        ` eventsOnPage=${events.length}` +
+        ` inserted=${inserted} updated=${updated} skipped=${skipped} errors=${errors}` +
+        ` (cumulative)`
+      );
 
       page += 1;
     }
 
     await finishRun({ status: "success", ingested_count: ingested, skipped_count: skipped, venues_upserted: venuesUpserted, descriptions_nulled: descriptionsNulled, announced_count: announcedCount });
 
+    const pagesProcessed = page - startPageSafe;
+    console.log(
+      `[tm:run:done] pagesProcessed=${pagesProcessed}/${totalPages} totalElements=${totalElements ?? "n/a"}` +
+      ` upserted=${ingested} inserted=${inserted} updated=${updated}` +
+      ` skipped=${skipped} errors=${errors}` +
+      ` announced=${announcedCount} venuesUpserted=${venuesUpserted} descriptionsNulled=${descriptionsNulled}`
+    );
+
+    // Coverage check — warn when maxPages prevented fetching all available pages.
+    if (totalPages > 0) {
+      const coverage = pagesProcessed / totalPages;
+      const missingPages = Math.max(0, totalPages - pagesProcessed);
+      const coveragePct = Math.round(coverage * 100);
+      const windowInfo =
+        (startDateTimeOpt ? ` windowStart=${startDateTimeOpt}` : "") +
+        (endDateTimeOpt ? ` windowEnd=${endDateTimeOpt}` : "");
+      const baseInfo =
+        ` totalElements=${totalElements ?? "n/a"} maxPages=${maxPagesSafe}${windowInfo}`;
+
+      if (coverage >= 1) {
+        console.log(
+          `[tm:coverage] pagesProcessed=${pagesProcessed} totalPages=${totalPages}` +
+          ` coverage=100%${baseInfo}`
+        );
+      } else {
+        console.warn(
+          `[tm:coverage:warning] pagesProcessed=${pagesProcessed} totalPages=${totalPages}` +
+          ` coverage=${coveragePct}% missingPages=${missingPages}${baseInfo}`
+        );
+      }
+    }
+
     return {
       ok: true,
       ingested,
+      inserted,
+      updated,
       skipped,
+      errors,
       venuesUpserted,
       descriptionsNulled,
       announcedCount,
-      pagesProcessed: page - startPageSafe,
+      pagesProcessed,
       startPageUsed: startPageSafe,
       endPageReached: page - 1,
       totalPagesReportedByTicketmaster: totalPages,
+      totalElementsReportedByTicketmaster: totalElements,
       maxPagesUsed: maxPagesSafe,
       sizeUsed: sizeSafe,
       runId,

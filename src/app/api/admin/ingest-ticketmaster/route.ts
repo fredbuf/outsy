@@ -23,9 +23,12 @@ export async function POST(req: Request) {
   const size = Number(url.searchParams.get("size") ?? "50");
   const startPageParam = url.searchParams.get("startPage");
   const startPage = startPageParam !== null ? Number(startPageParam) : undefined;
+  const startDateTime = url.searchParams.get("startDateTime") ?? undefined;
+  const endDateTime = url.searchParams.get("endDateTime") ?? undefined;
+  const dryRun = url.searchParams.get("dryRun") === "true";
 
   try {
-    const result = await ingestTicketmasterMontreal({ maxPages, size, startPage });
+    const result = await ingestTicketmasterMontreal({ maxPages, size, startPage, startDateTime, endDateTime, dryRun });
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

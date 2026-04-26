@@ -1,8 +1,20 @@
 {
   "crons": [
     {
-      "path": "/api/cron/ingest-ticketmaster?maxPages=3&size=100",
+      "path": "/api/cron/ingest-ticketmaster?maxPages=3&size=100&startOffset=0&endOffset=30",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-ticketmaster?maxPages=4&size=100&startOffset=31&endOffset=90",
+      "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-ticketmaster?maxPages=3&size=100&startOffset=91&endOffset=180",
+      "schedule": "0 12 * * 1,4"
+    },
+    {
+      "path": "/api/cron/ingest-ticketmaster?maxPages=3&size=100&startOffset=181&endOffset=270",
+      "schedule": "0 13 * * 1"
     },
     {
       "path": "/api/cron/ingest-eventbrite?maxPages=2",
