@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase-server";
-import { normalizeText, upsertVenue, findDuplicateEvent, decodeHtmlEntities } from "@/lib/ingestion-shared";
+import { normalizeText, upsertVenue, findDuplicateEvent, decodeHtmlEntities, attachVenueOrganizer } from "@/lib/ingestion-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -509,14 +509,20 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
       });
       if (isDuplicate) { skip(pageUrl, ld, "duplicate"); continue; }
 
-      const { error } = await supabase
+      const { data: eventRow, error } = await supabase
         .from("events")
-        .upsert(payload, { onConflict: "source,source_event_id" });
+        .upsert(payload, { onConflict: "source,source_event_id" })
+        .select("id")
+        .maybeSingle();
 
       if (error) {
         console.error(`[sat] upsert error for slug=${slug}:`, error.message);
         skip(pageUrl, ld, "upsertError");
         continue;
+      }
+
+      if (venueId && eventRow?.id) {
+        await attachVenueOrganizer(supabase, venueId, eventRow.id);
       }
 
       ingested += 1;

@@ -63,17 +63,15 @@ export async function GET(
     const isHostOrCohost = user !== null && (creatorId === user.id || cohostIds.includes(user.id));
 
     if (!isHostOrCohost) {
-      let hasRsvp = false;
+      let isInvolved = false;
       if (user) {
-        const { data: rsvp } = await supabase
-          .from("rsvps")
-          .select("id")
-          .eq("event_id", eventId)
-          .eq("user_id", user.id)
-          .maybeSingle();
-        hasRsvp = !!rsvp;
+        const [{ data: rsvp }, { data: invite }] = await Promise.all([
+          supabase.from("rsvps").select("id").eq("event_id", eventId).eq("user_id", user.id).maybeSingle(),
+          supabase.from("notifications").select("id").eq("user_id", user.id).eq("type", "event_invite").eq("entity_id", eventId).maybeSingle(),
+        ]);
+        isInvolved = !!rsvp || !!invite;
       }
-      if (!hasRsvp) {
+      if (!isInvolved) {
         return NextResponse.json({ ok: false, error: "Not authorized." }, { status: 403 });
       }
     }

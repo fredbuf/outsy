@@ -66,6 +66,28 @@ async function fetchCohostProfiles(cohostIds: string[]): Promise<CohostProfile[]
   return (data ?? []) as CohostProfile[];
 }
 
+type EventOrganizer = { name: string; role: string; slug: string | null };
+
+async function fetchOrganizers(eventId: string): Promise<EventOrganizer[]> {
+  const { data } = await supabaseServer()
+    .from("event_organizers")
+    .select("role, sort_order, organizers(name, slug)")
+    .eq("event_id", eventId)
+    .order("sort_order", { ascending: true });
+
+  return (data ?? [])
+    .map((row) => {
+      const org = Array.isArray(row.organizers) ? row.organizers[0] : row.organizers;
+      if (!org?.name) return null;
+      return {
+        name: org.name as string,
+        role: row.role as string,
+        slug: (org.slug as string | null) ?? null,
+      };
+    })
+    .filter((o): o is EventOrganizer => o !== null);
+}
+
 async function fetchAttendees(eventId: string): Promise<Attendee[]> {
   const { data } = await supabaseServer()
     .from("rsvps")
@@ -223,10 +245,11 @@ export default async function EventPage({
   const creatorRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
   const creator = creatorRaw as { display_name: string | null; avatar_url: string | null; username: string | null } | null;
   const creatorId = (event as { creator_id?: string | null }).creator_id ?? null;
-  const [related, rsvpCounts, attendees] = await Promise.all([
+  const [related, rsvpCounts, attendees, organizers] = await Promise.all([
     fetchRelated(id, event.category_primary),
     fetchRsvpCounts(id),
     fetchAttendees(id),
+    fetchOrganizers(id),
   ]);
 
   /* ── Private event: swipe layout ───────────────────────────────────────── */
@@ -376,6 +399,7 @@ export default async function EventPage({
       isAnnounced={isAnnounced}
       rsvpCounts={rsvpCounts}
       attendees={attendees}
+      organizers={organizers}
       related={related as never}
       sourceUrl={event.source_url ?? null}
       guestsCanPost={guestsCanPost}

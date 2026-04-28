@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase-server";
-import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
+import { normalizeText, upsertVenue, attachVenueOrganizer } from "@/lib/ingestion-shared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -790,7 +790,7 @@ export async function ingestEventbriteMontreal(
             }
           }
 
-          const { error } = await supabase.from("events").upsert(
+          const { data: eventRow, error } = await supabase.from("events").upsert(
             {
               title: card.title,
               title_normalized: normalizeText(card.title),
@@ -816,9 +816,14 @@ export async function ingestEventbriteMontreal(
               is_approved: true,
             },
             { onConflict: "source,source_event_id" }
-          );
+          ).select("id").maybeSingle();
 
           if (error) throw error;
+
+          if (venueId && eventRow?.id) {
+            await attachVenueOrganizer(supabase, venueId, eventRow.id);
+          }
+
           seenIds.add(card.sourceEventId);
           catStat.ingested += 1;
           ingested += 1;

@@ -121,6 +121,7 @@ type Props = {
   attendees: Attendee[];
   related: RelatedEvent[];
   sourceUrl: string | null;
+  organizers: { name: string; role: string; slug: string | null }[];
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
@@ -145,6 +146,7 @@ export function PublicEventSwipePage(props: Props) {
     price, isAnnounced,
     rsvpCounts, attendees, related,
     sourceUrl,
+    organizers,
     guestsCanPost, guestsCanReact,
     initialMoments,
     startAt,
@@ -460,7 +462,7 @@ export function PublicEventSwipePage(props: Props) {
               </div>
 
               {/* Organized by card */}
-              {creator && (
+              {(creator || organizers.length > 0) && (
                 <div style={{
                   borderRadius: 20,
                   background: "rgba(18,25,36,0.14)",
@@ -470,27 +472,50 @@ export function PublicEventSwipePage(props: Props) {
                   <p style={{ fontSize: 14, fontWeight: 600, color: "#f5f7fa", textAlign: "center", margin: "0 0 12px" }}>
                     Organized by
                   </p>
-                  <div style={{ display: "flex", justifyContent: "center", marginBottom: description ? 14 : 0 }}>
-                    {creatorId ? (
-                      <Link href={`/profile/${creatorId}`} style={{ lineHeight: 0, display: "block", textDecoration: "none" }}>
-                        {creator.avatar_url ? (
-                          <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
-                            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                        ) : (
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
-                            {getInitials(creator.display_name)}
-                          </div>
-                        )}
-                      </Link>
-                    ) : creator.avatar_url ? (
-                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
-                        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                    ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
-                        {getInitials(creator.display_name)}
+
+                  {/* Creator avatar — manual/user-submitted events only */}
+                  {creator && (
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: (organizers.length > 0 || description) ? 14 : 0 }}>
+                      {creatorId ? (
+                        <Link href={`/profile/${creatorId}`} style={{ lineHeight: 0, display: "block", textDecoration: "none" }}>
+                          {creator.avatar_url ? (
+                            <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
+                              style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
+                          ) : (
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
+                              {getInitials(creator.display_name)}
+                            </div>
+                          )}
+                        </Link>
+                      ) : creator.avatar_url ? (
+                        <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
+                          style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
+                      ) : (
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
+                          {getInitials(creator.display_name)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Organizer entities — venue, promoter, artist, etc. */}
+                  {organizers.length > 0 && (
+                    <>
+                      {creator && <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 0 12px" }} />}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: description ? 14 : 0 }}>
+                        {organizers.map((o) => (
+                          <p key={o.name} style={{ margin: 0, fontSize: 13, textAlign: "center", color: "#f5f7fa" }}>
+                            {o.slug ? (
+                              <Link href={`/o/${o.slug}`} style={{ color: "inherit", textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.25)", textUnderlineOffset: 3 }}>
+                                {o.name}
+                              </Link>
+                            ) : o.name}
+                            <span style={{ color: "rgba(255,255,255,0.40)", fontSize: 11 }}> · {o.role}</span>
+                          </p>
+                        ))}
                       </div>
-                    )}
-                  </div>
+                    </>
+                  )}
 
                   {description && (
                     <>

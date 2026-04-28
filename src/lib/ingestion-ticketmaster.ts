@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseServer } from "@/lib/supabase-server";
-import { normalizeText, upsertVenue, decodeHtmlEntities } from "@/lib/ingestion-shared";
+import { normalizeText, upsertVenue, decodeHtmlEntities, attachVenueOrganizer } from "@/lib/ingestion-shared";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 type TicketmasterImage = { url?: string; width?: number };
@@ -545,9 +545,11 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
         };
 
         if (!dryRun) {
-          const { error } = await supabase
+          const { data: eventRow, error } = await supabase
             .from("events")
-            .upsert(payload, { onConflict: "source,source_event_id" });
+            .upsert(payload, { onConflict: "source,source_event_id" })
+            .select("id")
+            .maybeSingle();
 
           if (error) {
             errors += 1;
@@ -555,6 +557,10 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
               `[tm:upsert:error] "${tm.name}" id=${sourceEventId} error=${error.message}`
             );
             throw error;
+          }
+
+          if (venueId && eventRow?.id) {
+            await attachVenueOrganizer(supabase, venueId, eventRow.id);
           }
         }
 
