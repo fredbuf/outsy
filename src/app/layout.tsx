@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
+import { ActiveOrganizerProvider } from "./components/ActiveOrganizerContext";
 import { Header } from "./components/Header";
 import { BottomNav } from "./components/BottomNav";
 import { BottomNavProvider } from "./components/BottomNavContext";
@@ -42,13 +43,15 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         <AuthProvider>
-          <BottomNavProvider>
-            <TileTransitionProvider>
-              <Header />
-              {children}
-              <BottomNav />
-            </TileTransitionProvider>
-          </BottomNavProvider>
+          <ActiveOrganizerProvider>
+            <BottomNavProvider>
+              <TileTransitionProvider>
+                <Header />
+                {children}
+                <BottomNav />
+              </TileTransitionProvider>
+            </BottomNavProvider>
+          </ActiveOrganizerProvider>
         </AuthProvider>
       </body>
     </html>

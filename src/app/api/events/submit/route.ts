@@ -219,6 +219,31 @@ export async function POST(req: Request) {
       )
     : [];
 
+  // Optional organizer attribution — must be server-verified before use.
+  const organizerId =
+    typeof payload.organizerId === "string" && UUID_RE.test(payload.organizerId)
+      ? payload.organizerId
+      : null;
+
+  if (organizerId) {
+    // Verify the caller holds an active owner/admin/editor membership.
+    const { data: membership } = await supabase
+      .from("organizer_members")
+      .select("id")
+      .eq("organizer_id", organizerId)
+      .eq("user_id", authUser.id)
+      .in("role", ["owner", "admin", "editor"])
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json(
+        { ok: false, error: "You do not have permission to post on behalf of this organizer." },
+        { status: 403 }
+      );
+    }
+  }
+
   const preselectedVenueId =
     typeof payload.venueId === "string" && UUID_RE.test(payload.venueId)
       ? payload.venueId
@@ -300,6 +325,17 @@ export async function POST(req: Request) {
       { ok: false, error: `Event insert failed: ${error.message}` },
       { status: 500 }
     );
+  }
+
+  // Link event to organizer when posting on their behalf.
+  if (organizerId) {
+    const { error: orgLinkError } = await supabase
+      .from("event_organizers")
+      .insert({ event_id: data.id, organizer_id: organizerId, role: "organizer", sort_order: 0 });
+    if (orgLinkError) {
+      console.error("[submit] event_organizers insert failed:", orgLinkError.message);
+      // Non-fatal: event is created; log and continue.
+    }
   }
 
   // Send cohost invitations — fire-and-forget (don't block the response)

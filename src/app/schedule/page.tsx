@@ -617,15 +617,14 @@ export default function SchedulePage() {
         setAttendingEvents(rows);
         setFetchingAttend(false);
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // ── Fetch: hosting (events created by user) ──────────────────────────────────
-  // Uses /api/profile (service-role key) to bypass RLS, which would otherwise
-  // block the browser anon client from reading the user's own non-public events.
-  // The profile API already returns json.events = all events where creator_id = me.
+  // ── Fetch: hosting ────────────────────────────────────────────────────────────
+  // Uses /api/profile (service-role key) to bypass RLS for the user's own
+  // non-public events.
   useEffect(() => {
     if (!session?.access_token) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFetchingHosting(true);
 
     fetch("/api/profile", {
@@ -634,7 +633,6 @@ export default function SchedulePage() {
       .then((r) => r.json())
       .then((json) => {
         if (!json?.ok) {
-          console.debug("[schedule/hosting] profile API returned not-ok:", json);
           setFetchingHosting(false);
           return;
         }
@@ -650,11 +648,8 @@ export default function SchedulePage() {
           role?: string;
         }[] = json.events ?? [];
 
-        console.debug("[schedule/hosting] raw events from API:", rawEvents.length, rawEvents.map((e) => e.id));
-
         const now  = new Date().toISOString();
         const rows: UserEvent[] = rawEvents
-          // upcoming only
           .filter((ev) => ev.start_at >= now)
           .map((ev) => ({
             id:          ev.id,
@@ -662,7 +657,6 @@ export default function SchedulePage() {
             start_at:    ev.start_at,
             image_url:   ev.image_url,
             visibility:  ev.visibility as "public" | "private",
-            // /api/profile doesn't join venues — resolved separately below
             venue_name:  null,
             venue_city:  null,
             role:        ev.role === "cohosting" ? ("cohosting" as const) : ("hosting" as const),
@@ -671,14 +665,11 @@ export default function SchedulePage() {
           }));
 
         rows.sort((a, b) => a.start_at.localeCompare(b.start_at));
-        console.debug("[schedule/hosting] upcoming hosted events:", rows.length);
         setHostingEvents(rows);
         setFetchingHosting(false);
       })
-      .catch((err) => {
-        console.error("[schedule/hosting] fetch error:", err);
-        setFetchingHosting(false);
-      });
+      .catch(() => setFetchingHosting(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token]);
 
   // ── Derived: all user events, deduped by id, for the calendar ────────────────
@@ -757,13 +748,9 @@ export default function SchedulePage() {
   function renderUpcoming() {
     if (fetchingAttend) return <SkeletonRows />;
 
-    // Limit Upcoming to events starting within the next 14 days.
-    // attendingEvents is already sorted ascending and filtered to start_at >= now.
     const upcomingWindow = attendingEvents.filter((e) => e.start_at <= cutoff14);
 
     if (upcomingWindow.length === 0) {
-      // City name used in the discovery CTA.
-      // Outsy currently serves Montréal only; update here when multi-city lands.
       const city = "Montréal";
       return (
         <EmptyState

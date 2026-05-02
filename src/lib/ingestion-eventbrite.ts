@@ -790,7 +790,7 @@ export async function ingestEventbriteMontreal(
             }
           }
 
-          const { data: eventRow, error } = await supabase.from("events").upsert(
+          const { error } = await supabase.from("events").upsert(
             {
               title: card.title,
               title_normalized: normalizeText(card.title),
@@ -816,12 +816,20 @@ export async function ingestEventbriteMontreal(
               is_approved: true,
             },
             { onConflict: "source,source_event_id" }
-          ).select("id").maybeSingle();
+          );
 
           if (error) throw error;
 
-          if (venueId && eventRow?.id) {
-            await attachVenueOrganizer(supabase, venueId, eventRow.id);
+          if (venueId) {
+            const { data: eventRow } = await supabase
+              .from("events")
+              .select("id")
+              .eq("source", "eventbrite")
+              .eq("source_event_id", card.sourceEventId)
+              .single();
+            if (eventRow?.id) {
+              await attachVenueOrganizer(supabase, venueId, eventRow.id);
+            }
           }
 
           seenIds.add(card.sourceEventId);

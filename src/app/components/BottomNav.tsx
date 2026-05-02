@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthProvider";
+import { useActiveOrganizer } from "./ActiveOrganizerContext";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -166,11 +167,53 @@ function CreateTab({ active }: { active: boolean }) {
   );
 }
 
+// ── Organizer-mode icons ──────────────────────────────────────────────────────
+
+function OrgEventsIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+      <line x1="8" y1="15" x2="16" y2="15"/>
+    </svg>
+  );
+}
+
+function OrgCalendarIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4" width="18" height="18" rx="2"/>
+      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  );
+}
+
+function OrgInboxIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  );
+}
+
+function OrgAccountIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5"/>
+      <path d="M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+      <path d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.855"/>
+    </svg>
+  );
+}
+
 // ── BottomNav ─────────────────────────────────────────────────────────────────
 
 export function BottomNav() {
   const pathname = usePathname();
   const { session } = useAuth();
+  const { activeOrganizer } = useActiveOrganizer();
   const [unread, setUnread] = useState(false);
 
   // ── Optimistic path ───────────────────────────────────────────────────────
@@ -202,6 +245,16 @@ export function BottomNav() {
   const activeCreate   = eff === "/events/new";
   // Index among the four NavTab slots (0=Home 1=Explore 2=Schedule 3=Inbox)
   const activeIndex    = [activeHome, activeExplore, activeSchedule, activeInbox].findIndex(Boolean);
+
+  // ── Organizer-mode active states ───────────────────────────────────────────
+  // Four slots: Events(0) Calendar(1) Inbox(2) Account(3) — FAB has no indicator
+  const activeOrgEvents   = eff?.startsWith("/org/events")   ?? false;
+  const activeOrgCalendar = eff?.startsWith("/org/calendar") ?? false;
+  const activeOrgInbox    = eff?.startsWith("/org/inbox")    ?? false;
+  const activeOrgAccount  = (eff === "/org" || (eff?.startsWith("/org/settings") ?? false));
+  const orgActiveIndex    = [activeOrgEvents, activeOrgCalendar, activeOrgInbox, activeOrgAccount].findIndex(Boolean);
+
+  const currentActiveIndex = activeOrganizer ? orgActiveIndex : activeIndex;
 
   // ── Unread badge ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -237,11 +290,11 @@ export function BottomNav() {
   // browser paints, so the indicator is positioned correctly on the first
   // visible frame — no flash at (0,0) or delayed pop-in.
   useLayoutEffect(() => {
-    if (activeIndex === -1 || !navRef.current) {
+    if (currentActiveIndex === -1 || !navRef.current) {
       setIndicator(null);
       return;
     }
-    const tab = tabRefs.current[activeIndex];
+    const tab = tabRefs.current[currentActiveIndex];
     if (!tab) return;
     const navRect = navRef.current.getBoundingClientRect();
     const tabRect = tab.getBoundingClientRect();
@@ -252,7 +305,7 @@ export function BottomNav() {
       width:    tabRect.width,
       animated,
     });
-  }, [activeIndex]);
+  }, [currentActiveIndex]);
 
   // ── Route guard — hide nav on immersive pages ──────────────────────────────
   if (
@@ -324,48 +377,97 @@ export function BottomNav() {
         />
       )}
 
-      <NavTab
-        ref={(el) => { tabRefs.current[0] = el; }}
-        href="/events"
-        active={activeHome}
-        label="Home"
-        onSelect={() => setPendingPath("/events")}
-      >
-        <HomeIcon active={activeHome} />
-      </NavTab>
+      {activeOrganizer ? (
+        <>
+          <NavTab
+            ref={(el) => { tabRefs.current[0] = el; }}
+            href="/org/events"
+            active={activeOrgEvents}
+            label="Events"
+            onSelect={() => setPendingPath("/org/events")}
+          >
+            <OrgEventsIcon active={activeOrgEvents} />
+          </NavTab>
 
-      <NavTab
-        ref={(el) => { tabRefs.current[1] = el; }}
-        href="/map"
-        active={activeExplore}
-        label="Explore"
-        onSelect={() => setPendingPath("/map")}
-      >
-        <ExploreIcon active={activeExplore} />
-      </NavTab>
+          <NavTab
+            ref={(el) => { tabRefs.current[1] = el; }}
+            href="/org/calendar"
+            active={activeOrgCalendar}
+            label="Calendar"
+            onSelect={() => setPendingPath("/org/calendar")}
+          >
+            <OrgCalendarIcon active={activeOrgCalendar} />
+          </NavTab>
 
-      <CreateTab active={activeCreate} />
+          <CreateTab active={activeCreate} />
 
-      <NavTab
-        ref={(el) => { tabRefs.current[2] = el; }}
-        href="/schedule"
-        active={activeSchedule}
-        label="Schedule"
-        onSelect={() => setPendingPath("/schedule")}
-      >
-        <ScheduleIcon active={activeSchedule} />
-      </NavTab>
+          <NavTab
+            ref={(el) => { tabRefs.current[2] = el; }}
+            href="/org/inbox"
+            active={activeOrgInbox}
+            label="Inbox"
+            badge={unread && !activeOrgInbox}
+            onSelect={() => setPendingPath("/org/inbox")}
+          >
+            <OrgInboxIcon active={activeOrgInbox} />
+          </NavTab>
 
-      <NavTab
-        ref={(el) => { tabRefs.current[3] = el; }}
-        href="/social"
-        active={activeInbox}
-        label="Inbox"
-        badge={unread && !activeInbox}
-        onSelect={() => setPendingPath("/social")}
-      >
-        <InboxIcon active={activeInbox} />
-      </NavTab>
+          <NavTab
+            ref={(el) => { tabRefs.current[3] = el; }}
+            href="/org"
+            active={activeOrgAccount}
+            label="Account"
+            onSelect={() => setPendingPath("/org")}
+          >
+            <OrgAccountIcon active={activeOrgAccount} />
+          </NavTab>
+        </>
+      ) : (
+        <>
+          <NavTab
+            ref={(el) => { tabRefs.current[0] = el; }}
+            href="/events"
+            active={activeHome}
+            label="Home"
+            onSelect={() => setPendingPath("/events")}
+          >
+            <HomeIcon active={activeHome} />
+          </NavTab>
+
+          <NavTab
+            ref={(el) => { tabRefs.current[1] = el; }}
+            href="/map"
+            active={activeExplore}
+            label="Explore"
+            onSelect={() => setPendingPath("/map")}
+          >
+            <ExploreIcon active={activeExplore} />
+          </NavTab>
+
+          <CreateTab active={activeCreate} />
+
+          <NavTab
+            ref={(el) => { tabRefs.current[2] = el; }}
+            href="/schedule"
+            active={activeSchedule}
+            label="Schedule"
+            onSelect={() => setPendingPath("/schedule")}
+          >
+            <ScheduleIcon active={activeSchedule} />
+          </NavTab>
+
+          <NavTab
+            ref={(el) => { tabRefs.current[3] = el; }}
+            href="/social"
+            active={activeInbox}
+            label="Inbox"
+            badge={unread && !activeInbox}
+            onSelect={() => setPendingPath("/social")}
+          >
+            <InboxIcon active={activeInbox} />
+          </NavTab>
+        </>
+      )}
     </nav>
   );
 }

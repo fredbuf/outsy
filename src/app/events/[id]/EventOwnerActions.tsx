@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/AuthProvider";
+import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
 
 export function EventOwnerActions({
   eventId,
@@ -16,6 +17,7 @@ export function EventOwnerActions({
   compact?: boolean;
 }) {
   const { user, session } = useAuth();
+  const { activeOrganizer } = useActiveOrganizer();
   const router = useRouter();
   const [deleteState, setDeleteState] = useState<"idle" | "confirming" | "deleting">("idle");
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -35,7 +37,11 @@ export function EventOwnerActions({
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? "Failed to delete.");
-      router.push("/profile");
+      if (activeOrganizer?.slug) {
+        router.push(`/o/${activeOrganizer.slug}`);
+      } else {
+        router.push("/");
+      }
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete.");
       setDeleteState("idle");

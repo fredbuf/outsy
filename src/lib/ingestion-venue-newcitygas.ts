@@ -262,16 +262,22 @@ export async function ingestNewCityGas(): Promise<IngestResult> {
           is_approved: true,
         };
 
-        const { data: eventRow, error } = await supabase
+        const { error } = await supabase
           .from("events")
-          .upsert(payload, { onConflict: "source,source_event_id" })
-          .select("id")
-          .maybeSingle();
+          .upsert(payload, { onConflict: "source,source_event_id" });
 
         if (error) throw error;
 
-        if (venueId && eventRow?.id) {
-          await attachVenueOrganizer(supabase, venueId, eventRow.id);
+        if (venueId) {
+          const { data: eventRow } = await supabase
+            .from("events")
+            .select("id")
+            .eq("source", "venue_newcitygas")
+            .eq("source_event_id", tixrId)
+            .single();
+          if (eventRow?.id) {
+            await attachVenueOrganizer(supabase, venueId, eventRow.id);
+          }
         }
 
         ingested += 1;

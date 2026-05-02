@@ -545,11 +545,9 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
         };
 
         if (!dryRun) {
-          const { data: eventRow, error } = await supabase
+          const { error } = await supabase
             .from("events")
-            .upsert(payload, { onConflict: "source,source_event_id" })
-            .select("id")
-            .maybeSingle();
+            .upsert(payload, { onConflict: "source,source_event_id" });
 
           if (error) {
             errors += 1;
@@ -559,8 +557,16 @@ export async function ingestTicketmasterMontreal(options: IngestOptions): Promis
             throw error;
           }
 
-          if (venueId && eventRow?.id) {
-            await attachVenueOrganizer(supabase, venueId, eventRow.id);
+          if (venueId) {
+            const { data: eventRow } = await supabase
+              .from("events")
+              .select("id")
+              .eq("source", "ticketmaster")
+              .eq("source_event_id", sourceEventId)
+              .single();
+            if (eventRow?.id) {
+              await attachVenueOrganizer(supabase, venueId, eventRow.id);
+            }
           }
         }
 

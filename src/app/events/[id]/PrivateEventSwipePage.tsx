@@ -35,6 +35,8 @@ const AVATAR_COLORS = [
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
 ];
 
+const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
+
 function getInitials(name: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -49,6 +51,12 @@ function getAvatarColor(name: string | null): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
+function getLogoColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return LOGO_COLORS[hash % LOGO_COLORS.length];
+}
+
 // ── Props ──────────────────────────────────────────────────────────────────────
 
 type Props = {
@@ -61,6 +69,7 @@ type Props = {
   creator: { display_name: string | null; avatar_url: string | null; username: string | null } | null;
   cohostIds: string[];
   cohostProfiles: CohostProfile[];
+  organizers?: { name: string; role: string; slug: string | null; image_url: string | null }[];
   dateLine: string;
   timeLine: string | null;
   privateMapHref: string | null;
@@ -92,7 +101,7 @@ type Props = {
 export function PrivateEventSwipePage(props: Props) {
   const {
     id, imageUrl, title, category, source,
-    creatorId, creator, cohostIds, cohostProfiles,
+    creatorId, creator, cohostIds, cohostProfiles, organizers = [],
     dateLine, timeLine, privateMapHref, venueName, description, descriptionTitle,
     spotsLimited, spotsLimit, eventPrice, eventCurrency,
     paymentMethod, paymentContact, rsvpDeadline,
@@ -428,16 +437,19 @@ export function PrivateEventSwipePage(props: Props) {
               </div>
 
               {/* ── UNIFIED INFO CARD ──────────────────────────────────── */}
-              {/* Single tinted card: "Hosted by" + host avatars +        */}
-              {/* divider + description. Matches Figma 335×176px card.    */}
-              {creator && (
+              {/* Decision logic:                                          */}
+              {/* - organizers.length > 0 → show organizer(s) as         */}
+              {/*   rounded-square logos; hide personal creator row       */}
+              {/* - no organizers, creator exists → personal circle stack */}
+              {/* - neither → omit card                                   */}
+              {(organizers.length > 0 || creator) && (
                 <div style={{
                   borderRadius: 20,
                   background: "rgba(18,25,36,0.14)",
                   border: "1px solid rgba(255,255,255,0.12)",
                   padding: "16px",
                 }}>
-                  {/* Hosted by label */}
+                  {/* Label */}
                   <p style={{
                     fontSize: 14, fontWeight: 600, color: "#f5f7fa",
                     textAlign: "center", margin: "0 0 12px",
@@ -445,47 +457,83 @@ export function PrivateEventSwipePage(props: Props) {
                     Hosted by
                   </p>
 
-                  {/* Host + cohost avatar stack — centered */}
-                  <div style={{ display: "flex", justifyContent: "center", marginBottom: description ? 14 : 0 }}>
-                    {creatorId ? (
-                      <Link
-                        href={`/profile/${creatorId}`}
-                        style={{ lineHeight: 0, display: "block", textDecoration: "none", position: "relative", zIndex: cohostProfiles.length + 1 }}
-                      >
-                        {creator.avatar_url ? (
-                          <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
-                            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                        ) : (
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
-                            {getInitials(creator.display_name)}
+                  {organizers.length > 0 ? (
+                    /* ── Organizer identities — rounded-square logos ── */
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: description ? 14 : 0 }}>
+                      {organizers.map((o) => {
+                        const logo = (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
+                            <div style={{ flexShrink: 0 }}>
+                              {o.image_url ? (
+                                <img
+                                  src={o.image_url}
+                                  alt={o.name}
+                                  width={32} height={32}
+                                  style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", border: avatarBorder, display: "block" }}
+                                />
+                              ) : (
+                                <div style={{ width: 32, height: 32, borderRadius: 8, background: getLogoColor(o.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none", border: avatarBorder }}>
+                                  {getInitials(o.name)}
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{o.name}</span>
                           </div>
-                        )}
-                      </Link>
-                    ) : creator.avatar_url ? (
-                      <img src={creator.avatar_url} alt={creator.display_name ?? ""} width={28} height={28}
-                        style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
-                    ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder, position: "relative", zIndex: cohostProfiles.length + 1 }}>
-                        {getInitials(creator.display_name)}
-                      </div>
-                    )}
-                    {cohostProfiles.map((cp, i) => (
-                      <Link
-                        key={cp.id}
-                        href={`/profile/${cp.id}`}
-                        style={{ lineHeight: 0, display: "block", textDecoration: "none", marginLeft: -8, position: "relative", zIndex: cohostProfiles.length - i }}
-                      >
-                        {cp.avatar_url ? (
-                          <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={28} height={28}
-                            style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                        ) : (
-                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
-                            {getInitials(cp.display_name)}
+                        );
+                        return (
+                          <div key={o.name}>
+                            {o.slug ? (
+                              <Link href={`/o/${o.slug}`} style={{ textDecoration: "none", display: "block" }}>
+                                {logo}
+                              </Link>
+                            ) : logo}
                           </div>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* ── Personal creator — circle avatar + cohosts ── */
+                    <div style={{ display: "flex", justifyContent: "center", marginBottom: description ? 14 : 0 }}>
+                      {creatorId ? (
+                        <Link
+                          href={`/profile/${creatorId}`}
+                          style={{ lineHeight: 0, display: "block", textDecoration: "none", position: "relative", zIndex: cohostProfiles.length + 1 }}
+                        >
+                          {creator!.avatar_url ? (
+                            <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
+                              style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
+                          ) : (
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator!.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
+                              {getInitials(creator!.display_name)}
+                            </div>
+                          )}
+                        </Link>
+                      ) : creator!.avatar_url ? (
+                        <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
+                          style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
+                      ) : (
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator!.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder, position: "relative", zIndex: cohostProfiles.length + 1 }}>
+                          {getInitials(creator!.display_name)}
+                        </div>
+                      )}
+                      {cohostProfiles.map((cp, i) => (
+                        <Link
+                          key={cp.id}
+                          href={`/profile/${cp.id}`}
+                          style={{ lineHeight: 0, display: "block", textDecoration: "none", marginLeft: -8, position: "relative", zIndex: cohostProfiles.length - i }}
+                        >
+                          {cp.avatar_url ? (
+                            <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={28} height={28}
+                              style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
+                          ) : (
+                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
+                              {getInitials(cp.display_name)}
+                            </div>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Divider + description — inside the same card */}
                   {description && (

@@ -509,11 +509,9 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
       });
       if (isDuplicate) { skip(pageUrl, ld, "duplicate"); continue; }
 
-      const { data: eventRow, error } = await supabase
+      const { error } = await supabase
         .from("events")
-        .upsert(payload, { onConflict: "source,source_event_id" })
-        .select("id")
-        .maybeSingle();
+        .upsert(payload, { onConflict: "source,source_event_id" });
 
       if (error) {
         console.error(`[sat] upsert error for slug=${slug}:`, error.message);
@@ -521,8 +519,16 @@ export async function ingestSatMontreal(options: IngestOptions = {}): Promise<In
         continue;
       }
 
-      if (venueId && eventRow?.id) {
-        await attachVenueOrganizer(supabase, venueId, eventRow.id);
+      if (venueId) {
+        const { data: eventRow } = await supabase
+          .from("events")
+          .select("id")
+          .eq("source", "venue_sat")
+          .eq("source_event_id", slug)
+          .single();
+        if (eventRow?.id) {
+          await attachVenueOrganizer(supabase, venueId, eventRow.id);
+        }
       }
 
       ingested += 1;

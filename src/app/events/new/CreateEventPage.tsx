@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
 import { useAuth } from "../../components/AuthProvider";
+import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { PublicEventSwipePage } from "../[id]/PublicEventSwipePage";
 import { PrivateEventSwipePage } from "../[id]/PrivateEventSwipePage";
@@ -31,6 +32,8 @@ const AVATAR_COLORS = [
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
 ];
 
+const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
+
 function getInitials(name: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -43,6 +46,12 @@ function getAvatarColor(name: string | null): string {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function getLogoColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return LOGO_COLORS[hash % LOGO_COLORS.length];
 }
 
 function fmtDateShort(isoDate: string): string {
@@ -671,6 +680,7 @@ function RsvpCalendar({
 export function CreateEventPage({ editData }: { editData?: EditEventData } = {}) {
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
+  const { activeOrganizer } = useActiveOrganizer();
   const isEditMode = Boolean(editData);
   const editEventId = editData?.id ?? null;
 
@@ -1183,7 +1193,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         imageUrl = imagePreview;
       }
 
-      const basePayload = { title, description, descriptionTitle: descriptionTitle.trim() || undefined, startAt, endAt, visibility, imageUrl };
+      const basePayload = {
+        title, description, descriptionTitle: descriptionTitle.trim() || undefined,
+        startAt, endAt, visibility, imageUrl,
+        ...(activeOrganizer && !isEditMode ? { organizerId: activeOrganizer.organizerId } : {}),
+      };
       const payload = isPrivate
         ? {
             ...basePayload,
@@ -1266,7 +1280,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         imageUrl = await uploadEventImageDirect(imageBytes, imageFile.type, user.id);
       }
 
-      const basePayload = { title, description, descriptionTitle: descriptionTitle.trim() || undefined, startAt, endAt, visibility, imageUrl };
+      const basePayload = {
+        title, description, descriptionTitle: descriptionTitle.trim() || undefined,
+        startAt, endAt, visibility, imageUrl,
+        ...(activeOrganizer ? { organizerId: activeOrganizer.organizerId } : {}),
+      };
       const payload = isPrivate
         ? {
             ...basePayload,
@@ -1451,7 +1469,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
     const previewStartAt = startDate
       ? (startTime ? `${startDate}T${startTime}:00` : `${startDate}T00:00:00`)
       : new Date().toISOString();
-    const previewCreator = { display_name: displayName, avatar_url: avatarUrl, username: null };
+    // When acting as an organizer, the preview should show the organizer as the
+    // primary identity. Pass null for creator and populate organizers instead so
+    // PublicEventSwipePage renders the rounded-square logo rather than a personal avatar.
+    const previewCreator = activeOrganizer
+      ? null
+      : { display_name: displayName, avatar_url: avatarUrl, username: null };
+    const previewOrganizers = activeOrganizer
+      ? [{ name: activeOrganizer.name, role: "organizer", slug: activeOrganizer.slug ?? null, image_url: activeOrganizer.image_url }]
+      : [];
     const previewRsvpCounts = { going: 0, maybe: 0, cant_go: 0 };
 
     if (isPrivate) {
@@ -1468,10 +1494,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           title={title || "Event title"}
           category={category}
           source="preview"
-          creatorId={user?.id ?? null}
+          creatorId={activeOrganizer ? null : (user?.id ?? null)}
           creator={previewCreator}
-          cohostIds={cohostIds}
-          cohostProfiles={cohostProfiles}
+          organizers={previewOrganizers}
+          cohostIds={activeOrganizer ? [] : cohostIds}
+          cohostProfiles={activeOrganizer ? [] : cohostProfiles}
           dateLine={previewDateLine}
           timeLine={previewTimeLine}
           privateMapHref={privateMapHref}
@@ -1506,9 +1533,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         title={title || "Event title"}
         category={category}
         source="preview"
-        creatorId={user?.id ?? null}
+        creatorId={activeOrganizer ? null : (user?.id ?? null)}
         creator={previewCreator}
-        cohostIds={cohostIds}
+        organizers={previewOrganizers}
+        cohostIds={activeOrganizer ? [] : cohostIds}
         dateLine={previewDateLine}
         timeLine={previewTimeLine}
         mapHref="#"
@@ -1840,38 +1868,58 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#f5f7fa" }}>
                   {isPrivate ? "Hosted by" : "Organized by"}
                 </p>
-                {/* Host + cohosts avatars row */}
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt={displayName} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(displayName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}>
-                      {getInitials(displayName)}
-                    </div>
-                  )}
-                  {cohostProfiles.map((cp) => (
-                    cp.avatar_url ? (
-                      <img key={cp.id} src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }} />
+                {activeOrganizer ? (
+                  /* ── Organizer identity — rounded-square logo ── */
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {activeOrganizer.image_url ? (
+                      <img
+                        src={activeOrganizer.image_url}
+                        alt={activeOrganizer.name}
+                        style={{ width: 28, height: 28, borderRadius: 7, objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}
+                      />
                     ) : (
-                      <div key={cp.id} style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }}>
-                        {getInitials(cp.display_name)}
+                      <div style={{ width: 28, height: 28, borderRadius: 7, background: getLogoColor(activeOrganizer.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.85)", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0, userSelect: "none" }}>
+                        {activeOrganizer.name.slice(0, 1).toUpperCase()}
                       </div>
-                    )
-                  ))}
-                </div>
-                {/* + cohost button — available for both public and private */}
-                <button
-                  type="button"
-                  onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
-                  style={{
-                    height: 19, padding: "0 13px", borderRadius: 10, border: "none",
-                    background: "rgba(255,255,255,0.05)",
-                    cursor: "pointer", fontSize: 10, fontWeight: 700, color: "#fff",
-                    marginBottom: 6, fontFamily: "inherit",
-                  }}
-                >
-                  + cohost
-                </button>
+                    )}
+                    <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{activeOrganizer.name}</span>
+                  </div>
+                ) : (
+                  /* ── Personal identity — circle avatar + cohosts ── */
+                  <>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(displayName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}>
+                          {getInitials(displayName)}
+                        </div>
+                      )}
+                      {cohostProfiles.map((cp) => (
+                        cp.avatar_url ? (
+                          <img key={cp.id} src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }} />
+                        ) : (
+                          <div key={cp.id} style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }}>
+                            {getInitials(cp.display_name)}
+                          </div>
+                        )
+                      ))}
+                    </div>
+                    {/* + cohost button */}
+                    <button
+                      type="button"
+                      onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
+                      style={{
+                        height: 19, padding: "0 13px", borderRadius: 10, border: "none",
+                        background: "rgba(255,255,255,0.05)",
+                        cursor: "pointer", fontSize: 10, fontWeight: 700, color: "#fff",
+                        marginBottom: 6, fontFamily: "inherit",
+                      }}
+                    >
+                      + cohost
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Divider */}

@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { BackButton } from "@/app/events/[id]/BackButton";
+import { OrgProfileClient } from "./OrgProfileClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ type Organizer = {
   id: string;
   name: string;
   type: string;
+  slug: string | null;
   bio: string | null;
   website_url: string | null;
   instagram_url: string | null;
@@ -33,11 +35,19 @@ type OrgEvent = {
 const fetchOrganizer = cache(async (slug: string): Promise<Organizer | null> => {
   const { data } = await supabaseServer()
     .from("organizers")
-    .select("id,name,type,bio,website_url,instagram_url,image_url")
+    .select("id,name,type,slug,bio,website_url,instagram_url,image_url")
     .eq("slug", slug)
     .maybeSingle();
   return data as Organizer | null;
 });
+
+async function fetchFollowerCount(organizerId: string): Promise<number> {
+  const { count } = await supabaseServer()
+    .from("organizer_followers")
+    .select("*", { count: "exact", head: true })
+    .eq("organizer_id", organizerId);
+  return count ?? 0;
+}
 
 async function fetchOrganizerEvents(organizerId: string): Promise<OrgEvent[]> {
   // Step 1: collect all event IDs linked to this organizer.
@@ -72,29 +82,15 @@ const TYPE_LABELS: Record<string, string> = {
   venue: "Venue",
   promoter: "Promoter",
   artist: "Artist",
+  business: "Business",
   festival: "Festival",
   collective: "Collective",
   brand: "Brand",
+  nonprofit: "Non-profit",
+  school: "School",
   other: "Organizer",
 };
 
-// Muted dark colours — these sit behind white initials on the dark app theme.
-const LOGO_COLORS = [
-  "#1e3a5f", "#2d4a1e", "#4a1e2d",
-  "#1e2d4a", "#3a2d1e", "#1e4a3a",
-];
-
-function getLogoColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[hash % LOGO_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("en-CA", {
@@ -228,7 +224,10 @@ export default async function OrganizerPage({
   const organizer = await fetchOrganizer(slug);
   if (!organizer) notFound();
 
-  const events = await fetchOrganizerEvents(organizer.id);
+  const [events, followerCount] = await Promise.all([
+    fetchOrganizerEvents(organizer.id),
+    fetchFollowerCount(organizer.id),
+  ]);
 
   const now = new Date().toISOString();
   const upcoming = events.filter((e) => e.start_at >= now);
@@ -261,7 +260,7 @@ export default async function OrganizerPage({
           gap: 12, paddingTop: 8, position: "relative",
         }}
       >
-        {/* Back button */}
+        {/* Back button — top-left */}
         <BackButton
           style={{
             position: "absolute", top: 0, left: 0,
@@ -279,54 +278,34 @@ export default async function OrganizerPage({
           </svg>
         </BackButton>
 
-        {/* Logo — rounded square to distinguish from circular user avatars */}
-        <div style={{ width: 96, height: 96, flexShrink: 0 }}>
-          {organizer.image_url ? (
-            <img
-              src={organizer.image_url}
-              alt={organizer.name}
-              style={{
-                width: 96, height: 96, borderRadius: 20,
-                objectFit: "cover", display: "block",
-                border: "1.5px solid var(--border-strong)",
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 96, height: 96, borderRadius: 20,
-                background: getLogoColor(organizer.name),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em",
-                color: "rgba(255,255,255,0.85)", userSelect: "none",
-                border: "1.5px solid var(--border-strong)",
-              }}
-            >
-              {getInitials(organizer.name)}
+        {/* Interactive block: gear, logo+camera, action buttons, settings drawer */}
+        <OrgProfileClient
+          organizerId={organizer.id}
+          organizerName={organizer.name}
+          organizerSlug={organizer.slug ?? null}
+          organizerImageUrl={organizer.image_url}
+        >
+          {/* Name + type badge (server-rendered, passed as children) */}
+          <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
+              {organizer.name}
             </div>
-          )}
-        </div>
-
-        {/* Name + type badge */}
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
-            {organizer.name}
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <span
+                style={{
+                  fontSize: 11, fontWeight: 700,
+                  textTransform: "uppercase", letterSpacing: "0.06em",
+                  padding: "3px 10px", borderRadius: 20,
+                  background: "var(--surface-raised)",
+                  border: "1px solid var(--border-medium)",
+                  color: "var(--accent)",
+                }}
+              >
+                {typeLabel}
+              </span>
+            </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <span
-              style={{
-                fontSize: 11, fontWeight: 700,
-                textTransform: "uppercase", letterSpacing: "0.06em",
-                padding: "3px 10px", borderRadius: 20,
-                background: "var(--surface-raised)",
-                border: "1px solid var(--border-medium)",
-                color: "var(--accent)",
-              }}
-            >
-              {typeLabel}
-            </span>
-          </div>
-        </div>
+        </OrgProfileClient>
 
         {/* Bio */}
         {organizer.bio && (
@@ -339,6 +318,18 @@ export default async function OrganizerPage({
             {organizer.bio}
           </p>
         )}
+
+        {/* Stats */}
+        <div style={{ display: "flex", gap: 28, justifyContent: "center" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{followerCount}</div>
+            <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Followers</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{events.length}</div>
+            <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Events</div>
+          </div>
+        </div>
 
         {/* External links */}
         {hasLinks && (

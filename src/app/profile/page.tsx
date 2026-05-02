@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
+import { useActiveOrganizer } from "../components/ActiveOrganizerContext";
 import { useBottomNav } from "../components/BottomNavContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
@@ -41,6 +42,7 @@ const AVATAR_COLORS = [
   "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
 ];
+
 
 function getInitials(name: string | null): string {
   if (!name) return "?";
@@ -277,6 +279,7 @@ export default function ProfilePage() {
   const [activeSheet, setActiveSheet] = useState<"friends" | "following" | "events" | null>(null);
   const [sheetSearch, setSheetSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { activeOrganizer, setActiveOrganizer, identityLoading, orgPages } = useActiveOrganizer();
 
   useEffect(() => {
     if (authLoading || !session?.access_token) return;
@@ -1059,6 +1062,142 @@ export default function ProfilePage() {
 
             {/* Menu items */}
             <div style={{ borderTop: "1px solid var(--border)", flex: 1 }}>
+
+              {/* ── Identity switcher ───────────────────────────────────── */}
+              <div style={{ padding: "14px 20px 12px", borderBottom: "1px solid var(--border)", overflowY: "auto" }}>
+                <div
+                  style={{
+                    fontSize: 10, fontWeight: 700, opacity: 0.4,
+                    letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10,
+                  }}
+                >
+                  Account
+                </div>
+
+                {/* ── Personal identity ─────────────────────────────────── */}
+                <button
+                  type="button"
+                  onClick={() => { setActiveOrganizer(null); setSettingsOpen(false); router.push("/profile"); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%",
+                    padding: "6px 0", background: "none", border: "none",
+                    cursor: "pointer", color: "inherit", textAlign: "left",
+                  }}
+                >
+                  {/* Avatar */}
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt=""
+                      style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1.5px solid var(--border-medium)" }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                      background: getAvatarColor(avatarLabel),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none",
+                    }}>
+                      {getInitials(avatarLabel)}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                      {profile?.display_name ?? avatarLabel ?? "You"}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>Personal account</div>
+                  </div>
+                  {/* Active checkmark */}
+                  {activeOrganizer === null && !identityLoading && (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* ── Organizer identities ──────────────────────────────── */}
+                {identityLoading ? (
+                  <div className="skeleton" style={{ height: 36, borderRadius: 9, background: "var(--surface-raised)", marginTop: 4 }} />
+                ) : (
+                  orgPages.map((org) => {
+                    const isActive = activeOrganizer?.organizerId === org.organizerId;
+                    const logoColors = ["#1e3a5f","#2d4a1e","#4a1e2d","#1e2d4a","#3a2d1e","#1e4a3a"];
+                    let h = 0; for (let i = 0; i < org.name.length; i++) h = (h * 31 + org.name.charCodeAt(i)) & 0xffff;
+                    const logoColor = logoColors[h % logoColors.length];
+                    const initials2 = (() => { const p = org.name.trim().split(/\s+/); return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : org.name.slice(0,2).toUpperCase(); })();
+                    const typeLabels: Record<string,string> = { venue:"Venue",promoter:"Promoter",artist:"Artist",business:"Business",festival:"Festival",collective:"Collective",brand:"Brand",nonprofit:"Non-profit",school:"School",other:"Organizer" };
+
+                    return (
+                      <div key={org.organizerId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                        {/* Logo + name → navigate to org profile (no identity switch) */}
+                        <Link
+                          href={org.slug ? `/o/${org.slug}` : `/dashboard/organizers/${org.organizerId}/edit`}
+                          onClick={() => setSettingsOpen(false)}
+                          style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}
+                        >
+                          {org.image_url ? (
+                            <img src={org.image_url} alt={org.name} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }} />
+                          ) : (
+                            <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: logoColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
+                              {initials2}
+                            </div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{org.name}</div>
+                            <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>{typeLabels[org.type] ?? org.type}</div>
+                          </div>
+                        </Link>
+                        {/* Switch button — activates identity without navigating */}
+                        {isActive ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-label="Active" style={{ flexShrink: 0 }}>
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setActiveOrganizer(org); setSettingsOpen(false); }}
+                            style={{
+                              flexShrink: 0, padding: "4px 10px", borderRadius: 14,
+                              border: "1px solid rgba(94,168,255,0.30)",
+                              background: "rgba(94,168,255,0.08)",
+                              color: "#5EA8FF", fontSize: 11, fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Switch
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* ── Add organizer account ─────────────────────────────── */}
+                {!identityLoading && (
+                  <Link
+                    href="/dashboard/organizers/new"
+                    onClick={() => setSettingsOpen(false)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "6px 0", marginTop: 2,
+                      textDecoration: "none", color: "inherit",
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+                      background: "var(--surface-raised)",
+                      border: "1px dashed var(--border-strong)",
+                      display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.55,
+                    }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                    </div>
+                    <span style={{ fontSize: 13, opacity: 0.55 }}>Add an organizer account</span>
+                  </Link>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={handleSignOut}

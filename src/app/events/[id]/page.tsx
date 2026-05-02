@@ -66,12 +66,12 @@ async function fetchCohostProfiles(cohostIds: string[]): Promise<CohostProfile[]
   return (data ?? []) as CohostProfile[];
 }
 
-type EventOrganizer = { name: string; role: string; slug: string | null };
+type EventOrganizer = { name: string; role: string; slug: string | null; image_url: string | null };
 
 async function fetchOrganizers(eventId: string): Promise<EventOrganizer[]> {
   const { data } = await supabaseServer()
     .from("event_organizers")
-    .select("role, sort_order, organizers(name, slug)")
+    .select("role, sort_order, organizers(name, slug, image_url)")
     .eq("event_id", eventId)
     .order("sort_order", { ascending: true });
 
@@ -83,6 +83,7 @@ async function fetchOrganizers(eventId: string): Promise<EventOrganizer[]> {
         name: org.name as string,
         role: row.role as string,
         slug: (org.slug as string | null) ?? null,
+        image_url: (org.image_url as string | null) ?? null,
       };
     })
     .filter((o): o is EventOrganizer => o !== null);
@@ -274,11 +275,12 @@ export default async function EventPage({
       description_title?: string | null;
     };
     const cohostIds = evtExt.cohost_ids ?? [];
-    const [cohostProfiles, initialMoments] = await Promise.all([
+    const [cohostProfiles, initialMoments, privateOrganizers] = await Promise.all([
       fetchCohostProfiles(cohostIds),
       // Private events: skip SSR pre-load — no auth context in RSC.
       // MomentsClient refetches immediately from the gated API route.
       Promise.resolve([] as Awaited<ReturnType<typeof fetchMomentsForEvent>>),
+      fetchOrganizers(id),
     ]);
     const spotsLimited = evtExt.spots_mode === "limited" && (evtExt.spots_limit ?? 0) > 0;
     const eventPrice = typeof evtExt.price === "number" && evtExt.price > 0 ? evtExt.price : null;
@@ -323,6 +325,7 @@ export default async function EventPage({
         creator={creator}
         cohostIds={cohostIds}
         cohostProfiles={cohostProfiles}
+        organizers={privateOrganizers}
         dateLine={dateLine}
         timeLine={timeLine}
         privateMapHref={privateMapHref}

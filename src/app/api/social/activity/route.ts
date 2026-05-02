@@ -47,22 +47,78 @@ export type ActivityItem = {
   created_at: string;
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function verifyMembership(
+  supabase: ReturnType<typeof supabaseServer>,
+  userId: string,
+  orgId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("organizer_members")
+    .select("id")
+    .eq("organizer_id", orgId)
+    .eq("user_id", userId)
+    .in("role", ["owner", "admin", "editor"])
+    .eq("status", "active")
+    .maybeSingle();
+  return !!data;
+}
+
 // GET /api/social/activity
-// Returns notifications for the authenticated user, newest first.
+// Personal mode (no ?orgId): notifications for the authenticated user where organizer_id IS NULL.
+// Organizer mode (?orgId=<uuid>): notifications for that organizer; requires active membership.
 export async function GET(req: Request) {
   const user = await getAuthUser(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const orgId = searchParams.get("orgId");
+
   const supabase = supabaseServer();
 
-  const { data: notifs, error } = await supabase
-    .from("notifications")
-    .select("id,type,actor_id,entity_id,metadata,read,created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  let notifsQuery;
+
+  if (orgId) {
+    if (!UUID_RE.test(orgId))
+      return NextResponse.json({ ok: false, error: "Invalid orgId." }, { status: 400 });
+
+    const isMember = await verifyMembership(supabase, user.id, orgId);
+    if (!isMember)
+      return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+
+    notifsQuery = supabase
+      .from("notifications")
+      .select("id,type,actor_id,entity_id,metadata,read,created_at")
+      .eq("organizer_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+  } else {
+    notifsQuery = supabase
+      .from("notifications")
+      .select("id,type,actor_id,entity_id,metadata,read,created_at")
+      .eq("user_id", user.id)
+      .is("organizer_id", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
+  }
+
+  let { data: notifs, error } = await notifsQuery;
+
+  // If the organizer_id column doesn't exist yet (migration not applied),
+  // fall back to a plain user_id-only query so personal activity still works.
+  if (error && !orgId && error.message.includes("organizer_id")) {
+    const fallback = await supabase
+      .from("notifications")
+      .select("id,type,actor_id,entity_id,metadata,read,created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    notifs = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

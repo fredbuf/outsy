@@ -4,6 +4,7 @@
 import { FormEvent, useEffect, useRef, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
+import { useActiveOrganizer } from "../components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export type FormState = {
@@ -51,6 +52,17 @@ const AVATAR_COLORS = [
   "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
 ];
 
+const LOGO_COLORS = [
+  "#1e3a5f", "#2d4a1e", "#4a1e2d",
+  "#1e2d4a", "#3a2d1e", "#1e4a3a",
+];
+
+function getLogoColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+  return LOGO_COLORS[hash % LOGO_COLORS.length];
+}
+
 function getInitials(name: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
@@ -81,6 +93,7 @@ export function SubmitEventForm({
   const isEditMode = Boolean(editEventId);
   const router = useRouter();
   const { user, loading: authLoading, session } = useAuth();
+  const { activeOrganizer } = useActiveOrganizer();
   const [form, setForm] = useState<FormState>({ ...initialForm, ...initialValues });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +238,8 @@ export function SubmitEventForm({
         endAt: form.endAt,
         visibility: form.visibility,
         imageUrl,
+        // Only included on create; ignored in edit mode (organizer attribution is immutable post-creation).
+        ...(!isEditMode && activeOrganizer ? { organizerId: activeOrganizer.organizerId } : {}),
       };
 
       const payload = isPrivate
@@ -429,7 +444,7 @@ export function SubmitEventForm({
           </span>
         </div>
 
-        {/* 2. Hosted by */}
+        {/* 2. Hosted by / Posting as */}
         {user && (
           <div
             style={{
@@ -438,12 +453,53 @@ export function SubmitEventForm({
               gap: 10,
               padding: "9px 12px",
               borderRadius: 10,
-              border: "1px solid var(--border)",
-              background: "var(--surface-subtle)",
+              border: activeOrganizer
+                ? "1px solid rgba(94,168,255,0.25)"
+                : "1px solid var(--border)",
+              background: activeOrganizer
+                ? "rgba(94,168,255,0.07)"
+                : "var(--surface-subtle)",
             }}
           >
-            <span style={{ fontSize: 12, opacity: 0.5, flexShrink: 0 }}>Hosted by</span>
-            {avatarUrl ? (
+            <span style={{ fontSize: 12, opacity: 0.5, flexShrink: 0 }}>
+              {activeOrganizer ? "Posting as" : "Hosted by"}
+            </span>
+
+            {activeOrganizer ? (
+              /* Organizer rounded-square logo */
+              activeOrganizer.image_url ? (
+                <img
+                  src={activeOrganizer.image_url}
+                  alt={activeOrganizer.name}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 6,
+                    objectFit: "cover",
+                    flexShrink: 0,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 6,
+                    background: getLogoColor(activeOrganizer.name),
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: "rgba(255,255,255,0.85)",
+                    flexShrink: 0,
+                    userSelect: "none",
+                  }}
+                >
+                  {activeOrganizer.name.slice(0, 1).toUpperCase()}
+                </div>
+              )
+            ) : avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt={displayName}
@@ -475,6 +531,7 @@ export function SubmitEventForm({
                 {getInitials(displayName)}
               </div>
             )}
+
             <span
               style={{
                 fontSize: 14,
@@ -484,28 +541,32 @@ export function SubmitEventForm({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
+                color: activeOrganizer ? "#5EA8FF" : "inherit",
               }}
             >
-              {displayName}
+              {activeOrganizer ? activeOrganizer.name : displayName}
             </span>
-            <button
-              type="button"
-              disabled
-              title="Coming soon"
-              style={{
-                padding: "4px 10px",
-                borderRadius: 7,
-                border: "1px solid var(--border-strong)",
-                background: "transparent",
-                cursor: "not-allowed",
-                fontSize: 12,
-                opacity: 0.4,
-                flexShrink: 0,
-                color: "inherit",
-              }}
-            >
-              + Cohost
-            </button>
+
+            {!activeOrganizer && (
+              <button
+                type="button"
+                disabled
+                title="Coming soon"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 7,
+                  border: "1px solid var(--border-strong)",
+                  background: "transparent",
+                  cursor: "not-allowed",
+                  fontSize: 12,
+                  opacity: 0.4,
+                  flexShrink: 0,
+                  color: "inherit",
+                }}
+              >
+                + Cohost
+              </button>
+            )}
           </div>
         )}
 

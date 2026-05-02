@@ -536,6 +536,7 @@ function ActivityTab({
 
   useEffect(() => {
     setLoading(true);
+    setItems(null);
     fetch("/api/social/activity", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -671,6 +672,56 @@ function ActivityTab({
 
 // ── Messages tab ───────────────────────────────────────────────────────────────
 
+const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
+function getLogoColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+  return LOGO_COLORS[h % LOGO_COLORS.length];
+}
+
+function OrgConversationRow({ conv }: { conv: ConversationPreview }) {
+  const orgName = conv.orgName ?? "Organizer";
+  const isUnread = conv.lastMessage.isUnread;
+  const preview = (conv.lastMessage.isFromMe ? "You: " : `${orgName}: `) + conv.lastMessage.body;
+  const clipped = preview.length > 48 ? preview.slice(0, 48) + "…" : preview;
+  const r = Math.round(44 * 0.22);
+
+  return (
+    <Link href={`/social/messages/org/${conv.orgId}`} style={{ textDecoration: "none", color: "inherit" }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 14px", marginBottom: 6, borderRadius: 16,
+        border: isUnread ? "1px solid rgba(94,168,255,0.25)" : "1px solid rgba(255,255,255,0.06)",
+        background: isUnread ? "rgba(94,168,255,0.07)" : "rgba(255,255,255,0.04)",
+        cursor: "pointer",
+      }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          {conv.orgImageUrl ? (
+            <img src={conv.orgImageUrl} alt={orgName} style={{ width: 44, height: 44, borderRadius: r, objectFit: "cover" }} />
+          ) : (
+            <div style={{ width: 44, height: 44, borderRadius: r, background: getLogoColor(orgName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
+              {getInitials(orgName)}
+            </div>
+          )}
+          {isUnread && (
+            <span aria-hidden style={{ position: "absolute", bottom: 1, right: 1, width: 10, height: 10, borderRadius: "50%", background: "#5EA8FF", border: "2px solid #0d0b14" }} />
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: isUnread ? 700 : 600, lineHeight: 1.2 }}>{orgName}</div>
+          <div style={{ fontSize: 13, marginTop: 3, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", opacity: isUnread ? 0.75 : 0.4, fontWeight: isUnread ? 500 : 400 }}>{clipped}</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, opacity: 0.35 }}>{relativeTime(conv.lastMessage.created_at)}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ opacity: 0.2 }}>
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function ConversationRow({ conv }: { conv: ConversationPreview }) {
   const name = conv.display_name ?? conv.username ?? "Unknown";
   const preview = (conv.lastMessage.isFromMe ? "You: " : "") + conv.lastMessage.body;
@@ -747,6 +798,8 @@ function MessagesTab({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
+    setConvs(null);
     fetch("/api/social/conversations", {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -785,9 +838,11 @@ function MessagesTab({
 
   return (
     <div>
-      {convs.map((c) => (
-        <ConversationRow key={c.userId} conv={c} />
-      ))}
+      {convs.map((c) =>
+        c.orgId
+          ? <OrgConversationRow key={c.orgId} conv={c} />
+          : <ConversationRow key={c.userId} conv={c} />
+      )}
     </div>
   );
 }
