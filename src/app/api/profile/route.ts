@@ -43,10 +43,24 @@ export async function GET(req: Request) {
       .limit(50),
   ]);
 
+  // Exclude events that belong to an organizer — those surface in /org/calendar only.
+  const createdIds = (createdEvents ?? []).map((e) => e.id as string);
+  let orgLinkedIds = new Set<string>();
+  if (createdIds.length > 0) {
+    const { data: orgLinks } = await supabase
+      .from("event_organizers")
+      .select("event_id")
+      .in("event_id", createdIds);
+    orgLinkedIds = new Set((orgLinks ?? []).map((r) => r.event_id as string));
+  }
+  const personalCreatedEvents = (createdEvents ?? []).filter(
+    (e) => !orgLinkedIds.has(e.id as string)
+  );
+
   // Merge, deduped by id (creator takes priority). Tag each row with a role field.
-  const seenIds = new Set<string>((createdEvents ?? []).map((e) => e.id as string));
+  const seenIds = new Set<string>(personalCreatedEvents.map((e) => e.id as string));
   const events = [
-    ...(createdEvents ?? []).map((e) => ({ ...e, role: "hosting" as const })),
+    ...personalCreatedEvents.map((e) => ({ ...e, role: "hosting" as const })),
     ...(cohostEvents ?? [])
       .filter((e) => !seenIds.has(e.id as string))
       .map((e) => ({ ...e, role: "cohosting" as const })),

@@ -36,6 +36,14 @@ type FriendProfile = {
   avatar_url: string | null;
 };
 
+type FollowedOrg = {
+  id: string;
+  name: string;
+  type: string | null;
+  slug: string | null;
+  image_url: string | null;
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
@@ -276,6 +284,8 @@ export default function ProfilePage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [friends, setFriends] = useState<FriendProfile[]>([]);
+  const [orgFollowingCount, setOrgFollowingCount] = useState(0);
+  const [followedOrgs, setFollowedOrgs] = useState<FollowedOrg[]>([]);
   const [activeSheet, setActiveSheet] = useState<"friends" | "following" | "events" | null>(null);
   const [sheetSearch, setSheetSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -288,8 +298,16 @@ export default function ProfilePage() {
     Promise.all([
       fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
       fetch("/api/friends", { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      supabaseBrowser()
+        .from("organizer_followers")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user!.id),
+      supabaseBrowser()
+        .from("organizer_followers")
+        .select("organizer_id, organizers(id,name,type,slug,image_url)")
+        .eq("user_id", user!.id),
     ])
-      .then(([profileJson, friendsJson]) => {
+      .then(([profileJson, friendsJson, orgFollowResult, orgFollowRows]) => {
         if (profileJson?.ok) {
           setProfile(profileJson.profile);
           setEvents(profileJson.events ?? []);
@@ -301,6 +319,13 @@ export default function ProfilePage() {
         if (friendsJson?.ok) {
           setFriends(friendsJson.friends ?? []);
         }
+        setOrgFollowingCount(orgFollowResult.count ?? 0);
+        const orgs: FollowedOrg[] = ((orgFollowRows.data ?? []) as { organizers: FollowedOrg | FollowedOrg[] | null }[])
+          .flatMap((r) => {
+            const o = Array.isArray(r.organizers) ? r.organizers[0] : r.organizers;
+            return o ? [o] : [];
+          });
+        setFollowedOrgs(orgs);
       })
       .finally(() => setFetching(false));
   }, [authLoading, session?.access_token]);
@@ -676,7 +701,7 @@ export default function ProfilePage() {
             onClick={() => { setActiveSheet("following"); setSheetSearch(""); router.replace("/profile?sheet=following", { scroll: false }); }}
             style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
           >
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>0</span>
+            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{orgFollowingCount}</span>
             <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
           </button>
           <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
@@ -761,15 +786,65 @@ export default function ProfilePage() {
       {/* ── Following sheet ──────────────────────────────────────────────────── */}
       {activeSheet === "following" && (
         <DetailSheet
-          title="Following"
+          title={`Following · ${followedOrgs.length}`}
           onClose={() => { setActiveSheet(null); router.replace("/profile", { scroll: false }); }}
           search={sheetSearch}
           onSearchChange={setSheetSearch}
-          searchPlaceholder="Search…"
+          searchPlaceholder="Search organizers…"
         >
-          <div style={{ textAlign: "center", padding: "48px 0" }}>
-            <p style={{ opacity: 0.45, fontSize: 14, margin: 0 }}>Following venues and organizers coming soon.</p>
-          </div>
+          {(() => {
+            const q = sheetSearch.toLowerCase();
+            const filtered = followedOrgs.filter((o) => !q || o.name.toLowerCase().includes(q));
+            if (followedOrgs.length === 0) {
+              return (
+                <div style={{ textAlign: "center", padding: "48px 0" }}>
+                  <p style={{ opacity: 0.45, fontSize: 14, margin: 0 }}>You&apos;re not following any organizers yet.</p>
+                </div>
+              );
+            }
+            if (filtered.length === 0) {
+              return <p style={{ opacity: 0.45, fontSize: 14, margin: "16px 0 0" }}>No results for &ldquo;{sheetSearch}&rdquo;</p>;
+            }
+            return (
+              <div style={{ display: "grid", gap: 2 }}>
+                {filtered.map((org) => (
+                  <Link
+                    key={org.id}
+                    href={org.slug ? `/o/${org.slug}` : `/o/${org.id}`}
+                    onClick={() => setActiveSheet(null)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 2px", textDecoration: "none", color: "inherit",
+                      borderBottom: "1px solid rgba(255,255,255,0.07)",
+                    }}
+                  >
+                    {org.image_url ? (
+                      <img
+                        src={org.image_url}
+                        alt={org.name}
+                        style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: 44, height: 44, borderRadius: 10,
+                        background: getAvatarColor(org.name),
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0,
+                      }}>
+                        {getInitials(org.name)}
+                      </div>
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{org.name}</div>
+                      {org.type && (
+                        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2, textTransform: "capitalize" }}>{org.type}</div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            );
+          })()}
         </DetailSheet>
       )}
 
