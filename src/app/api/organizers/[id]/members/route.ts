@@ -142,12 +142,12 @@ export async function POST(
   const isEmail = raw.includes("@") && raw.indexOf("@") > 0;
 
   if (isEmail) {
-    // Email lookup via admin auth API (service-role only).
-    const email = raw.toLowerCase();
-    const { data: { user: authUser }, error: lookupError } = await supabase.auth.admin.getUserByEmail(email);
-    if (lookupError || !authUser)
-      return NextResponse.json({ ok: false, error: "No account found for that email address." }, { status: 404 });
-    targetUserId = authUser.id;
+    // Email-based lookup is not supported (no email column on profiles and
+    // auth.admin.getUserByEmail is not available on the client SDK).
+    return NextResponse.json(
+      { ok: false, error: "Invite by email is not available yet. Use @handle instead." },
+      { status: 400 },
+    );
   } else {
     // Handle lookup: strip leading "@", normalize to lowercase.
     const handle = raw.replace(/^@/, "").toLowerCase();

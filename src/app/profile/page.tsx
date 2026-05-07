@@ -337,10 +337,10 @@ export default function ProfilePage() {
       .eq("owner_type", "user")
       .eq("owner_id", user!.id)
       .limit(1)
-      .then(({ data }) => {
-        setGlobalHandle((data?.[0] as { handle: string } | undefined)?.handle ?? null);
-      })
-      .catch(() => {});
+      .then(
+        ({ data }) => { setGlobalHandle((data?.[0] as { handle: string } | undefined)?.handle ?? null); },
+        () => {},
+      );
   }, [authLoading, session?.access_token]);
 
   const { hide: hideNav, show: showNav } = useBottomNav();
