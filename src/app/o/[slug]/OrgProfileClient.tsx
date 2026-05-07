@@ -223,7 +223,7 @@ export function OrgProfileClient({
 
   return (
     <>
-      {/* ── Settings gear (top-right, absolute within the section) ── */}
+      {/* ── Settings gear (top-right, absolute within parent section) ── */}
       {isActiveAsThisOrg && (
         <button
           type="button"
@@ -232,80 +232,102 @@ export function OrgProfileClient({
           style={{
             position: "absolute", top: 0, right: 0,
             width: 36, height: 36, borderRadius: "50%",
-            border: "1px solid var(--border-strong)",
-            background: "var(--surface-raised)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            color: "inherit",
+            color: "#C7D0DB",
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", opacity: 0.7,
+            cursor: "pointer",
           }}
         >
           <GearIcon />
         </button>
       )}
 
-      {/* ── Logo with optional camera badge ── */}
-      <div style={{ position: "relative", width: 96, height: 96, flexShrink: 0 }}>
-        {organizerImageUrl ? (
-          <img
-            src={organizerImageUrl}
-            alt={organizerName}
-            style={{
-              width: 96, height: 96, borderRadius: 20,
-              objectFit: "cover", display: "block",
-              border: "1.5px solid var(--border-strong)",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 96, height: 96, borderRadius: 20,
-              background: getLogoColor(organizerName),
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em",
-              color: "rgba(255,255,255,0.85)", userSelect: "none",
-              border: "1.5px solid var(--border-strong)",
-            }}
-          >
-            {getOrgInitials(organizerName)}
-          </div>
-        )}
+      {/* ── Avatar + glass card wrapper ── */}
+      <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 48, marginTop: 8 }}>
 
-        {/* Camera badge — active-as-this-org only */}
-        {isActiveAsThisOrg && (
-          <Link
-            href={`/dashboard/organizers/${organizerId}/edit`}
-            aria-label="Change photo"
-            title="Change photo"
-            style={{
-              position: "absolute", bottom: 2, right: 2,
-              width: 28, height: 28, borderRadius: "50%",
-              border: "2px solid var(--background)",
-              background: "var(--foreground)", color: "var(--background)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              textDecoration: "none",
-            }}
-          >
-            <CameraIcon />
-          </Link>
-        )}
+        {/* Logo — absolute, overlapping glass card from above */}
+        <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
+          <div style={{ position: "relative", width: 96, height: 96 }}>
+            {organizerImageUrl ? (
+              <img
+                src={organizerImageUrl}
+                alt={organizerName}
+                style={{
+                  width: 96, height: 96, borderRadius: 20,
+                  objectFit: "cover", display: "block",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 96, height: 96, borderRadius: 20,
+                background: getLogoColor(organizerName),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em",
+                color: "rgba(255,255,255,0.85)", userSelect: "none",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+              }}>
+                {getOrgInitials(organizerName)}
+              </div>
+            )}
+            {/* Camera badge — active-as-this-org only */}
+            {isActiveAsThisOrg && (
+              <Link
+                href={`/dashboard/organizers/${organizerId}/edit`}
+                aria-label="Change photo"
+                title="Change photo"
+                style={{
+                  position: "absolute", bottom: 2, right: 2,
+                  width: 28, height: 28, borderRadius: "50%",
+                  border: "2px solid #0b0f18",
+                  background: "#FFFFFF",
+                  color: "rgba(0,0,0,0.70)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  textDecoration: "none",
+                }}
+              >
+                <CameraIcon />
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* Glass identity card */}
+        <div style={{
+          width: "100%",
+          background: "rgba(255,255,255,0.08)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 24,
+          paddingTop: 60,
+          paddingBottom: 20,
+          paddingLeft: 16,
+          paddingRight: 16,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 4,
+        }}>
+          {children}
+        </div>
       </div>
 
-      {/* Server-rendered name + type badge */}
-      {children}
-
-      {/* Action buttons */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-        {/* Active as this org: show Edit instead of Follow/Message */}
+      {/* ── Action buttons — below the glass card ── */}
+      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
         {isActiveAsThisOrg ? (
           <Link
             href={`/dashboard/organizers/${organizerId}/edit`}
             style={{
               display: "flex", alignItems: "center", gap: 6,
-              padding: "9px 22px", borderRadius: 20, border: "none",
-              background: "var(--foreground)", color: "var(--background)",
-              fontWeight: 600, fontSize: 14, textDecoration: "none",
+              padding: "9px 22px", borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.10)",
+              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              color: "#FFFFFF", fontWeight: 600, fontSize: 14, textDecoration: "none",
             }}
           >
             <EditIcon />
@@ -313,32 +335,31 @@ export function OrgProfileClient({
           </Link>
         ) : (
           <>
-            {/* Follow — personal or org-to-org */}
             <button
               type="button"
               onClick={() => void handleFollow()}
               disabled={followLoading}
               style={{
                 display: "flex", alignItems: "center", gap: 6,
-                padding: "9px 22px", borderRadius: 20, border: "none",
-                background: following ? "var(--surface-raised)" : "var(--foreground)",
-                color: following ? "inherit" : "var(--background)",
+                padding: "9px 22px", borderRadius: 999,
+                border: following ? "1px solid rgba(255,255,255,0.14)" : "none",
+                background: following ? "rgba(255,255,255,0.10)" : "rgba(94,168,255,0.85)",
+                color: following ? "#C7D0DB" : "#fff",
                 fontWeight: 600, fontSize: 14,
                 cursor: followLoading ? "not-allowed" : "pointer",
                 opacity: followLoading ? 0.6 : 1,
                 transition: "background 0.15s, opacity 0.15s",
+                backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
               }}
             >
               {following ? "Followed" : "Follow"}
             </button>
-
-            {/* Message — only for signed-in users in personal or other-org mode */}
             {user && (
               <Link
                 href={`/social/messages/org/${organizerId}`}
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
-                  padding: "9px 22px", borderRadius: 20,
+                  padding: "9px 22px", borderRadius: 999,
                   border: "1px solid rgba(94,168,255,0.30)",
                   background: "rgba(94,168,255,0.10)",
                   color: "#5EA8FF", fontWeight: 600, fontSize: 14, textDecoration: "none",
@@ -350,18 +371,15 @@ export function OrgProfileClient({
             )}
           </>
         )}
-
-        {/* Share — always visible */}
         <button
           type="button"
           onClick={handleShare}
           style={{
             display: "flex", alignItems: "center", gap: 6,
-            padding: "9px 22px", borderRadius: 20,
-            border: "1px solid var(--border-strong)",
-            background: "transparent",
-            fontWeight: 600, fontSize: 14,
-            cursor: "pointer", color: "inherit",
+            padding: "9px 22px", borderRadius: 999,
+            border: "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(255,255,255,0.05)",
+            color: "#C7D0DB", fontWeight: 600, fontSize: 14, cursor: "pointer",
           }}
         >
           <ShareIcon />

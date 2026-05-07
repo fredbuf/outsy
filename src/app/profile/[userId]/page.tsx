@@ -251,26 +251,19 @@ export default async function PublicProfilePage({
       <div className="app-bg-gradient" aria-hidden="true" />
 
       {/* ── Identity block ── */}
-      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8, position: "relative" }}>
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0, paddingTop: 8, position: "relative" }}>
 
-        {/* Back button — top-left, liquid-glass */}
+        {/* Back button — top-left */}
         <BackButton
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            background: "var(--surface-raised)",
-            border: "1px solid var(--border-strong)",
+            position: "absolute", top: 0, left: 0,
+            width: 36, height: 36, borderRadius: "50%",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            cursor: "pointer",
-            color: "inherit",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            cursor: "pointer", color: "#C7D0DB",
+            display: "flex", alignItems: "center", justifyContent: "center",
           } as React.CSSProperties}
         >
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -278,72 +271,85 @@ export default async function PublicProfilePage({
           </svg>
         </BackButton>
 
-        {/* Avatar */}
-        {profile.avatar_url ? (
-          <img
-            src={profile.avatar_url}
-            alt={displayName}
-            style={{
-              width: 96, height: 96, borderRadius: "50%",
-              objectFit: "cover", display: "block",
-              border: "2px solid var(--border-medium)",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 96, height: 96, borderRadius: "50%",
-              background: getAvatarColor(displayName),
-              display: "flex", alignItems: "center",
-              justifyContent: "center", fontSize: 32, fontWeight: 700,
-              color: "#fff", userSelect: "none",
-              border: "2px solid var(--border-medium)",
-            }}
-          >
-            {getInitials(displayName)}
+        {/* Avatar + glass card wrapper */}
+        <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 48, marginTop: 8 }}>
+
+          {/* Avatar — absolute, overlapping glass card from above */}
+          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
+            {profile.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={displayName}
+                style={{
+                  width: 96, height: 96, borderRadius: "50%",
+                  objectFit: "cover", display: "block",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+                }}
+              />
+            ) : (
+              <div style={{
+                width: 96, height: 96, borderRadius: "50%",
+                background: getAvatarColor(displayName),
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 32, fontWeight: 700, color: "#fff", userSelect: "none",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+              }}>
+                {getInitials(displayName)}
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Name + username */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
-            {displayName}
-          </div>
-          {profile.username && (
-            <div style={{ fontSize: 14, opacity: 0.5, marginTop: 4 }}>@{profile.username}</div>
-          )}
-        </div>
-
-        {/* Friend / Message actions */}
-        <FriendshipButton profileId={userId} profileUsername={profile.username} />
-
-        {/* Summary counters — same card structure as own profile */}
-        <div
-          style={{
-            display: "flex",
+          {/* Glass identity card */}
+          <div style={{
             width: "100%",
-            maxWidth: 300,
-            marginTop: 8,
-            borderRadius: 14,
-            overflow: "hidden",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px" }}>
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{friendCount}</span>
-            <span style={{ fontSize: 12, opacity: 0.5 }}>Friends</span>
-          </div>
-          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px" }}>
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>0</span>
-            <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
-          </div>
-          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px" }}>
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{totalEvents}</span>
-            <span style={{ fontSize: 12, opacity: 0.5 }}>Events</span>
+            background: "rgba(255,255,255,0.08)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 24,
+            paddingTop: 60,
+            paddingBottom: 20,
+            paddingLeft: 16,
+            paddingRight: 16,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 4,
+          }}>
+            {/* Name */}
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
+              {displayName}
+            </div>
+            {/* Handle */}
+            {profile.username && (
+              <div style={{ fontSize: 11, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
+                @{profile.username}
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div style={{ display: "flex", width: "100%", marginTop: 10 }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px" }}>
+                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{friendCount}</span>
+                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Friends</span>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px" }}>
+                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>0</span>
+                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Following</span>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px" }}>
+                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{totalEvents}</span>
+                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Events</span>
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Action button — below the glass card */}
+        <div style={{ marginTop: 16 }}>
+          <FriendshipButton profileId={userId} profileUsername={profile.username} />
+        </div>
+
       </section>
 
       {/* ── Events ── */}

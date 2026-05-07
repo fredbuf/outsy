@@ -109,11 +109,12 @@ function ShareIcon() {
   );
 }
 
-function GearIcon() {
+function MenuIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    <svg width="15" height="12" viewBox="0 0 15 12" fill="none" aria-hidden>
+      <rect x="0" y="0" width="15" height="1.8" rx="0.9" fill="currentColor" />
+      <rect x="0" y="5.1" width="15" height="1.8" rx="0.9" fill="currentColor" />
+      <rect x="0" y="10.2" width="15" height="1.8" rx="0.9" fill="currentColor" />
     </svg>
   );
 }
@@ -536,130 +537,151 @@ export default function ProfilePage() {
       />
 
       {/* ── Identity block ─────────────────────────────────────────────────── */}
-      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 8, position: "relative" }}>
-        {/* Settings button — top-right */}
+      <section style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0, paddingTop: 8, position: "relative" }}>
+
+        {/* Menu button — top-left */}
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
+          aria-label="Menu"
           style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            width: 36,
-            height: 36,
-            borderRadius: "50%",
-            border: "1px solid var(--border-strong)",
-            background: "var(--surface-subtle)",
-            color: "inherit",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            position: "absolute", top: 0, right: 0,
+            width: 36, height: 36, borderRadius: "50%",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            color: "#C7D0DB",
+            display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer",
-            opacity: 0.7,
           }}
         >
-          <GearIcon />
+          <MenuIcon />
         </button>
 
-        {/* Avatar */}
-        <div style={{ position: "relative", width: 96, height: 96 }}>
-          {profile?.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={avatarLabel ?? ""}
-              style={{
-                width: 96,
-                height: 96,
-                borderRadius: "50%",
-                objectFit: "cover",
-                display: "block",
-                border: "2px solid var(--border-medium)",
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 96,
-                height: 96,
-                borderRadius: "50%",
-                background: getAvatarColor(avatarLabel),
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 32,
-                fontWeight: 700,
-                color: "#fff",
-                userSelect: "none",
-                border: "2px solid var(--border-medium)",
-              }}
-            >
-              {getInitials(avatarLabel)}
+        {/* Avatar + glass card wrapper */}
+        <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 48, marginTop: 8 }}>
+
+          {/* Avatar — absolute, overlapping glass card from above */}
+          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
+            <div style={{ position: "relative", width: 96, height: 96 }}>
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={avatarLabel ?? ""}
+                  style={{
+                    width: 96, height: 96, borderRadius: "50%",
+                    objectFit: "cover", display: "block",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: 96, height: 96, borderRadius: "50%",
+                  background: getAvatarColor(avatarLabel),
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 32, fontWeight: 700, color: "#fff", userSelect: "none",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+                }}>
+                  {getInitials(avatarLabel)}
+                </div>
+              )}
+              {/* Camera badge */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingAvatar}
+                aria-label="Change photo"
+                style={{
+                  position: "absolute", bottom: 2, right: 2,
+                  width: 28, height: 28, borderRadius: "50%",
+                  border: "2px solid #0b0f18",
+                  background: "#FFFFFF",
+                  color: "rgba(0,0,0,0.70)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: uploadingAvatar ? "wait" : "pointer",
+                  opacity: uploadingAvatar ? 0.5 : 1,
+                  transition: "opacity 0.15s",
+                }}
+              >
+                <CameraIcon />
+              </button>
             </div>
-          )}
-
-          {/* Camera button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingAvatar}
-            aria-label="Change photo"
-            style={{
-              position: "absolute",
-              bottom: 2,
-              right: 2,
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              border: "2px solid var(--background)",
-              background: "var(--foreground)",
-              color: "var(--background)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: uploadingAvatar ? "wait" : "pointer",
-              opacity: uploadingAvatar ? 0.5 : 1,
-              transition: "opacity 0.15s",
-            }}
-          >
-            <CameraIcon />
-          </button>
-        </div>
-
-        {avatarError && (
-          <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{avatarError}</p>
-        )}
-
-        {/* Name + handle */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
-            {profile?.display_name ?? avatarLabel ?? "Anonymous"}
+            {avatarError && (
+              <p style={{ fontSize: 11, color: "#f87171", margin: "4px 0 0", textAlign: "center", whiteSpace: "nowrap" }}>{avatarError}</p>
+            )}
           </div>
-          {(globalHandle ?? profile?.username) && (
-            <div style={{ fontSize: 14, opacity: 0.45, marginTop: 4 }}>
-              @{globalHandle ?? profile?.username}
+
+          {/* Glass identity card */}
+          <div style={{
+            width: "100%",
+            background: "rgba(255,255,255,0.08)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 24,
+            paddingTop: 60,
+            paddingBottom: 20,
+            paddingLeft: 16,
+            paddingRight: 16,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 4,
+          }}>
+            {/* Name */}
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
+              {profile?.display_name ?? avatarLabel ?? "Anonymous"}
             </div>
-          )}
+            {/* Handle */}
+            {(globalHandle ?? profile?.username) && (
+              <div style={{ fontSize: 11, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
+                @{globalHandle ?? profile?.username}
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div style={{ display: "flex", width: "100%", marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => { setActiveSheet("friends"); setSheetSearch(""); router.replace("/profile?sheet=friends", { scroll: false }); }}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+              >
+                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{friends.length}</span>
+                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Friends</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveSheet("following"); setSheetSearch(""); router.replace("/profile?sheet=following", { scroll: false }); }}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+              >
+                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{orgFollowingCount}</span>
+                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Following</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveSheet("events"); setSheetSearch(""); router.replace("/profile?sheet=events", { scroll: false }); }}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+              >
+                <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{goingEvents.length + interestedEvents.length + events.length}</span>
+                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Events</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: 10, marginTop: 2, flexWrap: "wrap", justifyContent: "center" }}>
+        {/* Action buttons — below the glass card */}
+        <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="profile-btn-primary"
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "9px 22px",
-              borderRadius: 20,
-              border: "none",
-              background: "var(--foreground)",
-              color: "var(--background)",
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 22px", borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background: "rgba(255,255,255,0.10)",
+              backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+              color: "#FFFFFF", fontWeight: 600, fontSize: 14, cursor: "pointer",
             }}
           >
             <EditIcon />
@@ -668,63 +690,16 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={handleShare}
-            className="profile-btn-ghost"
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "9px 22px",
-              borderRadius: 20,
-              border: "1px solid var(--border-strong)",
-              background: "transparent",
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: "pointer",
-              color: "inherit",
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 22px", borderRadius: 999,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: "rgba(255,255,255,0.05)",
+              color: "#C7D0DB", fontWeight: 600, fontSize: 14, cursor: "pointer",
             }}
           >
             <ShareIcon />
             {shareMsg ?? "Share"}
-          </button>
-        </div>
-
-        {/* Summary counters */}
-        <div
-          style={{
-            display: "flex",
-            width: "100%",
-            maxWidth: 300,
-            marginTop: 8,
-            borderRadius: 14,
-            overflow: "hidden",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => { setActiveSheet("friends"); setSheetSearch(""); router.replace("/profile?sheet=friends", { scroll: false }); }}
-            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
-          >
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{friends.length}</span>
-            <span style={{ fontSize: 12, opacity: 0.5 }}>Friends</span>
-          </button>
-          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
-          <button
-            type="button"
-            onClick={() => { setActiveSheet("following"); setSheetSearch(""); router.replace("/profile?sheet=following", { scroll: false }); }}
-            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
-          >
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{orgFollowingCount}</span>
-            <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
-          </button>
-          <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
-          <button
-            type="button"
-            onClick={() => { setActiveSheet("events"); setSheetSearch(""); router.replace("/profile?sheet=events", { scroll: false }); }}
-            style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
-          >
-            <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{goingEvents.length + interestedEvents.length + events.length}</span>
-            <span style={{ fontSize: 12, opacity: 0.5 }}>Events</span>
           </button>
         </div>
 

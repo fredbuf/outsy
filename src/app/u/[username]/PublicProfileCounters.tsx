@@ -102,43 +102,31 @@ export function PublicProfileCounters({
 
   return (
     <>
-      {/* Counter row */}
-      <div
-        style={{
-          display: "flex",
-          width: "100%",
-          maxWidth: 300,
-          marginTop: 8,
-          borderRadius: 14,
-          overflow: "hidden",
-          border: "1px solid var(--border)",
-        }}
-      >
+      {/* Stats row */}
+      <div style={{ display: "flex", width: "100%", marginTop: 10 }}>
         <button
           type="button"
           onClick={() => { setActiveSheet("friends"); setSheetSearch(""); }}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{friendsCount}</span>
-          <span style={{ fontSize: 12, opacity: 0.5 }}>Friends</span>
+          <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{friendsCount}</span>
+          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Friends</span>
         </button>
-        <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
         <button
           type="button"
           onClick={() => { setActiveSheet("following"); setSheetSearch(""); }}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{followingCount}</span>
-          <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
+          <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{followingCount}</span>
+          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Following</span>
         </button>
-        <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
         <button
           type="button"
           onClick={() => { setActiveSheet("events"); setSheetSearch(""); }}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{eventsCount}</span>
-          <span style={{ fontSize: 12, opacity: 0.5 }}>Events</span>
+          <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{eventsCount}</span>
+          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Events</span>
         </button>
       </div>
 

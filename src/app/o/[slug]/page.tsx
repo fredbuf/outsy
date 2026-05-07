@@ -263,9 +263,6 @@ export default async function OrganizerPage({
   // Fetched ascending; reverse the past slice so newest appears first.
   const past = events.filter((e) => e.start_at < now).reverse();
 
-  const typeLabel = TYPE_LABELS[organizer.type] ?? "Organizer";
-
-
   return (
     <main
       className="page-main app-page"
@@ -286,7 +283,7 @@ export default async function OrganizerPage({
       <section
         style={{
           display: "flex", flexDirection: "column", alignItems: "center",
-          gap: 12, paddingTop: 8, position: "relative",
+          gap: 0, paddingTop: 8, position: "relative",
         }}
       >
         {/* Back button — top-left */}
@@ -294,11 +291,11 @@ export default async function OrganizerPage({
           style={{
             position: "absolute", top: 0, left: 0,
             width: 36, height: 36, borderRadius: "50%",
-            background: "var(--surface-raised)",
-            border: "1px solid var(--border-strong)",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
-            cursor: "pointer", color: "inherit",
+            cursor: "pointer", color: "#C7D0DB",
             display: "flex", alignItems: "center", justifyContent: "center",
           } as React.CSSProperties}
         >
@@ -307,150 +304,133 @@ export default async function OrganizerPage({
           </svg>
         </BackButton>
 
-        {/* Interactive block: logo+camera, identity header, action buttons, settings drawer.
-            Manager/owner view: OrgProfileClient renders name, handle, type, edit button,
-            links, bio, and counts internally.
-            Visitor view: children (name + type badge) are rendered by OrgProfileClient,
-            then bio / stats / links are rendered below by this server component. */}
+        {/* OrgProfileClient: renders logo overlap, glass card (via children), action buttons, settings */}
         <OrgProfileClient
           organizerId={organizer.id}
           organizerName={organizer.name}
           organizerSlug={organizer.slug ?? null}
           organizerImageUrl={organizer.image_url}
         >
-          {/* Visitor-only: name + handle + type badge (server-rendered) */}
-          <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
-              {organizer.name}
-            </div>
-            {orgHandle && (
-              <div style={{ fontSize: 14, opacity: 0.45, marginTop: -2 }}>
-                @{orgHandle}
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <span
-                style={{
-                  fontSize: 11, fontWeight: 700,
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                  padding: "3px 10px", borderRadius: 20,
-                  background: "var(--surface-raised)",
-                  border: "1px solid var(--border-medium)",
-                  color: "var(--accent)",
-                }}
-              >
-                {typeLabel}
-              </span>
-            </div>
+          {/* ── Glass card contents ── */}
+
+          {/* Name */}
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
+            {organizer.name}
           </div>
+
+          {/* Handle */}
+          {orgHandle && (
+            <div style={{ fontSize: 11, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
+              @{orgHandle}
+            </div>
+          )}
+
+          {/* Bio */}
+          {organizer.bio && (
+            <p style={{ fontSize: 12, fontWeight: 500, color: "#8C98A8", textAlign: "center", margin: "4px 0 0", lineHeight: 1.55, maxWidth: 260 }}>
+              {organizer.bio}
+            </p>
+          )}
+
+          {/* Social pills */}
+          {(organizer.website_url || organizer.instagram_url || organizer.tiktok_url || organizer.youtube_url) && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 6 }}>
+              {organizer.website_url && (
+                <a
+                  href={organizer.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 11, fontWeight: 500, color: "#C7D0DB",
+                    padding: "5px 12px", borderRadius: 999,
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    textDecoration: "none",
+                  }}
+                >
+                  <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  Website
+                </a>
+              )}
+              {organizer.instagram_url && (
+                <a
+                  href={organizer.instagram_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 11, fontWeight: 500, color: "#C7D0DB",
+                    padding: "5px 12px", borderRadius: 999,
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    textDecoration: "none",
+                  }}
+                >
+                  <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+                  </svg>
+                  Instagram
+                </a>
+              )}
+              {organizer.tiktok_url && (
+                <a
+                  href={organizer.tiktok_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 11, fontWeight: 500, color: "#C7D0DB",
+                    padding: "5px 12px", borderRadius: 999,
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    textDecoration: "none",
+                  }}
+                >
+                  <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+                  </svg>
+                  TikTok
+                </a>
+              )}
+              {organizer.youtube_url && (
+                <a
+                  href={organizer.youtube_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    fontSize: 11, fontWeight: 500, color: "#C7D0DB",
+                    padding: "5px 12px", borderRadius: 999,
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    textDecoration: "none",
+                  }}
+                >
+                  <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
+                    <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" />
+                  </svg>
+                  YouTube
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Stats — clickable Followers / Following / Events sheets */}
+          <OrgFollowsClient
+            organizerId={organizer.id}
+            followerCount={followerCount}
+            orgFollowingCount={orgFollowingCount}
+            eventCount={events.length}
+            events={events}
+          />
         </OrgProfileClient>
-
-        {/* Bio */}
-        {organizer.bio && (
-          <p style={{ fontSize: 14, lineHeight: 1.6, textAlign: "center", opacity: 0.7, maxWidth: 380, margin: 0 }}>
-            {organizer.bio}
-          </p>
-        )}
-
-        {/* Stats — clickable Followers / Following / Events sheets */}
-        <OrgFollowsClient
-          organizerId={organizer.id}
-          followerCount={followerCount}
-          orgFollowingCount={orgFollowingCount}
-          eventCount={events.length}
-          events={events}
-        />
-
-        {/* External links */}
-        {(organizer.website_url || organizer.instagram_url || organizer.tiktok_url || organizer.youtube_url) && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-            {organizer.website_url && (
-              <a
-                href={organizer.website_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  fontSize: 13, fontWeight: 500,
-                  padding: "6px 14px", borderRadius: 20,
-                  background: "var(--btn-bg)",
-                  border: "1px solid var(--border-strong)",
-                  color: "inherit", textDecoration: "none",
-                }}
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                </svg>
-                Website
-              </a>
-            )}
-            {organizer.instagram_url && (
-              <a
-                href={organizer.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  fontSize: 13, fontWeight: 500,
-                  padding: "6px 14px", borderRadius: 20,
-                  background: "var(--btn-bg)",
-                  border: "1px solid var(--border-strong)",
-                  color: "inherit", textDecoration: "none",
-                }}
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-                </svg>
-                Instagram
-              </a>
-            )}
-            {organizer.tiktok_url && (
-              <a
-                href={organizer.tiktok_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  fontSize: 13, fontWeight: 500,
-                  padding: "6px 14px", borderRadius: 20,
-                  background: "var(--btn-bg)",
-                  border: "1px solid var(--border-strong)",
-                  color: "inherit", textDecoration: "none",
-                }}
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
-                </svg>
-                TikTok
-              </a>
-            )}
-            {organizer.youtube_url && (
-              <a
-                href={organizer.youtube_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  fontSize: 13, fontWeight: 500,
-                  padding: "6px 14px", borderRadius: 20,
-                  background: "var(--btn-bg)",
-                  border: "1px solid var(--border-strong)",
-                  color: "inherit", textDecoration: "none",
-                }}
-              >
-                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
-                  <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" />
-                </svg>
-                YouTube
-              </a>
-            )}
-          </div>
-        )}
       </section>
 
       {/* ── Events ─────────────────────────────────────────────────────────── */}

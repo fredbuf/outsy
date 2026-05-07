@@ -323,36 +323,31 @@ export function OrgFollowsClient({
 
   return (
     <>
-      {/* Stats pill */}
-      <div style={{
-        display: "flex", width: "100%", maxWidth: 300,
-        borderRadius: 14, overflow: "hidden", border: "1px solid var(--border)",
-      }}>
+      {/* Stats row */}
+      <div style={{ display: "flex", width: "100%" }}>
         <button
           type="button"
           onClick={() => openSheet("followers")}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{followerCount}</span>
-          <span style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Followers</span>
+          <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{followerCount}</span>
+          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Followers</span>
         </button>
-        <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
         <button
           type="button"
           onClick={() => openSheet("following")}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{orgFollowingCount}</span>
-          <span style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Following</span>
+          <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{orgFollowingCount}</span>
+          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Following</span>
         </button>
-        <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />
         <button
           type="button"
           onClick={() => openSheet("events")}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{eventCount}</span>
-          <span style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Events</span>
+          <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{eventCount}</span>
+          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Events</span>
         </button>
       </div>
 
