@@ -286,6 +286,7 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<FriendProfile[]>([]);
   const [orgFollowingCount, setOrgFollowingCount] = useState(0);
   const [followedOrgs, setFollowedOrgs] = useState<FollowedOrg[]>([]);
+  const [globalHandle, setGlobalHandle] = useState<string | null>(null);
   const [activeSheet, setActiveSheet] = useState<"friends" | "following" | "events" | null>(null);
   const [sheetSearch, setSheetSearch] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -328,6 +329,18 @@ export default function ProfilePage() {
         setFollowedOrgs(orgs);
       })
       .finally(() => setFetching(false));
+
+    // Fetch global handle independently — must not affect the count queries above.
+    supabaseBrowser()
+      .from("handles")
+      .select("handle")
+      .eq("owner_type", "user")
+      .eq("owner_id", user!.id)
+      .limit(1)
+      .then(({ data }) => {
+        setGlobalHandle((data?.[0] as { handle: string } | undefined)?.handle ?? null);
+      })
+      .catch(() => {});
   }, [authLoading, session?.access_token]);
 
   const { hide: hideNav, show: showNav } = useBottomNav();
@@ -617,14 +630,14 @@ export default function ProfilePage() {
           <p style={{ fontSize: 12, color: "#dc2626", margin: 0 }}>{avatarError}</p>
         )}
 
-        {/* Name + username */}
+        {/* Name + handle */}
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
             {profile?.display_name ?? avatarLabel ?? "Anonymous"}
           </div>
-          {profile?.username && (
-            <div style={{ fontSize: 14, opacity: 0.5, marginTop: 4 }}>
-              @{profile.username}
+          {(globalHandle ?? profile?.username) && (
+            <div style={{ fontSize: 14, opacity: 0.45, marginTop: 4 }}>
+              @{globalHandle ?? profile?.username}
             </div>
           )}
         </div>
@@ -1222,7 +1235,7 @@ export default function ProfilePage() {
                             <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>{typeLabels[org.type] ?? org.type}</div>
                           </div>
                         </Link>
-                        {/* Switch button — activates identity without navigating */}
+                        {/* Switch button — activates identity and navigates to org profile */}
                         {isActive ? (
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-label="Active" style={{ flexShrink: 0 }}>
                             <polyline points="20 6 9 17 4 12" />
@@ -1230,7 +1243,7 @@ export default function ProfilePage() {
                         ) : (
                           <button
                             type="button"
-                            onClick={() => { setActiveOrganizer(org); setSettingsOpen(false); }}
+                            onClick={() => { setActiveOrganizer(org); setSettingsOpen(false); router.push(org.slug ? `/o/${org.slug}` : "/org/settings"); }}
                             style={{
                               flexShrink: 0, padding: "4px 10px", borderRadius: 14,
                               border: "1px solid rgba(94,168,255,0.30)",

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { BackButton } from "@/app/events/[id]/BackButton";
 import { OrgProfileClient } from "./OrgProfileClient";
+import { OrgFollowsClient } from "@/app/components/OrgFollowsClient";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ type Organizer = {
   bio: string | null;
   website_url: string | null;
   instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
   image_url: string | null;
 };
 
@@ -35,17 +38,41 @@ type OrgEvent = {
 const fetchOrganizer = cache(async (slug: string): Promise<Organizer | null> => {
   const { data } = await supabaseServer()
     .from("organizers")
-    .select("id,name,type,slug,bio,website_url,instagram_url,image_url")
+    .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url,image_url")
     .eq("slug", slug)
     .maybeSingle();
   return data as Organizer | null;
 });
 
+async function fetchOrgHandle(organizerId: string): Promise<string | null> {
+  const { data } = await supabaseServer()
+    .from("handles")
+    .select("handle")
+    .eq("owner_type", "organizer")
+    .eq("owner_id", organizerId)
+    .maybeSingle();
+  return data?.handle ?? null;
+}
+
 async function fetchFollowerCount(organizerId: string): Promise<number> {
+  const [{ count: userCount }, { count: orgCount }] = await Promise.all([
+    supabaseServer()
+      .from("organizer_followers")
+      .select("*", { count: "exact", head: true })
+      .eq("organizer_id", organizerId),
+    supabaseServer()
+      .from("organizer_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("followed_organizer_id", organizerId),
+  ]);
+  return (userCount ?? 0) + (orgCount ?? 0);
+}
+
+async function fetchOrgFollowingCount(organizerId: string): Promise<number> {
   const { count } = await supabaseServer()
-    .from("organizer_followers")
+    .from("organizer_follows")
     .select("*", { count: "exact", head: true })
-    .eq("organizer_id", organizerId);
+    .eq("follower_organizer_id", organizerId);
   return count ?? 0;
 }
 
@@ -224,9 +251,11 @@ export default async function OrganizerPage({
   const organizer = await fetchOrganizer(slug);
   if (!organizer) notFound();
 
-  const [events, followerCount] = await Promise.all([
+  const [events, followerCount, orgFollowingCount, orgHandle] = await Promise.all([
     fetchOrganizerEvents(organizer.id),
     fetchFollowerCount(organizer.id),
+    fetchOrgFollowingCount(organizer.id),
+    fetchOrgHandle(organizer.id),
   ]);
 
   const now = new Date().toISOString();
@@ -235,7 +264,7 @@ export default async function OrganizerPage({
   const past = events.filter((e) => e.start_at < now).reverse();
 
   const typeLabel = TYPE_LABELS[organizer.type] ?? "Organizer";
-  const hasLinks = organizer.website_url || organizer.instagram_url;
+
 
   return (
     <main
@@ -278,18 +307,27 @@ export default async function OrganizerPage({
           </svg>
         </BackButton>
 
-        {/* Interactive block: gear, logo+camera, action buttons, settings drawer */}
+        {/* Interactive block: logo+camera, identity header, action buttons, settings drawer.
+            Manager/owner view: OrgProfileClient renders name, handle, type, edit button,
+            links, bio, and counts internally.
+            Visitor view: children (name + type badge) are rendered by OrgProfileClient,
+            then bio / stats / links are rendered below by this server component. */}
         <OrgProfileClient
           organizerId={organizer.id}
           organizerName={organizer.name}
           organizerSlug={organizer.slug ?? null}
           organizerImageUrl={organizer.image_url}
         >
-          {/* Name + type badge (server-rendered, passed as children) */}
+          {/* Visitor-only: name + handle + type badge (server-rendered) */}
           <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
               {organizer.name}
             </div>
+            {orgHandle && (
+              <div style={{ fontSize: 14, opacity: 0.45, marginTop: -2 }}>
+                @{orgHandle}
+              </div>
+            )}
             <div style={{ display: "flex", justifyContent: "center" }}>
               <span
                 style={{
@@ -309,30 +347,22 @@ export default async function OrganizerPage({
 
         {/* Bio */}
         {organizer.bio && (
-          <p
-            style={{
-              fontSize: 14, lineHeight: 1.6, textAlign: "center",
-              opacity: 0.7, maxWidth: 380, margin: 0,
-            }}
-          >
+          <p style={{ fontSize: 14, lineHeight: 1.6, textAlign: "center", opacity: 0.7, maxWidth: 380, margin: 0 }}>
             {organizer.bio}
           </p>
         )}
 
-        {/* Stats */}
-        <div style={{ display: "flex", gap: 28, justifyContent: "center" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{followerCount}</div>
-            <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Followers</div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.2 }}>{events.length}</div>
-            <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2, fontWeight: 500 }}>Events</div>
-          </div>
-        </div>
+        {/* Stats — clickable Followers / Following / Events sheets */}
+        <OrgFollowsClient
+          organizerId={organizer.id}
+          followerCount={followerCount}
+          orgFollowingCount={orgFollowingCount}
+          eventCount={events.length}
+          events={events}
+        />
 
         {/* External links */}
-        {hasLinks && (
+        {(organizer.website_url || organizer.instagram_url || organizer.tiktok_url || organizer.youtube_url) && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
             {organizer.website_url && (
               <a
@@ -376,6 +406,47 @@ export default async function OrganizerPage({
                   <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
                 </svg>
                 Instagram
+              </a>
+            )}
+            {organizer.tiktok_url && (
+              <a
+                href={organizer.tiktok_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  fontSize: 13, fontWeight: 500,
+                  padding: "6px 14px", borderRadius: 20,
+                  background: "var(--btn-bg)",
+                  border: "1px solid var(--border-strong)",
+                  color: "inherit", textDecoration: "none",
+                }}
+              >
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+                </svg>
+                TikTok
+              </a>
+            )}
+            {organizer.youtube_url && (
+              <a
+                href={organizer.youtube_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  fontSize: 13, fontWeight: 500,
+                  padding: "6px 14px", borderRadius: 20,
+                  background: "var(--btn-bg)",
+                  border: "1px solid var(--border-strong)",
+                  color: "inherit", textDecoration: "none",
+                }}
+              >
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
+                  <polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" />
+                </svg>
+                YouTube
               </a>
             )}
           </div>

@@ -30,19 +30,39 @@ export type MomentMeta = {
 
 export type ActivityItem = {
   id: string;
-  type: "friend_request_received" | "friend_request_accepted" | "event_invite" | "moment_posted" | "moment_comment" | "rsvp_received" | "cohost_invite";
+  type:
+    | "friend_request_received"
+    | "friend_request_accepted"
+    | "event_invite"
+    | "moment_posted"
+    | "moment_comment"
+    | "rsvp_received"
+    | "cohost_invite"
+    | "organizer_new_follower"
+    | "organizer_new_message"
+    | "organizer_new_rsvp"
+    | "organizer_member_invite";
   actor: ActivityActor;
   entity_id: string | null;
   // friend_request_received: true while friendship is still pending
   friendshipPending: boolean;
-  // event_invite / cohost_invite / rsvp_received: event details
+  // event_invite / cohost_invite / rsvp_received / organizer_new_rsvp: event details
   event: ActivityEventSummary | null;
   // moment_posted / moment_comment: event context from notification metadata
   momentMeta: MomentMeta | null;
   // cohost_invite: pending / accepted / declined
   cohostInviteStatus: "pending" | "accepted" | "declined" | null;
-  // rsvp_received: the RSVP response value
+  // rsvp_received / organizer_new_rsvp: the RSVP response value
   rsvpResponse: string | null;
+  // organizer_new_message: first 120 chars of the message body
+  messagePreview: string | null;
+  // organizer_member_invite: pending / accepted / declined + invite context
+  orgMemberInvite: {
+    status: "pending" | "accepted" | "declined";
+    organizerName: string;
+    organizerSlug: string | null;
+    role: string;
+  } | null;
   read: boolean;
   created_at: string;
 };
@@ -165,11 +185,48 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Batch fetch event details for event_invite, cohost_invite, rsvp_received ─
+  // ── Batch check live membership status for organizer_member_invite ────────────
+  // entity_id is the organizer_id for these notifications.
+  // Status is derived from the live organizer_members row (not stored in metadata),
+  // so accept/decline is always reflected correctly:
+  //   pending row  → "pending"
+  //   active row   → "accepted"
+  //   no row       → "declined"
+  const orgInviteOrgIds = [
+    ...new Set(
+      notifs
+        .filter((n) => n.type === "organizer_member_invite" && n.entity_id)
+        .map((n) => n.entity_id as string)
+    ),
+  ];
+  const orgMemberStatusMap = new Map<string, "pending" | "accepted" | "declined">();
+  if (orgInviteOrgIds.length > 0) {
+    const { data: memberships } = await supabase
+      .from("organizer_members")
+      .select("organizer_id,status")
+      .eq("user_id", user.id)
+      .in("organizer_id", orgInviteOrgIds);
+    for (const m of memberships ?? []) {
+      const s = m.status as string;
+      orgMemberStatusMap.set(
+        m.organizer_id as string,
+        s === "active" ? "accepted" : s === "pending" ? "pending" : "declined",
+      );
+    }
+    // Organizer IDs with no membership row were declined.
+  }
+
+  // ── Batch fetch event details for event_invite, cohost_invite, rsvp_received, organizer_new_rsvp ─
   const eventIds = [
     ...new Set(
       notifs
-        .filter((n) => (n.type === "event_invite" || n.type === "cohost_invite" || n.type === "rsvp_received") && n.entity_id)
+        .filter((n) =>
+          (n.type === "event_invite" ||
+            n.type === "cohost_invite" ||
+            n.type === "rsvp_received" ||
+            n.type === "organizer_new_rsvp") &&
+          n.entity_id
+        )
         .map((n) => n.entity_id as string)
     ),
   ];
@@ -218,8 +275,24 @@ export async function GET(req: Request) {
         : null;
 
     const rsvpResponse: string | null =
-      n.type === "rsvp_received" && typeof metadata.rsvp_response === "string"
+      (n.type === "rsvp_received" || n.type === "organizer_new_rsvp") &&
+      typeof metadata.rsvp_response === "string"
         ? metadata.rsvp_response
+        : null;
+
+    const messagePreview: string | null =
+      n.type === "organizer_new_message" && typeof metadata.preview === "string"
+        ? metadata.preview
+        : null;
+
+    const orgMemberInvite: ActivityItem["orgMemberInvite"] =
+      n.type === "organizer_member_invite" && entityId != null
+        ? {
+            status: orgMemberStatusMap.get(entityId) ?? "declined",
+            organizerName: typeof metadata.organizerName === "string" ? metadata.organizerName : "",
+            organizerSlug: typeof metadata.organizerSlug === "string" ? metadata.organizerSlug : null,
+            role: typeof metadata.role === "string" ? metadata.role : "admin",
+          }
         : null;
 
     return {
@@ -232,12 +305,17 @@ export async function GET(req: Request) {
           ? pendingSet.has(entityId)
           : false,
       event:
-        (n.type === "event_invite" || n.type === "cohost_invite" || n.type === "rsvp_received") && entityId != null
+        (n.type === "event_invite" ||
+          n.type === "cohost_invite" ||
+          n.type === "rsvp_received" ||
+          n.type === "organizer_new_rsvp") && entityId != null
           ? (eventsMap.get(entityId) ?? null)
           : null,
       momentMeta,
       cohostInviteStatus,
       rsvpResponse,
+      messagePreview,
+      orgMemberInvite,
       read: n.read as boolean,
       created_at: n.created_at as string,
     };

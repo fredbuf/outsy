@@ -35,7 +35,7 @@ function sanitizeUrl(value: string): string | null {
 // in the request body are written; omitted fields are left unchanged.
 //
 // Allowed fields: name, bio, website_url, instagram_url
-// Not allowed via this route: type, slug (structural fields, not user-editable).
+// Not allowed via this route: type, slug, handle (handle has its own route).
 
 export async function PATCH(
   req: Request,
@@ -161,6 +161,44 @@ export async function PATCH(
     }
   }
 
+  if ("tiktok_url" in payload) {
+    if (payload.tiktok_url === null || payload.tiktok_url === "") {
+      patch.tiktok_url = null;
+    } else if (typeof payload.tiktok_url === "string") {
+      const trimmed = payload.tiktok_url.trim();
+      if (trimmed.length > URL_MAX) {
+        return NextResponse.json(
+          { ok: false, error: `TikTok URL must be ${URL_MAX} characters or fewer.` },
+          { status: 400 },
+        );
+      }
+      const clean = sanitizeUrl(trimmed);
+      if (!clean) {
+        return NextResponse.json({ ok: false, error: "Invalid TikTok URL." }, { status: 400 });
+      }
+      patch.tiktok_url = clean;
+    }
+  }
+
+  if ("youtube_url" in payload) {
+    if (payload.youtube_url === null || payload.youtube_url === "") {
+      patch.youtube_url = null;
+    } else if (typeof payload.youtube_url === "string") {
+      const trimmed = payload.youtube_url.trim();
+      if (trimmed.length > URL_MAX) {
+        return NextResponse.json(
+          { ok: false, error: `YouTube URL must be ${URL_MAX} characters or fewer.` },
+          { status: 400 },
+        );
+      }
+      const clean = sanitizeUrl(trimmed);
+      if (!clean) {
+        return NextResponse.json({ ok: false, error: "Invalid YouTube URL." }, { status: 400 });
+      }
+      patch.youtube_url = clean;
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "No valid fields to update." }, { status: 400 });
   }
@@ -170,7 +208,7 @@ export async function PATCH(
     .from("organizers")
     .update(patch)
     .eq("id", id)
-    .select("id,name,type,slug,bio,website_url,instagram_url,image_url")
+    .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url,image_url")
     .single();
 
   if (updateError || !organizer) {

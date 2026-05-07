@@ -19,6 +19,16 @@ const fetchProfile = cache(async (username: string) => {
   return data;
 });
 
+async function fetchUserHandle(userId: string): Promise<string | null> {
+  const { data } = await supabaseServer()
+    .from("handles")
+    .select("handle")
+    .eq("owner_type", "user")
+    .eq("owner_id", userId)
+    .maybeSingle();
+  return data?.handle ?? null;
+}
+
 async function fetchUpcomingEvents(creatorId: string): Promise<PublicEvent[]> {
   const { data } = await supabaseServer()
     .from("events")
@@ -40,6 +50,14 @@ async function fetchFriendsCount(userId: string): Promise<number> {
     .select("*", { count: "exact", head: true })
     .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
     .eq("status", "accepted");
+  return count ?? 0;
+}
+
+async function fetchFollowingCount(userId: string): Promise<number> {
+  const { count } = await supabaseServer()
+    .from("organizer_followers")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId);
   return count ?? 0;
 }
 
@@ -96,9 +114,11 @@ export default async function UserProfilePage({
   const profile = await fetchProfile(username);
   if (!profile) notFound();
 
-  const [events, friendsCount] = await Promise.all([
+  const [events, friendsCount, followingCount, globalHandle] = await Promise.all([
     fetchUpcomingEvents(profile.id),
     fetchFriendsCount(profile.id),
+    fetchFollowingCount(profile.id),
+    fetchUserHandle(profile.id),
   ]);
 
   const displayName = profile.display_name ?? `@${username}`;
@@ -184,14 +204,14 @@ export default async function UserProfilePage({
           )}
         </div>
 
-        {/* Name + username */}
+        {/* Name + handle */}
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, letterSpacing: "-0.02em" }}>
             {displayName}
           </div>
-          {profile.username && (
-            <div style={{ fontSize: 14, opacity: 0.5, marginTop: 4 }}>
-              @{profile.username}
+          {(globalHandle ?? profile.username) && (
+            <div style={{ fontSize: 14, opacity: 0.45, marginTop: 4 }}>
+              @{globalHandle ?? profile.username}
             </div>
           )}
         </div>
@@ -204,6 +224,7 @@ export default async function UserProfilePage({
         {/* Summary counters + detail sheets */}
         <PublicProfileCounters
           friendsCount={friendsCount}
+          followingCount={followingCount}
           eventsCount={events.length}
           events={events}
         />

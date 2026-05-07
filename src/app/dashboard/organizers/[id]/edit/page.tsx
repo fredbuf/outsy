@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
@@ -8,8 +8,9 @@ import { supabaseBrowser } from "@/lib/supabase-browser";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BIO_MAX = 1000;
+const UUID_RE   = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const HANDLE_RE = /^[a-z0-9_]{3,30}$/;
+const BIO_MAX   = 1000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,8 @@ type Organizer = {
   bio: string | null;
   website_url: string | null;
   instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
 };
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -128,6 +131,18 @@ export default function EditOrganizerPage() {
   const [bio, setBio] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+
+  // Handle state
+  const [currentHandle, setCurrentHandle] = useState<string | null>(null);
+  const [handle, setHandle] = useState("");
+  const [handleStatus, setHandleStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [handleCooldown, setHandleCooldown] = useState<string | null>(null); // ISO date
+  const [handleSaving, setHandleSaving] = useState(false);
+  const [handleSaved, setHandleSaved] = useState(false);
+  const [handleError, setHandleError] = useState<string | null>(null);
+  const handleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -141,9 +156,9 @@ export default function EditOrganizerPage() {
       setNotFound(true);
       return;
     }
-    supabaseBrowser()
-      .from("organizers")
-      .select("id,name,type,slug,bio,website_url,instagram_url")
+    const sb = supabaseBrowser();
+    sb.from("organizers")
+      .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url")
       .eq("id", id)
       .maybeSingle()
       .then(({ data }) => {
@@ -154,8 +169,90 @@ export default function EditOrganizerPage() {
         setBio(org.bio ?? "");
         setWebsiteUrl(org.website_url ?? "");
         setInstagramUrl(org.instagram_url ?? "");
+        setTiktokUrl(org.tiktok_url ?? "");
+        setYoutubeUrl(org.youtube_url ?? "");
+      });
+
+    sb.from("handles")
+      .select("handle, changed_at, created_at")
+      .eq("owner_type", "organizer")
+      .eq("owner_id", id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setCurrentHandle(data.handle);
+          setHandle(data.handle);
+          // Check cooldown
+          const baseline = (data.changed_at ?? data.created_at) as string;
+          const daysSince = (Date.now() - new Date(baseline).getTime()) / 86_400_000;
+          if (daysSince < 30) {
+            const nextAllowed = new Date(new Date(baseline).getTime() + 30 * 86_400_000).toISOString();
+            setHandleCooldown(nextAllowed);
+          }
+        }
       });
   }, [id]);
+
+  function onHandleChange(value: string) {
+    const normalized = value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    setHandle(normalized);
+    setHandleSaved(false);
+    setHandleError(null);
+
+    if (handleDebounceRef.current) clearTimeout(handleDebounceRef.current);
+
+    if (!normalized || normalized === currentHandle) {
+      setHandleStatus("idle");
+      return;
+    }
+    if (!HANDLE_RE.test(normalized)) {
+      setHandleStatus("invalid");
+      return;
+    }
+
+    setHandleStatus("checking");
+    handleDebounceRef.current = setTimeout(async () => {
+      const { data } = await supabaseBrowser()
+        .from("handles")
+        .select("handle")
+        .eq("handle", normalized)
+        .maybeSingle();
+      setHandleStatus(data ? "taken" : "available");
+    }, 400);
+  }
+
+  async function saveHandle() {
+    if (!session?.access_token || !organizer) return;
+    if (handleStatus !== "available" && handle !== currentHandle) return;
+    if (handle === currentHandle) return;
+    setHandleSaving(true);
+    setHandleError(null);
+    try {
+      const res = await fetch(`/api/organizers/${id}/handle`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ handle }),
+      });
+      const json = await res.json();
+      if (json?.ok) {
+        setCurrentHandle(handle);
+        setHandleStatus("idle");
+        setHandleSaved(true);
+        setHandleCooldown(json.nextChangeAllowed);
+        setTimeout(() => setHandleSaved(false), 3000);
+      } else {
+        setHandleError(json?.error ?? "Failed to update handle.");
+        if (json?.nextChangeAllowed) setHandleCooldown(json.nextChangeAllowed);
+      }
+    } catch {
+      setHandleError("Network error. Please try again.");
+    } finally {
+      setHandleSaving(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -177,6 +274,8 @@ export default function EditOrganizerPage() {
           bio: bio.trim() || null,
           website_url: websiteUrl.trim() || null,
           instagram_url: instagramUrl.trim() || null,
+          tiktok_url: tiktokUrl.trim() || null,
+          youtube_url: youtubeUrl.trim() || null,
         }),
       });
     } catch {
@@ -361,6 +460,58 @@ export default function EditOrganizerPage() {
             />
           </FieldGroup>
 
+          {/* Handle */}
+          <FieldGroup
+            label="Handle"
+            hint={
+              handleCooldown && handle === currentHandle
+                ? `Next change allowed on ${new Date(handleCooldown).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}`
+                : "Letters, numbers, underscores · 3–30 characters · 30-day cooldown"
+            }
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: 10 }}>
+              <span style={{ paddingLeft: 14, paddingBottom: 10, paddingTop: 4, fontSize: 16, fontWeight: 500, opacity: 0.45, flexShrink: 0 }}>@</span>
+              <input
+                value={handle}
+                onChange={(e) => onHandleChange(e.target.value)}
+                placeholder="yourhandle"
+                maxLength={30}
+                autoComplete="off"
+                autoCapitalize="none"
+                disabled={!!handleCooldown && handle === currentHandle}
+                style={{ ...inputStyle, paddingLeft: 0, flex: 1, opacity: (handleCooldown && handle === currentHandle) ? 0.5 : 1 }}
+              />
+              {handle && handle !== currentHandle && handleStatus === "available" && (
+                <button
+                  type="button"
+                  onClick={saveHandle}
+                  disabled={handleSaving}
+                  style={{
+                    flexShrink: 0, padding: "5px 12px", borderRadius: 8, border: "none",
+                    background: handleSaved ? "rgba(74,222,128,0.15)" : "rgba(94,168,255,0.18)",
+                    color: handleSaved ? "#4ade80" : "#5EA8FF",
+                    fontSize: 12, fontWeight: 700, cursor: handleSaving ? "not-allowed" : "pointer",
+                    marginBottom: 8,
+                  }}
+                >
+                  {handleSaving ? "…" : handleSaved ? "Saved" : "Save"}
+                </button>
+              )}
+              {handle !== currentHandle && handleStatus !== "idle" && handleStatus !== "checking" && handleStatus !== "available" && (
+                <span style={{ flexShrink: 0, fontSize: 12, marginBottom: 8,
+                  color: handleStatus === "taken" ? "#f87171" : "rgba(255,255,255,0.35)" }}>
+                  {handleStatus === "taken" ? "Taken" : "Invalid"}
+                </span>
+              )}
+              {handleStatus === "checking" && (
+                <span style={{ flexShrink: 0, fontSize: 12, marginBottom: 8, opacity: 0.4 }}>…</span>
+              )}
+            </div>
+            {handleError && (
+              <p style={{ fontSize: 12, color: "#f87171", margin: "0 14px 10px" }}>{handleError}</p>
+            )}
+          </FieldGroup>
+
           {/* Bio */}
           <FieldGroup label="Bio" hint={`${bio.length} / ${BIO_MAX}`}>
             <textarea
@@ -393,6 +544,32 @@ export default function EditOrganizerPage() {
               value={instagramUrl}
               onChange={(e) => setInstagramUrl(e.target.value)}
               placeholder="https://instagram.com/yourpage"
+              maxLength={500}
+              autoComplete="off"
+              style={inputStyle}
+            />
+          </FieldGroup>
+
+          {/* TikTok */}
+          <FieldGroup label="TikTok URL">
+            <input
+              type="url"
+              value={tiktokUrl}
+              onChange={(e) => setTiktokUrl(e.target.value)}
+              placeholder="https://tiktok.com/@yourpage"
+              maxLength={500}
+              autoComplete="off"
+              style={inputStyle}
+            />
+          </FieldGroup>
+
+          {/* YouTube */}
+          <FieldGroup label="YouTube URL">
+            <input
+              type="url"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+              placeholder="https://youtube.com/@yourchannel"
               maxLength={500}
               autoComplete="off"
               style={inputStyle}

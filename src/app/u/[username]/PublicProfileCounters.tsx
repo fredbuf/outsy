@@ -83,10 +83,12 @@ function DetailSheet({
 
 export function PublicProfileCounters({
   friendsCount,
+  followingCount,
   eventsCount,
   events,
 }: {
   friendsCount: number;
+  followingCount: number;
   eventsCount: number;
   events: PublicEvent[];
 }) {
@@ -126,7 +128,7 @@ export function PublicProfileCounters({
           onClick={() => { setActiveSheet("following"); setSheetSearch(""); }}
           style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "10px 4px", color: "inherit" }}
         >
-          <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>0</span>
+          <span style={{ fontSize: 20, fontWeight: 700, lineHeight: 1 }}>{followingCount}</span>
           <span style={{ fontSize: 12, opacity: 0.5 }}>Following</span>
         </button>
         <div style={{ width: 1, background: "var(--border)", alignSelf: "stretch" }} />

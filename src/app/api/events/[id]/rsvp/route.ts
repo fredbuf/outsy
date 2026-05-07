@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { createOrgNotification } from "@/lib/notifications";
 
 const VALID_RESPONSES = new Set(["going", "maybe", "cant_go"]);
 
@@ -70,6 +71,7 @@ export async function POST(
     .eq("id", id)
     .maybeSingle();
 
+
   if (!event) {
     return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
   }
@@ -125,6 +127,30 @@ export async function POST(
         metadata: { event_id: id, event_title: eventTitle, rsvp_response: response },
       }));
       await supabase.from("notifications").insert(rows);
+    }
+  } catch {
+    // Non-critical
+  }
+
+  // Notify each organizer linked to this event.
+  try {
+    const { data: orgLinks } = await supabase
+      .from("event_organizers")
+      .select("organizer_id")
+      .eq("event_id", id);
+    if (orgLinks && orgLinks.length > 0) {
+      const eventTitle = event.title as string;
+      await Promise.all(
+        orgLinks.map((link) =>
+          createOrgNotification({
+            organizerId: link.organizer_id as string,
+            actorId: authUser.id,
+            type: "organizer_new_rsvp",
+            entityId: id,
+            metadata: { event_id: id, event_title: eventTitle, rsvp_response: response },
+          })
+        )
+      );
     }
   } catch {
     // Non-critical

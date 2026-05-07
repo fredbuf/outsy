@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { createOrgNotification } from "@/lib/notifications";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,11 +59,29 @@ export async function POST(
     .maybeSingle();
   if (!org) return NextResponse.json({ ok: false, error: "Organizer not found." }, { status: 404 });
 
+  const { data: existingFollow } = await supabase
+    .from("organizer_followers")
+    .select("user_id")
+    .eq("organizer_id", orgId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isNewFollow = !existingFollow;
+
   const { error } = await supabase
     .from("organizer_followers")
     .upsert({ organizer_id: orgId, user_id: user.id }, { onConflict: "organizer_id,user_id" });
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  // Fire notification only on a new follow, not on idempotent re-follow.
+  if (isNewFollow) {
+    createOrgNotification({
+      organizerId: orgId,
+      actorId: user.id,
+      type: "organizer_new_follower",
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true, following: true });
 }

@@ -523,6 +523,115 @@ function CohostInviteRow({
   );
 }
 
+function OrgMemberInviteRow({
+  item,
+  token,
+  onRead,
+}: {
+  item: ActivityItem;
+  token: string;
+  onRead: () => void;
+}) {
+  const invite = item.orgMemberInvite;
+  if (!invite) return null;
+
+  const [status, setStatus] = useState<"pending" | "accepting" | "declining" | "accepted" | "declined">(
+    invite.status === "accepted" ? "accepted"
+    : invite.status === "declined" ? "declined"
+    : "pending",
+  );
+
+  const inviterName = item.actor.display_name ?? item.actor.username ?? "Someone";
+  const orgId = item.entity_id;
+
+  async function respond(action: "accept" | "decline") {
+    if (!orgId) return;
+    setStatus(action === "accept" ? "accepting" : "declining");
+    onRead();
+    try {
+      const res = await fetch(`/api/organizers/${orgId}/members/respond`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action }),
+      });
+      const data = (await res.json()) as { ok: boolean };
+      if (data.ok) {
+        setStatus(action === "accept" ? "accepted" : "declined");
+      } else {
+        setStatus("pending");
+      }
+    } catch {
+      setStatus("pending");
+    }
+  }
+
+  if (status === "declined") return null;
+
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 0", borderBottom: "1px solid var(--border)",
+      }}
+    >
+      <AvatarCircle avatarUrl={item.actor.avatar_url} name={inviterName} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, lineHeight: 1.3 }}>
+          <span style={{ fontWeight: 600 }}>{inviterName}</span>
+          {" invited you to join "}
+          {invite.organizerSlug ? (
+            <Link href={`/o/${invite.organizerSlug}`} style={{ fontWeight: 600, color: "inherit", textDecoration: "underline" }}>
+              {invite.organizerName}
+            </Link>
+          ) : (
+            <span style={{ fontWeight: 600 }}>{invite.organizerName}</span>
+          )}
+          {" as "}
+          <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{invite.role}</span>
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.45, marginTop: 2 }}>{relativeTime(item.created_at)}</div>
+      </div>
+
+      {status === "accepted" ? (
+        <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600, flexShrink: 0 }}>Joined ✓</span>
+      ) : (
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => void respond("accept")}
+            disabled={status === "accepting" || status === "declining"}
+            style={{
+              padding: "6px 14px", borderRadius: 20, border: "none",
+              background: status === "accepting" ? "rgba(94,168,255,0.35)" : "rgba(94,168,255,0.18)",
+              color: "#5EA8FF", fontSize: 12, fontWeight: 700,
+              cursor: status === "accepting" || status === "declining" ? "not-allowed" : "pointer",
+            }}
+          >
+            {status === "accepting" ? "…" : "Accept"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void respond("decline")}
+            disabled={status === "accepting" || status === "declining"}
+            style={{
+              padding: "6px 14px", borderRadius: 20,
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "transparent", color: "rgba(255,255,255,0.60)",
+              fontSize: 12, fontWeight: 600,
+              cursor: status === "accepting" || status === "declining" ? "not-allowed" : "pointer",
+            }}
+          >
+            {status === "declining" ? "…" : "Decline"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActivityTab({
   token,
   onUnreadChange,
@@ -642,6 +751,14 @@ function ActivityTab({
         } else if (item.type === "cohost_invite") {
           row = (
             <CohostInviteRow
+              item={item}
+              token={token}
+              onRead={() => markRead(item.id)}
+            />
+          );
+        } else if (item.type === "organizer_member_invite" && item.orgMemberInvite) {
+          row = (
+            <OrgMemberInviteRow
               item={item}
               token={token}
               onRead={() => markRead(item.id)}

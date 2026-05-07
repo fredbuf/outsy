@@ -103,7 +103,7 @@ export function OrgProfileClient({
   organizerName: string;
   organizerSlug: string | null;
   organizerImageUrl: string | null;
-  /** Server-rendered name + type badge, rendered between the logo and action buttons. */
+  /** Server-rendered name + type badge — rendered between the logo and action buttons. */
   children?: React.ReactNode;
 }) {
   const { user, session } = useAuth();
@@ -114,22 +114,45 @@ export function OrgProfileClient({
   const [following, setFollowing] = useState<boolean | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
 
-  const isManager = !identityLoading && orgPages.some((o) => o.organizerId === organizerId);
   const isActiveAsThisOrg = activeOrganizer?.organizerId === organizerId;
 
-  // Fetch follow status when signed in and not currently acting as this organizer
+  // When acting as an organizer (and it's not this organizer), use org-to-org follow.
+  // Otherwise fall back to personal follow.
+  const orgFollowMode = !isActiveAsThisOrg && !identityLoading && !!activeOrganizer;
+
+  // Reset follow state whenever the active identity changes to avoid showing stale state.
+  React.useEffect(() => {
+    setFollowing(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrganizer?.organizerId]);
+
+  // Fetch follow status when signed in and not currently acting as this organizer.
   React.useEffect(() => {
     if (!user || !session || isActiveAsThisOrg || identityLoading) return;
-    fetch(`/api/organizers/${organizerId}/follow`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((r) => r.json())
-      .then((d: { ok: boolean; following?: boolean }) => {
-        if (d.ok) setFollowing(d.following ?? false);
+
+    if (orgFollowMode && activeOrganizer) {
+      fetch(
+        `/api/organizers/${organizerId}/org-follow?followerOrgId=${activeOrganizer.organizerId}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } },
+      )
+        .then((r) => r.json())
+        .then((d: { ok: boolean; following?: boolean; error?: string }) => {
+          if (d.ok) setFollowing(d.following ?? false);
+          else console.error("[OrgProfileClient] org-follow status GET failed:", d.error);
+        })
+        .catch((err) => console.error("[OrgProfileClient] org-follow status fetch threw:", err));
+    } else if (!orgFollowMode) {
+      fetch(`/api/organizers/${organizerId}/follow`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
       })
-      .catch(() => {});
+        .then((r) => r.json())
+        .then((d: { ok: boolean; following?: boolean }) => {
+          if (d.ok) setFollowing(d.following ?? false);
+        })
+        .catch(() => {});
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, session?.access_token, isActiveAsThisOrg, identityLoading]);
+  }, [user?.id, session?.access_token, isActiveAsThisOrg, identityLoading, activeOrganizer?.organizerId]);
 
   async function handleFollow() {
     if (!user || !session) {
@@ -139,14 +162,35 @@ export function OrgProfileClient({
     setFollowLoading(true);
     const isFollowing = following;
     try {
-      const res = await fetch(`/api/organizers/${organizerId}/follow`, {
-        method: isFollowing ? "DELETE" : "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const data = (await res.json()) as { ok: boolean; following?: boolean };
-      if (data.ok) setFollowing(data.following ?? !isFollowing);
-    } catch {
-      // ignore
+      if (orgFollowMode && activeOrganizer) {
+        const res = await fetch(`/api/organizers/${organizerId}/org-follow`, {
+          method: isFollowing ? "DELETE" : "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ followerOrgId: activeOrganizer.organizerId }),
+        });
+        const data = (await res.json()) as { ok: boolean; following?: boolean; error?: string };
+        if (data.ok) {
+          setFollowing(data.following ?? !isFollowing);
+        } else {
+          console.error("[OrgProfileClient] org-follow action failed:", data.error ?? res.status);
+        }
+      } else {
+        const res = await fetch(`/api/organizers/${organizerId}/follow`, {
+          method: isFollowing ? "DELETE" : "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = (await res.json()) as { ok: boolean; following?: boolean; error?: string };
+        if (data.ok) {
+          setFollowing(data.following ?? !isFollowing);
+        } else {
+          console.error("[OrgProfileClient] personal follow action failed:", data.error ?? res.status);
+        }
+      }
+    } catch (err) {
+      console.error("[OrgProfileClient] follow fetch threw:", err);
     } finally {
       setFollowLoading(false);
     }
@@ -180,7 +224,7 @@ export function OrgProfileClient({
   return (
     <>
       {/* ── Settings gear (top-right, absolute within the section) ── */}
-      {user && (
+      {isActiveAsThisOrg && (
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
@@ -228,8 +272,8 @@ export function OrgProfileClient({
           </div>
         )}
 
-        {/* Camera badge — managers only, navigates to edit page (image upload lives there) */}
-        {isManager && (
+        {/* Camera badge — active-as-this-org only */}
+        {isActiveAsThisOrg && (
           <Link
             href={`/dashboard/organizers/${organizerId}/edit`}
             aria-label="Change photo"
@@ -248,14 +292,13 @@ export function OrgProfileClient({
         )}
       </div>
 
-      {/* Name + type badge — server-rendered, passed as children */}
+      {/* Server-rendered name + type badge */}
       {children}
 
-      {/* ── Action buttons ── */}
+      {/* Action buttons */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-
-        {/* Active as this org: Edit only */}
-        {isActiveAsThisOrg && (
+        {/* Active as this org: show Edit instead of Follow/Message */}
+        {isActiveAsThisOrg ? (
           <Link
             href={`/dashboard/organizers/${organizerId}/edit`}
             style={{
@@ -266,44 +309,46 @@ export function OrgProfileClient({
             }}
           >
             <EditIcon />
-            Edit
+            Edit profile
           </Link>
-        )}
+        ) : (
+          <>
+            {/* Follow — personal or org-to-org */}
+            <button
+              type="button"
+              onClick={() => void handleFollow()}
+              disabled={followLoading}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "9px 22px", borderRadius: 20, border: "none",
+                background: following ? "var(--surface-raised)" : "var(--foreground)",
+                color: following ? "inherit" : "var(--background)",
+                fontWeight: 600, fontSize: 14,
+                cursor: followLoading ? "not-allowed" : "pointer",
+                opacity: followLoading ? 0.6 : 1,
+                transition: "background 0.15s, opacity 0.15s",
+              }}
+            >
+              {following ? "Followed" : "Follow"}
+            </button>
 
-        {/* Visitor / signed-in non-manager / manager in personal mode: Follow + Message */}
-        {!isActiveAsThisOrg && (
-          <button
-            type="button"
-            onClick={() => void handleFollow()}
-            disabled={followLoading}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "9px 22px", borderRadius: 20, border: "none",
-              background: following ? "var(--surface-raised)" : "var(--foreground)",
-              color: following ? "inherit" : "var(--background)",
-              fontWeight: 600, fontSize: 14,
-              cursor: followLoading ? "not-allowed" : "pointer",
-              opacity: followLoading ? 0.6 : 1,
-              transition: "background 0.15s, opacity 0.15s",
-            }}
-          >
-            {following ? "Followed" : "Follow"}
-          </button>
-        )}
-        {!isActiveAsThisOrg && user && (
-          <Link
-            href={`/social/messages/org/${organizerId}`}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "9px 22px", borderRadius: 20,
-              border: "1px solid rgba(94,168,255,0.30)",
-              background: "rgba(94,168,255,0.10)",
-              color: "#5EA8FF", fontWeight: 600, fontSize: 14, textDecoration: "none",
-            }}
-          >
-            <MessageIcon />
-            Message
-          </Link>
+            {/* Message — only for signed-in users in personal or other-org mode */}
+            {user && (
+              <Link
+                href={`/social/messages/org/${organizerId}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "9px 22px", borderRadius: 20,
+                  border: "1px solid rgba(94,168,255,0.30)",
+                  background: "rgba(94,168,255,0.10)",
+                  color: "#5EA8FF", fontWeight: 600, fontSize: 14, textDecoration: "none",
+                }}
+              >
+                <MessageIcon />
+                Message
+              </Link>
+            )}
+          </>
         )}
 
         {/* Share — always visible */}
@@ -362,8 +407,8 @@ export function OrgProfileClient({
             {/* Account switcher + sign out */}
             <div style={{ borderTop: "1px solid var(--border)", flex: 1, overflowY: "auto" }}>
 
-              {/* Manager-only: actions for this organizer */}
-              {isManager && (
+              {/* Active-as-this-org: admin actions */}
+              {isActiveAsThisOrg && (
                 <div style={{ padding: "14px 20px 12px", borderBottom: "1px solid var(--border)" }}>
                   <div style={{ fontSize: 10, fontWeight: 700, opacity: 0.4, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>
                     {organizerName}
@@ -378,39 +423,38 @@ export function OrgProfileClient({
                     </div>
                     <span style={{ fontSize: 14, fontWeight: 500 }}>Edit profile</span>
                   </Link>
-                  {!isActiveAsThisOrg && (() => {
-                    const orgEntry = orgPages.find((o) => o.organizerId === organizerId);
-                    if (!orgEntry) return null;
-                    return (
-                      <button
-                        type="button"
-                        onClick={() => { setActiveOrganizer(orgEntry); setSettingsOpen(false); router.push("/org"); }}
-                        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0", background: "none", border: "none", cursor: "pointer", color: "inherit", textAlign: "left" }}
-                      >
-                        <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "rgba(94,168,255,0.10)", border: "1px solid rgba(94,168,255,0.20)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                          </svg>
-                        </div>
-                        <span style={{ fontSize: 14, fontWeight: 500 }}>Switch to {organizerName}</span>
-                      </button>
-                    );
-                  })()}
-                  {isActiveAsThisOrg && (
-                    <button
-                      type="button"
-                      onClick={() => { setActiveOrganizer(null); setSettingsOpen(false); router.push("/profile"); }}
-                      style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0", background: "none", border: "none", cursor: "pointer", color: "inherit", textAlign: "left" }}
-                    >
-                      <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "var(--surface-raised)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                        </svg>
-                      </div>
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>Switch to personal account</span>
-                    </button>
-                  )}
+                  <Link
+                    href="/org/settings"
+                    onClick={() => setSettingsOpen(false)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", textDecoration: "none", color: "inherit" }}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "var(--surface-raised)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
+                      <GearIcon />
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>Organizer settings</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => { handleShare(); setSettingsOpen(false); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0", background: "none", border: "none", cursor: "pointer", color: "inherit", textAlign: "left" }}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "var(--surface-raised)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
+                      <ShareIcon />
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{shareMsg ?? "Share profile"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveOrganizer(null); setSettingsOpen(false); router.push("/profile"); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 0", background: "none", border: "none", cursor: "pointer", color: "inherit", textAlign: "left" }}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: "var(--surface-raised)", border: "1px solid var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.7 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>Switch to personal account</span>
+                  </button>
                 </div>
               )}
 
@@ -473,7 +517,7 @@ export function OrgProfileClient({
                             <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>{TYPE_LABELS[org.type] ?? org.type}</div>
                           </div>
                         </Link>
-                        {/* Switch button — activates identity without navigating */}
+                        {/* Switch button — activates identity and navigates to org profile */}
                         {isActive ? (
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5EA8FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-label="Active" style={{ flexShrink: 0 }}>
                             <polyline points="20 6 9 17 4 12" />
@@ -481,7 +525,7 @@ export function OrgProfileClient({
                         ) : (
                           <button
                             type="button"
-                            onClick={() => { setActiveOrganizer(org); setSettingsOpen(false); }}
+                            onClick={() => { setActiveOrganizer(org); setSettingsOpen(false); router.push(org.slug ? `/o/${org.slug}` : "/org/settings"); }}
                             style={{
                               flexShrink: 0, padding: "4px 10px", borderRadius: 14,
                               border: "1px solid rgba(94,168,255,0.30)",

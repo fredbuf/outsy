@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { createOrgNotification } from "@/lib/notifications";
 import type { OrgMessageRow, MessageEventSummary } from "../route";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -164,6 +165,15 @@ export async function POST(
     .single();
 
   if (insertError) return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
+
+  // Notify the organizer of the new inbound message.
+  createOrgNotification({
+    organizerId: orgId,
+    actorId: user.id,
+    type: "organizer_new_message",
+    entityId: newMsg.id as string,
+    metadata: { preview: (newMsg.body as string).slice(0, 120) },
+  }).catch(() => {});
 
   const message: OrgMessageRow = {
     id: newMsg.id as string,

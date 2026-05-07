@@ -247,11 +247,13 @@ export function BottomNav() {
   const activeIndex    = [activeHome, activeExplore, activeSchedule, activeInbox].findIndex(Boolean);
 
   // ── Organizer-mode active states ───────────────────────────────────────────
-  // Four slots: Events(0) Calendar(1) Inbox(2) Account(3) — FAB has no indicator
+  // Four slots: Events(0) Calendar(1) Inbox(2) Profile(3) — FAB has no indicator
+  const orgProfileHref    = activeOrganizer?.slug ? `/o/${activeOrganizer.slug}` : "/org";
   const activeOrgEvents   = eff?.startsWith("/org/events")   ?? false;
   const activeOrgCalendar = eff?.startsWith("/org/calendar") ?? false;
   const activeOrgInbox    = eff?.startsWith("/org/inbox")    ?? false;
-  const activeOrgAccount  = (eff === "/org" || (eff?.startsWith("/org/settings") ?? false));
+  const activeOrgAccount  = (eff?.startsWith("/org/settings") ?? false)
+    || (activeOrganizer?.slug ? eff === `/o/${activeOrganizer.slug}` : eff === "/org");
   const orgActiveIndex    = [activeOrgEvents, activeOrgCalendar, activeOrgInbox, activeOrgAccount].findIndex(Boolean);
 
   const currentActiveIndex = activeOrganizer ? orgActiveIndex : activeIndex;
@@ -414,10 +416,10 @@ export function BottomNav() {
 
           <NavTab
             ref={(el) => { tabRefs.current[3] = el; }}
-            href="/org"
+            href={orgProfileHref}
             active={activeOrgAccount}
-            label="Account"
-            onSelect={() => setPendingPath("/org")}
+            label="Profile"
+            onSelect={() => setPendingPath(orgProfileHref)}
           >
             <OrgAccountIcon active={activeOrgAccount} />
           </NavTab>
