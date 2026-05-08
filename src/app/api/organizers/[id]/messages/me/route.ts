@@ -41,7 +41,7 @@ export async function GET(
       .limit(100),
     supabase
       .from("organizers")
-      .select("id,name,slug,image_url")
+      .select("id,name,slug,image_url,custom_image_url")
       .eq("id", orgId)
       .maybeSingle(),
   ]);
@@ -115,6 +115,7 @@ export async function GET(
       name: org.name as string,
       slug: (org.slug as string | null) ?? null,
       image_url: (org.image_url as string | null) ?? null,
+      custom_image_url: ((org as { custom_image_url?: string | null }).custom_image_url ?? null),
     },
   });
 }

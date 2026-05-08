@@ -9,6 +9,7 @@ import { tonightBoundsIso } from "@/lib/tonight-bounds";
 import { useTileTransition } from "@/app/components/TileTransitionProvider";
 import { useAuth } from "../components/AuthProvider";
 import { useBottomNav } from "../components/BottomNavContext";
+import { GeneratedAvatar } from "../components/GeneratedAvatar";
 
 const PAGE_SIZE = 50;
 
@@ -456,16 +457,6 @@ function categoryBg(cat: Category): string {
     case "experiences":    return "#0F1018";
     default:               return "#0B0F14";
   }
-}
-
-const AVATAR_COLORS = [
-  "#3B82F6", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-function getAvatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
 function HeartIcon({ filled }: { filled?: boolean }) {
@@ -1231,9 +1222,7 @@ export function EventsList() {
                           {rsvpAvatars[0] ? (
                             <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
                           ) : (
-                            <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                              {rsvpNames[0]![0].toUpperCase()}
-                            </div>
+                            <GeneratedAvatar name={rsvpNames[0]} size={20} initials={rsvpNames[0]![0].toUpperCase()} style={{ border: "2px solid rgba(0,0,0,0.4)" }} />
                           )}
                         </div>
                       )}
@@ -1294,9 +1283,7 @@ export function EventsList() {
                               return rsvpAvatars[idx] ? (
                                 <img key={idx} src={rsvpAvatars[idx]} alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -6 : 0 }} />
                               ) : (
-                                <div key={idx} style={{ width: 19, height: 19, borderRadius: "50%", background: getAvatarColor(rsvpNames[idx]!), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -6 : 0 }}>
-                                  {rsvpNames[idx]![0].toUpperCase()}
-                                </div>
+                                <GeneratedAvatar key={idx} name={rsvpNames[idx]} size={19} initials={rsvpNames[idx]![0].toUpperCase()} style={{ border: "1.5px solid rgba(0,0,0,0.5)", marginLeft: idx > 0 ? -6 : 0 }} />
                               );
                             })}
                           </div>
@@ -1455,9 +1442,7 @@ export function EventsList() {
                             {rsvpAvatars[0] ? (
                               <img src={rsvpAvatars[0]} alt="" style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(0,0,0,0.4)", display: "block" }} />
                             ) : (
-                              <div style={{ width: 20, height: 20, borderRadius: "50%", background: getAvatarColor(rsvpNames[0]!), border: "2px solid rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff" }}>
-                                {rsvpNames[0]![0].toUpperCase()}
-                              </div>
+                              <GeneratedAvatar name={rsvpNames[0]} size={20} initials={rsvpNames[0]![0].toUpperCase()} style={{ border: "2px solid rgba(0,0,0,0.4)" }} />
                             )}
                           </div>
                         )}

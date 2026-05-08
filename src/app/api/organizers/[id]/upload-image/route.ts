@@ -2,11 +2,23 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 const BUCKET = "event-images";
 
-export async function POST(req: Request) {
+// POST /api/organizers/[id]/upload-image
+// Uploads an image for the organizer and writes it to custom_image_url.
+// Requires owner or admin membership.
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: orgId } = await params;
+  if (!UUID_RE.test(orgId)) {
+    return NextResponse.json({ ok: false, error: "Invalid organizer id." }, { status: 400 });
+  }
+
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) {
     return NextResponse.json({ ok: false, error: "Sign in to upload." }, { status: 401 });
@@ -16,6 +28,23 @@ export async function POST(req: Request) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) {
     return NextResponse.json({ ok: false, error: "Invalid session." }, { status: 401 });
+  }
+
+  // Verify membership: only owner / admin may change the logo.
+  const { data: membership } = await supabase
+    .from("organizer_members")
+    .select("role")
+    .eq("organizer_id", orgId)
+    .eq("user_id", user.id)
+    .in("role", ["owner", "admin"])
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!membership) {
+    return NextResponse.json(
+      { ok: false, error: "You don't have permission to edit this organizer." },
+      { status: 403 },
+    );
   }
 
   let formData: FormData;
@@ -33,14 +62,14 @@ export async function POST(req: Request) {
   if (!ALLOWED_MIME.has(file.type)) {
     return NextResponse.json(
       { ok: false, error: "Only JPG, PNG, and WebP images are accepted." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (file.size > MAX_BYTES) {
     return NextResponse.json(
-      { ok: false, error: "Avatar must be 2 MB or smaller." },
-      { status: 400 }
+      { ok: false, error: "Image must be 4 MB or smaller." },
+      { status: 400 },
     );
   }
 
@@ -49,8 +78,8 @@ export async function POST(req: Request) {
   }
 
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  // One avatar per user — path keyed by user ID, upsert replaces the previous file.
-  const path = `avatars/${user.id}.${ext}`;
+  // One image per org — path keyed by org ID; upsert replaces the previous file.
+  const path = `org-images/${orgId}.${ext}`;
   const arrayBuffer = await file.arrayBuffer();
 
   const { error: uploadError } = await supabase.storage
@@ -60,26 +89,22 @@ export async function POST(req: Request) {
   if (uploadError) {
     return NextResponse.json(
       { ok: false, error: `Upload failed: ${uploadError.message}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
   const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  // Append a timestamp so each upload gets a distinct URL — busts the browser
-  // cache even though the storage path is unchanged (upsert replaces in place).
-  const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+  // Timestamp bust ensures browser cache is invalidated on each upload.
+  const imageUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-  // 1. Write to custom_avatar_url — the authoritative source for user-uploaded photos.
-  //    avatar_url is intentionally left untouched (it may hold a Google OAuth photo
-  //    that we no longer use for display but keep for data-integrity / Phase 2 backfill).
   const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ custom_avatar_url: avatarUrl })
-    .eq("id", user.id);
+    .from("organizers")
+    .update({ custom_image_url: imageUrl })
+    .eq("id", orgId);
 
   if (updateError) {
     return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, url: avatarUrl });
+  return NextResponse.json({ ok: true, url: imageUrl });
 }

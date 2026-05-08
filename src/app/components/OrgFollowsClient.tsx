@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useBottomNav } from "./BottomNavContext";
+import { GeneratedAvatar } from "./GeneratedAvatar";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ type OrgEntry = {
   name: string;
   slug: string | null;
   image_url: string | null;
+  custom_image_url: string | null;
   type: string | null;
 };
 
@@ -29,27 +31,8 @@ export type OrgEventItem = {
   image_url: string | null;
 };
 
-// ── Colour helpers ─────────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
-const AVATAR_COLORS = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6"];
-
-function getLogoColor(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[h % LOGO_COLORS.length];
-}
-function getAvatarColor(name: string | null) {
-  if (!name) return AVATAR_COLORS[0];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
-function getInitials(name: string | null) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
-}
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString("en-CA", {
     timeZone: "America/Toronto",
@@ -175,13 +158,7 @@ function UserRow({ user, onClose }: { user: UserFollower; onClose: () => void })
         borderBottom: "1px solid rgba(255,255,255,0.07)",
       }}
     >
-      {user.avatar_url ? (
-        <img src={user.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-      ) : (
-        <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(user.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-          {getInitials(user.display_name)}
-        </div>
-      )}
+      <GeneratedAvatar name={user.display_name} imageUrl={user.avatar_url} size={40} />
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
           {user.display_name ?? "User"}
@@ -205,13 +182,7 @@ function OrgRow({ org, onClose }: { org: OrgEntry; onClose: () => void }) {
         borderBottom: "1px solid rgba(255,255,255,0.07)",
       }}
     >
-      {org.image_url ? (
-        <img src={org.image_url} alt={org.name} style={{ width: 40, height: 40, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
-      ) : (
-        <div style={{ width: 40, height: 40, borderRadius: 9, background: getLogoColor(org.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.85)", flexShrink: 0 }}>
-          {getInitials(org.name)}
-        </div>
-      )}
+      <GeneratedAvatar name={org.name} imageUrl={org.custom_image_url} shape="square" size={40} />
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
           {org.name}
@@ -324,30 +295,30 @@ export function OrgFollowsClient({
   return (
     <>
       {/* Stats row */}
-      <div style={{ display: "flex", width: "100%" }}>
+      <div style={{ display: "flex", width: "100%", marginTop: 4 }}>
         <button
           type="button"
           onClick={() => openSheet("followers")}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", color: "inherit" }}
         >
           <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{followerCount}</span>
-          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Followers</span>
+          <span style={{ fontSize: 8, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Followers</span>
         </button>
         <button
           type="button"
           onClick={() => openSheet("following")}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", color: "inherit" }}
         >
           <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{orgFollowingCount}</span>
-          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Following</span>
+          <span style={{ fontSize: 8, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Following</span>
         </button>
         <button
           type="button"
           onClick={() => openSheet("events")}
-          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+          style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", color: "inherit" }}
         >
           <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{eventCount}</span>
-          <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Events</span>
+          <span style={{ fontSize: 8, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Events</span>
         </button>
       </div>
 

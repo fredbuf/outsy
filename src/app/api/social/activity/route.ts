@@ -15,6 +15,7 @@ export type ActivityActor = {
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  custom_avatar_url: string | null;
 };
 
 export type ActivityEventSummary = {
@@ -158,7 +159,7 @@ export async function GET(req: Request) {
   if (actorIds.length > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id,display_name,username,avatar_url")
+      .select("id,display_name,username,avatar_url,custom_avatar_url")
       .in("id", actorIds);
     for (const p of profiles ?? []) {
       profilesMap.set(p.id as string, {
@@ -166,6 +167,7 @@ export async function GET(req: Request) {
         display_name: p.display_name as string | null,
         username: p.username as string | null,
         avatar_url: p.avatar_url as string | null,
+        custom_avatar_url: (p as { custom_avatar_url?: string | null }).custom_avatar_url ?? null,
       });
     }
   }
@@ -253,6 +255,7 @@ export async function GET(req: Request) {
       display_name: null,
       username: null,
       avatar_url: null,
+      custom_avatar_url: null,
     };
     const entityId = n.entity_id as string | null;
     const metadata = (n.metadata ?? {}) as Record<string, unknown>;

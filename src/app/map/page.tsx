@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "../components/AuthProvider";
 import { BackButton } from "../events/[id]/BackButton";
+import { GeneratedAvatar } from "../components/GeneratedAvatar";
 
 const MONTREAL = { lat: 45.5017, lng: -73.5673 };
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -32,59 +33,21 @@ const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
 
 // ── Custom map style ──────────────────────────────────────────────────────────
 const MAP_STYLES: google.maps.MapTypeStyle[] = [
-  // ── Base text ────────────────────────────────────────────────────────────
-  { featureType: "all",                    elementType: "labels.text.fill",   stylers: [{ color: "#c8d4e0" }] },
-  { featureType: "all",                    elementType: "labels.text.stroke", stylers: [{ color: "#0b1520" }, { weight: 2 }] },
-
-  // ── Administrative (keep neighborhood + city names, quiet borders) ───────
-  { featureType: "administrative",         elementType: "geometry.stroke",    stylers: [{ color: "#1a3a4a" }, { weight: 1 }] },
-  { featureType: "administrative.locality",elementType: "labels.text.fill",   stylers: [{ color: "#e2eaf2" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.fill", stylers: [{ color: "#7fa8c0" }] },
-  { featureType: "administrative.neighborhood", elementType: "labels.text.stroke", stylers: [{ weight: 1 }] },
-
-  // ── Landscape ────────────────────────────────────────────────────────────
-  { featureType: "landscape",              elementType: "all",                stylers: [{ color: "#08304b" }] },
-
-  // ── POI: hide noisy categories ───────────────────────────────────────────
-  // All POI labels off by default — only parks get a label below.
-  { featureType: "poi",                    elementType: "geometry",           stylers: [{ color: "#0c3a4a" }] },
-  { featureType: "poi",                    elementType: "labels",             stylers: [{ visibility: "off" }] },
-  // Hide specific noisy POI types entirely
-  { featureType: "poi.business",           elementType: "all",                stylers: [{ visibility: "off" }] },
-  { featureType: "poi.medical",            elementType: "all",                stylers: [{ visibility: "off" }] },
-  { featureType: "poi.school",             elementType: "all",                stylers: [{ visibility: "off" }] },
-  { featureType: "poi.place_of_worship",   elementType: "all",                stylers: [{ visibility: "off" }] },
-  { featureType: "poi.government",         elementType: "all",                stylers: [{ visibility: "off" }] },
-  { featureType: "poi.sports_complex",     elementType: "all",                stylers: [{ visibility: "off" }] },
-  // Parks: keep geometry + subtle label only
-  { featureType: "poi.park",               elementType: "geometry",           stylers: [{ color: "#0d3d1e" }] },
-  { featureType: "poi.park",               elementType: "labels.text.fill",   stylers: [{ visibility: "on" }, { color: "#3d8a55" }] },
-  { featureType: "poi.park",               elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-  // Keep attraction labels visible but muted
-  { featureType: "poi.attraction",         elementType: "labels.text.fill",   stylers: [{ visibility: "on" }, { color: "#6b99b0" }] },
-  { featureType: "poi.attraction",         elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-
-  // ── Roads ────────────────────────────────────────────────────────────────
-  { featureType: "road.highway",           elementType: "geometry.fill",      stylers: [{ color: "#0a1a24" }] },
-  { featureType: "road.highway",           elementType: "geometry.stroke",    stylers: [{ color: "#0b434f" }, { lightness: 25 }] },
-  { featureType: "road.highway",           elementType: "labels.text.fill",   stylers: [{ color: "#8ab0c0" }] },
-  // Hide highway number shields (the green/blue route badges)
-  { featureType: "road.highway",           elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-  { featureType: "road.arterial",          elementType: "geometry.fill",      stylers: [{ color: "#000000" }] },
-  { featureType: "road.arterial",          elementType: "geometry.stroke",    stylers: [{ color: "#0b3d51" }, { lightness: 16 }] },
-  { featureType: "road.arterial",          elementType: "labels.text.fill",   stylers: [{ color: "#6a90a0" }] },
-  { featureType: "road.local",             elementType: "geometry",           stylers: [{ color: "#000000" }] },
-  // Hide local road labels — too much clutter at city zoom
-  { featureType: "road.local",             elementType: "labels",             stylers: [{ visibility: "off" }] },
-
-  // ── Transit ──────────────────────────────────────────────────────────────
-  { featureType: "transit",                elementType: "geometry",           stylers: [{ color: "#146474" }] },
-  { featureType: "transit",                elementType: "labels.text.fill",   stylers: [{ color: "#5a8a96" }] },
-  { featureType: "transit",                elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-
-  // ── Water ────────────────────────────────────────────────────────────────
-  { featureType: "water",                  elementType: "geometry",           stylers: [{ color: "#021019" }] },
-  { featureType: "water",                  elementType: "labels.text.fill",   stylers: [{ color: "#3d6e7e" }] },
+  { featureType: "all",           elementType: "labels.text.fill",   stylers: [{ color: "#ffffff" }] },
+  { featureType: "all",           elementType: "labels.text.stroke", stylers: [{ color: "#000000" }, { lightness: 13 }] },
+  { featureType: "administrative",elementType: "geometry.fill",      stylers: [{ color: "#000000" }] },
+  { featureType: "administrative",elementType: "geometry.stroke",    stylers: [{ color: "#5ea8ff" }, { lightness: 14 }, { weight: 1.4 }] },
+  { featureType: "administrative",elementType: "labels",             stylers: [{ color: "#ffffff" }, { weight: "0.01" }] },
+  { featureType: "landscape",     elementType: "all",                stylers: [{ color: "#08304b" }] },
+  { featureType: "poi",           elementType: "geometry",           stylers: [{ color: "#435c7a" }, { lightness: 5 }] },
+  { featureType: "road.highway",  elementType: "geometry.fill",      stylers: [{ color: "#000000" }] },
+  { featureType: "road.highway",  elementType: "geometry.stroke",    stylers: [{ color: "#2563e2" }, { lightness: 25 }] },
+  { featureType: "road.arterial", elementType: "geometry.fill",      stylers: [{ color: "#0b0f14" }] },
+  { featureType: "road.arterial", elementType: "geometry.stroke",    stylers: [{ color: "#435c7a" }, { lightness: 16 }] },
+  { featureType: "road.local",    elementType: "geometry",           stylers: [{ color: "#0b0f14" }] },
+  { featureType: "transit",       elementType: "all",                stylers: [{ color: "#2563e2" }] },
+  { featureType: "transit",       elementType: "labels.text",        stylers: [{ color: "#ffffff" }, { weight: "0.01" }] },
+  { featureType: "water",         elementType: "all",                stylers: [{ color: "#0b0f14" }] },
 ];
 
 // ── Legacy circle icons (fallback when MAP_ID is not set) ─────────────────────
@@ -212,25 +175,6 @@ type MapEvent = {
 };
 
 type TileAvatar = { url: string | null; name: string | null };
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 // ── Filter types + constants ───────────────────────────────────────────────────
 
@@ -1946,9 +1890,7 @@ export default function MapPage() {
                             a.url ? (
                               <img key={idx} src={a.url} alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover", border: "1.5px solid rgba(0,0,0,0.5)", display: "block", marginLeft: idx > 0 ? -6 : 0 }} />
                             ) : (
-                              <div key={idx} style={{ width: 19, height: 19, borderRadius: "50%", background: getAvatarColor(a.name), border: "1.5px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff", marginLeft: idx > 0 ? -6 : 0 }}>
-                                {getInitials(a.name)}
-                              </div>
+                              <GeneratedAvatar key={idx} name={a.name} size={19} initials={(a.name ?? "?")[0].toUpperCase()} style={{ border: "1.5px solid rgba(0,0,0,0.5)", marginLeft: idx > 0 ? -6 : 0 }} />
                             )
                           )}
                         </div>

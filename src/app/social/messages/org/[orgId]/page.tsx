@@ -6,23 +6,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { OrgMessageRow } from "@/app/api/organizers/[id]/messages/route";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
-
-function getLogoColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[h % LOGO_COLORS.length];
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -31,7 +17,7 @@ function formatTime(iso: string): string {
   });
 }
 
-type OrgInfo = { id: string; name: string; slug: string | null; image_url: string | null };
+type OrgInfo = { id: string; name: string; slug: string | null; image_url: string | null; custom_image_url?: string | null };
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -133,23 +119,7 @@ export default function UserOrgChatPage() {
 
   function OrgLogo({ size = 28 }: { size?: number }) {
     const r = Math.round(size * 0.25);
-    if (organizer?.image_url) {
-      return (
-        <img src={organizer.image_url} alt={orgName}
-          style={{ width: size, height: size, borderRadius: r, objectFit: "cover", flexShrink: 0 }} />
-      );
-    }
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: r,
-        background: getLogoColor(orgName),
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: Math.round(size * 0.35), fontWeight: 800,
-        color: "rgba(255,255,255,0.85)", userSelect: "none", flexShrink: 0,
-      }}>
-        {getInitials(orgName)}
-      </div>
-    );
+    return <GeneratedAvatar name={orgName} imageUrl={organizer?.custom_image_url ?? null} shape="square" size={size} borderRadius={r} style={{ flexShrink: 0 }} />;
   }
 
   return (

@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 import type { MomentRow, SurveyOptionRow, SurveyVoter } from "./page";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -16,24 +17,7 @@ const BODY_MAX = 1000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
 
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -190,36 +174,8 @@ function buildDisplay(row: MomentRow, currentUserId: string | null): DisplayMome
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 
-function Avatar({
-  url,
-  name,
-  size = 36,
-}: {
-  url: string | null;
-  name: string | null;
-  size?: number;
-}) {
-  return url ? (
-    <img
-      src={url}
-      alt={name ?? ""}
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        objectFit: "cover", flexShrink: 0, display: "block",
-      }}
-    />
-  ) : (
-    <div
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        background: getAvatarColor(name),
-        flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: Math.round(size * 0.35), fontWeight: 700, color: "#fff", userSelect: "none",
-      }}
-    >
-      {getInitials(name)}
-    </div>
-  );
+function Avatar({ url, name, size = 36 }: { url: string | null; name: string | null; size?: number }) {
+  return <GeneratedAvatar name={name} imageUrl={url} size={size} />;
 }
 
 // ── Compose area ──────────────────────────────────────────────────────────────
@@ -1971,16 +1927,7 @@ function SurveyBlock({
             <Link key={i} href={`/profile/${v.user_id}`} style={{ display: "block", textDecoration: "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 20px" }}>
                 {/* Avatar */}
-                <div style={{
-                  width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
-                  overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center",
-                  background: voterAvatarColor(v.user_id), fontSize: 14, fontWeight: 700, color: "#fff",
-                }}>
-                  {v.avatar_url
-                    ? <img src={v.avatar_url} alt={v.display_name ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : voterInitials(v.display_name)
-                  }
-                </div>
+                <GeneratedAvatar name={v.display_name} imageUrl={v.avatar_url} size={40} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                   <span style={{ fontSize: 15, fontWeight: 600, color: "#F5F7FA", lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {v.display_name ?? "Anonymous"}
@@ -2185,18 +2132,6 @@ function SurveyBlock({
 
 // ── Voter avatar stack ────────────────────────────────────────────────────────
 
-function voterAvatarColor(userId: string): string {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-function voterInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
 const MAX_SHOWN = 4;
 
 function VoterAvatars({ voters }: { voters: SurveyVoter[] }) {
@@ -2208,31 +2143,18 @@ function VoterAvatars({ voters }: { voters: SurveyVoter[] }) {
   return (
     <span style={{ display: "flex", alignItems: "center" }}>
       {shown.map((v, i) => (
-        <span
+        <GeneratedAvatar
           key={v.user_id}
+          name={v.display_name}
+          imageUrl={v.avatar_url}
+          size={size}
           style={{
-            display: "flex", alignItems: "center", justifyContent: "center",
-            width: size, height: size, borderRadius: "50%",
             border: "1.5px solid rgba(18,25,36,0.7)",
             marginLeft: i === 0 ? 0 : overlap,
-            flexShrink: 0,
             position: "relative",
             zIndex: shown.length - i,
-            overflow: "hidden",
-            background: voterAvatarColor(v.user_id),
-            fontSize: 8, fontWeight: 700, color: "#fff",
           }}
-        >
-          {v.avatar_url ? (
-            <img
-              src={v.avatar_url}
-              alt={v.display_name ?? ""}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : (
-            voterInitials(v.display_name)
-          )}
-        </span>
+        />
       ))}
       {overflow > 0 && (
         <span style={{

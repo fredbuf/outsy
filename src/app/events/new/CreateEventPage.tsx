@@ -10,6 +10,7 @@ import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { PublicEventSwipePage } from "../[id]/PublicEventSwipePage";
 import { PrivateEventSwipePage } from "../[id]/PrivateEventSwipePage";
+import { GeneratedAvatar } from "../../components/GeneratedAvatar";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 type Visibility = "public" | "private";
@@ -27,31 +28,11 @@ type HostProfile = { avatar_url: string | null; display_name: string | null };
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 5 * 1024 * 1024;
 
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
-
 function getInitials(name: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-
-function getLogoColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[hash % LOGO_COLORS.length];
 }
 
 function fmtDateShort(isoDate: string): string {
@@ -1476,7 +1457,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       ? null
       : { display_name: displayName, avatar_url: avatarUrl, username: null };
     const previewOrganizers = activeOrganizer
-      ? [{ name: activeOrganizer.name, role: "organizer", slug: activeOrganizer.slug ?? null, image_url: activeOrganizer.image_url }]
+      ? [{ name: activeOrganizer.name, role: "organizer", slug: activeOrganizer.slug ?? null, image_url: activeOrganizer.image_url, custom_image_url: activeOrganizer.custom_image_url }]
       : [];
     const previewRsvpCounts = { going: 0, maybe: 0, cant_go: 0 };
 
@@ -1878,9 +1859,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                         style={{ width: 28, height: 28, borderRadius: 7, objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}
                       />
                     ) : (
-                      <div style={{ width: 28, height: 28, borderRadius: 7, background: getLogoColor(activeOrganizer.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.85)", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0, userSelect: "none" }}>
-                        {activeOrganizer.name.slice(0, 1).toUpperCase()}
-                      </div>
+                      <GeneratedAvatar name={activeOrganizer.name} imageUrl={activeOrganizer.custom_image_url} shape="square" size={28} borderRadius={7} initials={activeOrganizer.name.slice(0, 1).toUpperCase()} style={{ border: "2px solid rgba(18,25,36,0.8)" }} />
                     )}
                     <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{activeOrganizer.name}</span>
                   </div>
@@ -1891,17 +1870,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       {avatarUrl ? (
                         <img src={avatarUrl} alt={displayName} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(displayName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}>
-                          {getInitials(displayName)}
-                        </div>
+                        <GeneratedAvatar name={displayName} imageUrl={avatarUrl} size={28} style={{ border: "2px solid rgba(18,25,36,0.8)" }} />
                       )}
                       {cohostProfiles.map((cp) => (
                         cp.avatar_url ? (
                           <img key={cp.id} src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }} />
                         ) : (
-                          <div key={cp.id} style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(cp.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }}>
-                            {getInitials(cp.display_name)}
-                          </div>
+                          <GeneratedAvatar key={cp.id} name={cp.display_name} imageUrl={cp.avatar_url} size={28} style={{ border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8 }} />
                         )
                       ))}
                     </div>
@@ -2748,9 +2723,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                       {f.avatar_url ? (
                         <img src={f.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(f.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0, userSelect: "none" }}>
-                          {getInitials(f.display_name)}
-                        </div>
+                        <GeneratedAvatar name={f.display_name} imageUrl={f.avatar_url} size={40} />
                       )}
 
                       {/* Name + username */}

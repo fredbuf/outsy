@@ -48,7 +48,7 @@ export async function GET(
       .maybeSingle(),
     supabase
       .from("profiles")
-      .select("id,display_name,username,avatar_url")
+      .select("id,display_name,username,avatar_url,custom_avatar_url")
       .eq("id", otherUserId)
       .maybeSingle(),
   ]);

@@ -13,7 +13,7 @@ const fetchEvent = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,description_title,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,moments_guests_can_post,moments_guests_can_react,profiles!creator_id(display_name,avatar_url,username),venues(name,address_line1,city,lat,lng)"
+      "id,title,description,description_title,start_at,end_at,category_primary,status,min_price,max_price,currency,image_url,source_url,source,visibility,creator_id,cohost_ids,spots_mode,spots_limit,price,payment_method,payment_contact,rsvp_deadline,moments_guests_can_post,moments_guests_can_react,profiles!creator_id(display_name,avatar_url,custom_avatar_url,username),venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("is_approved", true)
@@ -54,45 +54,67 @@ async function fetchRsvpCounts(eventId: string) {
   return counts;
 }
 
-type Attendee = { display_name: string | null; avatar_url: string | null };
-type CohostProfile = { id: string; display_name: string | null; avatar_url: string | null; username: string | null };
+type Attendee = { display_name: string | null; avatar_url: string | null; custom_avatar_url: string | null };
+type CohostProfile = { id: string; display_name: string | null; avatar_url: string | null; custom_avatar_url: string | null; username: string | null };
 
 async function fetchCohostProfiles(cohostIds: string[]): Promise<CohostProfile[]> {
   if (cohostIds.length === 0) return [];
   const { data } = await supabaseServer()
     .from("profiles")
-    .select("id,display_name,avatar_url,username")
+    .select("id,display_name,avatar_url,custom_avatar_url,username")
     .in("id", cohostIds);
   return (data ?? []) as CohostProfile[];
 }
 
-type EventOrganizer = { name: string; role: string; slug: string | null; image_url: string | null };
+type EventOrganizer = { name: string; role: string; slug: string | null; image_url: string | null; custom_image_url: string | null };
 
 async function fetchOrganizers(eventId: string): Promise<EventOrganizer[]> {
+  // Step 1: core join — does NOT include custom_image_url to avoid PostgREST
+  // schema-cache errors on the nested join if the column cache is stale.
   const { data } = await supabaseServer()
     .from("event_organizers")
-    .select("role, sort_order, organizers(name, slug, image_url)")
+    .select("role, sort_order, organizers(id, name, slug, image_url)")
     .eq("event_id", eventId)
     .order("sort_order", { ascending: true });
 
-  return (data ?? [])
+  const base = (data ?? [])
     .map((row) => {
       const org = Array.isArray(row.organizers) ? row.organizers[0] : row.organizers;
       if (!org?.name) return null;
       return {
+        id: org.id as string,
         name: org.name as string,
         role: row.role as string,
         slug: (org.slug as string | null) ?? null,
         image_url: (org.image_url as string | null) ?? null,
       };
     })
-    .filter((o): o is EventOrganizer => o !== null);
+    .filter((o): o is NonNullable<typeof o> => o !== null);
+
+  // Step 2: enrich with custom_image_url — separate query so schema-cache
+  // misses never affect whether organizers appear at all.
+  const orgIds = base.map((o) => o.id);
+  const customImageMap = new Map<string, string | null>();
+  if (orgIds.length > 0) {
+    const { data: rows } = await supabaseServer()
+      .from("organizers")
+      .select("id, custom_image_url")
+      .in("id", orgIds);
+    for (const r of (rows ?? []) as { id: string; custom_image_url?: string | null }[]) {
+      customImageMap.set(r.id, r.custom_image_url ?? null);
+    }
+  }
+
+  return base.map(({ id, ...o }) => ({
+    ...o,
+    custom_image_url: customImageMap.get(id) ?? null,
+  })) as EventOrganizer[];
 }
 
 async function fetchAttendees(eventId: string): Promise<Attendee[]> {
   const { data } = await supabaseServer()
     .from("rsvps")
-    .select("profiles(display_name, avatar_url)")
+    .select("profiles(display_name, avatar_url, custom_avatar_url)")
     .eq("event_id", eventId)
     .eq("response", "going")
     .order("updated_at", { ascending: false })
@@ -244,7 +266,7 @@ export default async function EventPage({
 
   const venue = Array.isArray(event.venues) ? event.venues[0] : event.venues;
   const creatorRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
-  const creator = creatorRaw as { display_name: string | null; avatar_url: string | null; username: string | null } | null;
+  const creator = creatorRaw as { display_name: string | null; avatar_url: string | null; custom_avatar_url: string | null; username: string | null } | null;
   const creatorId = (event as { creator_id?: string | null }).creator_id ?? null;
   const [related, rsvpCounts, attendees, organizers] = await Promise.all([
     fetchRelated(id, event.category_primary),

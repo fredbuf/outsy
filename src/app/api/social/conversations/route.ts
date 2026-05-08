@@ -17,10 +17,12 @@ export type ConversationPreview = {
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  custom_avatar_url: string | null;
   // Only set when this is a user↔organizer conversation.
   orgId?: string;
   orgName?: string | null;
   orgImageUrl?: string | null;
+  orgCustomImageUrl?: string | null;
   lastMessage: {
     body: string;
     created_at: string;
@@ -125,24 +127,24 @@ export async function GET(req: Request) {
 
   // ── Batch-fetch profiles for user↔user ──────────────────────────────────────
   const userIds = [...latestByUser.keys()];
-  const profileMap = new Map<string, { id: string; display_name: string | null; username: string | null; avatar_url: string | null }>();
+  const profileMap = new Map<string, { id: string; display_name: string | null; username: string | null; avatar_url: string | null; custom_avatar_url: string | null }>();
   if (userIds.length > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id,display_name,username,avatar_url")
+      .select("id,display_name,username,avatar_url,custom_avatar_url")
       .in("id", userIds);
-    for (const p of profiles ?? []) profileMap.set(p.id as string, p as typeof profileMap extends Map<string, infer V> ? V : never);
+    for (const p of profiles ?? []) profileMap.set(p.id as string, { id: p.id as string, display_name: p.display_name as string | null, username: p.username as string | null, avatar_url: p.avatar_url as string | null, custom_avatar_url: (p as { custom_avatar_url?: string | null }).custom_avatar_url ?? null });
   }
 
   // ── Batch-fetch organizer info for user↔org ──────────────────────────────────
   const orgIds = [...latestByOrg.keys()];
-  const orgMap = new Map<string, { id: string; name: string; image_url: string | null }>();
+  const orgMap = new Map<string, { id: string; name: string; image_url: string | null; custom_image_url: string | null }>();
   if (orgIds.length > 0) {
     const { data: orgs } = await supabase
       .from("organizers")
-      .select("id,name,image_url")
+      .select("id,name,image_url,custom_image_url")
       .in("id", orgIds);
-    for (const o of orgs ?? []) orgMap.set(o.id as string, { id: o.id as string, name: o.name as string, image_url: (o.image_url as string | null) ?? null });
+    for (const o of orgs ?? []) orgMap.set(o.id as string, { id: o.id as string, name: o.name as string, image_url: (o.image_url as string | null) ?? null, custom_image_url: ((o as { custom_image_url?: string | null }).custom_image_url ?? null) });
   }
 
   // ── Assemble user↔user conversations ────────────────────────────────────────
@@ -154,6 +156,7 @@ export async function GET(req: Request) {
       display_name: profile?.display_name ?? null,
       username: profile?.username ?? null,
       avatar_url: profile?.avatar_url ?? null,
+      custom_avatar_url: profile?.custom_avatar_url ?? null,
       lastMessage: {
         body: msg.body as string,
         created_at: msg.created_at as string,
@@ -172,9 +175,11 @@ export async function GET(req: Request) {
       display_name: null,
       username: null,
       avatar_url: null,
+      custom_avatar_url: null,
       orgId,
       orgName: org?.name ?? null,
       orgImageUrl: org?.image_url ?? null,
+      orgCustomImageUrl: org?.custom_image_url ?? null,
       lastMessage: {
         body: msg.body,
         created_at: msg.created_at,

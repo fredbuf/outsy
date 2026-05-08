@@ -6,27 +6,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { MessageRow } from "@/app/api/social/messages/[userId]/route";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#3b82f6", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -58,6 +40,7 @@ type OtherUser = {
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  custom_avatar_url?: string | null;
 };
 
 // ── Shared event card ──────────────────────────────────────────────────────────
@@ -492,28 +475,7 @@ export default function ChatPage() {
           style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, textDecoration: "none" }}
         >
           {otherUser ? (
-            otherUser.avatar_url ? (
-              <img
-                src={otherUser.avatar_url}
-                alt={otherName}
-                style={{
-                  width: 40, height: 40, borderRadius: "50%", objectFit: "cover",
-                  border: "2px solid rgba(94,168,255,0.35)",
-                  boxShadow: "0 0 0 3px rgba(94,168,255,0.10)",
-                }}
-              />
-            ) : (
-              <div style={{
-                width: 40, height: 40, borderRadius: "50%",
-                background: getAvatarColor(otherName),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, fontWeight: 700, color: "#fff",
-                border: "2px solid rgba(94,168,255,0.25)",
-                boxShadow: "0 0 0 3px rgba(94,168,255,0.08)",
-              }}>
-                {getInitials(otherName)}
-              </div>
-            )
+            <GeneratedAvatar name={otherName} imageUrl={otherUser.custom_avatar_url ?? null} size={40} />
           ) : (
             <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
           )}

@@ -1,39 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useActiveOrganizer } from "@/app/components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-
-// ── Colour helpers (consistent with rest of app) ──────────────────────────────
-
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
-function getLogoColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[h % LOGO_COLORS.length];
-}
-
-const AVATAR_COLORS = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6"];
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-function getOrgInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
+import { GeneratedAvatar, getInitials } from "@/app/components/GeneratedAvatar";
 
 const TYPE_LABELS: Record<string, string> = {
   venue: "Venue", promoter: "Promoter", artist: "Artist", business: "Business",
@@ -96,13 +70,13 @@ export function OrgProfileClient({
   organizerId,
   organizerName,
   organizerSlug,
-  organizerImageUrl,
+  organizerCustomImageUrl,
   children,
 }: {
   organizerId: string;
   organizerName: string;
   organizerSlug: string | null;
-  organizerImageUrl: string | null;
+  organizerCustomImageUrl: string | null;
   /** Server-rendered name + type badge — rendered between the logo and action buttons. */
   children?: React.ReactNode;
 }) {
@@ -113,6 +87,9 @@ export function OrgProfileClient({
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [following, setFollowing] = useState<boolean | null>(null);
   const [followLoading, setFollowLoading] = useState(false);
+  const [customImageUrl, setCustomImageUrl] = useState<string | null>(organizerCustomImageUrl);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isActiveAsThisOrg = activeOrganizer?.organizerId === organizerId;
 
@@ -216,6 +193,34 @@ export function OrgProfileClient({
     }
   }
 
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !session) return;
+    setUploadError(null);
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const res = await fetch(`/api/organizers/${organizerId}/upload-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: form,
+      });
+      const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
+      if (data.ok && data.url) {
+        setCustomImageUrl(data.url);
+        window.dispatchEvent(
+          new CustomEvent("outsy:org-image-updated", { detail: { organizerId, url: data.url } }),
+        );
+      } else {
+        setUploadError(data.error ?? "Upload failed.");
+      }
+    } catch {
+      setUploadError("Network error.");
+    }
+    // Reset so the same file can be re-selected if needed.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function handleSignOut() {
     setSettingsOpen(false);
     await supabaseBrowser().auth.signOut();
@@ -246,53 +251,56 @@ export function OrgProfileClient({
       )}
 
       {/* ── Avatar + glass card wrapper ── */}
-      <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 48, marginTop: 8 }}>
+      <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 56, marginTop: 8 }}>
 
         {/* Logo — absolute, overlapping glass card from above */}
         <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
           <div style={{ position: "relative", width: 96, height: 96 }}>
-            {organizerImageUrl ? (
-              <img
-                src={organizerImageUrl}
-                alt={organizerName}
-                style={{
-                  width: 96, height: 96, borderRadius: 20,
-                  objectFit: "cover", display: "block",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
-                }}
-              />
-            ) : (
-              <div style={{
-                width: 96, height: 96, borderRadius: 20,
-                background: getLogoColor(organizerName),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 30, fontWeight: 800, letterSpacing: "-0.02em",
-                color: "rgba(255,255,255,0.85)", userSelect: "none",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
-              }}>
-                {getOrgInitials(organizerName)}
-              </div>
-            )}
+            <GeneratedAvatar
+              name={organizerName}
+              imageUrl={customImageUrl}
+              shape="square"
+              size={96}
+              borderRadius={20}
+              style={{ boxShadow: "0 8px 28px rgba(0,0,0,0.55)" }}
+            />
             {/* Camera badge — active-as-this-org only */}
             {isActiveAsThisOrg && (
-              <Link
-                href={`/dashboard/organizers/${organizerId}/edit`}
-                aria-label="Change photo"
-                title="Change photo"
-                style={{
-                  position: "absolute", bottom: 2, right: 2,
-                  width: 28, height: 28, borderRadius: "50%",
-                  border: "2px solid #0b0f18",
-                  background: "#FFFFFF",
-                  color: "rgba(0,0,0,0.70)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  textDecoration: "none",
-                }}
-              >
-                <CameraIcon />
-              </Link>
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageUpload}
+                  style={{ display: "none" }}
+                  aria-hidden
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Change photo"
+                  title="Change photo"
+                  style={{
+                    position: "absolute", bottom: -3, right: -3,
+                    width: 28, height: 28, borderRadius: 7,
+                    border: "2px solid #0b0f18",
+                    background: "#FFFFFF",
+                    color: "rgba(0,0,0,0.75)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <CameraIcon />
+                </button>
+              </>
             )}
           </div>
+          {uploadError && (
+            <div style={{ position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)", fontSize: 11, color: "#f87171", whiteSpace: "nowrap" }}>
+              {uploadError}
+            </div>
+          )}
         </div>
 
         {/* Glass identity card */}
@@ -302,11 +310,12 @@ export function OrgProfileClient({
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
           border: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.13)",
           borderRadius: 24,
-          paddingTop: 60,
+          paddingTop: 52,
           paddingBottom: 20,
-          paddingLeft: 16,
-          paddingRight: 16,
+          paddingLeft: 20,
+          paddingRight: 20,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -317,7 +326,7 @@ export function OrgProfileClient({
       </div>
 
       {/* ── Action buttons — below the glass card ── */}
-      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap", justifyContent: "center" }}>
         {isActiveAsThisOrg ? (
           <Link
             href={`/dashboard/organizers/${organizerId}/edit`}
@@ -487,13 +496,7 @@ export function OrgProfileClient({
                   onClick={() => { setActiveOrganizer(null); setSettingsOpen(false); router.push("/profile"); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "6px 0", background: "none", border: "none", cursor: "pointer", color: "inherit", textAlign: "left" }}
                 >
-                  {personalAvatar ? (
-                    <img src={personalAvatar} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1.5px solid var(--border-medium)" }} />
-                  ) : (
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: getAvatarColor(personalName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-                      {getInitials(personalName)}
-                    </div>
-                  )}
+                  <GeneratedAvatar name={personalName} imageUrl={personalAvatar} size={36} style={{ border: "1.5px solid var(--border-medium)" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{personalName}</div>
                     <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>Personal account</div>
@@ -511,9 +514,6 @@ export function OrgProfileClient({
                 ) : (
                   orgPages.map((org) => {
                     const isActive = activeOrganizer?.organizerId === org.organizerId;
-                    let h = 0; for (let i = 0; i < org.name.length; i++) h = (h * 31 + org.name.charCodeAt(i)) & 0xffff;
-                    const logoColor = LOGO_COLORS[h % LOGO_COLORS.length];
-                    const orgInitials = getOrgInitials(org.name);
 
                     return (
                       <div key={org.organizerId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
@@ -523,13 +523,7 @@ export function OrgProfileClient({
                           onClick={() => setSettingsOpen(false)}
                           style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}
                         >
-                          {org.image_url ? (
-                            <img src={org.image_url} alt={org.name} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }} />
-                          ) : (
-                            <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: logoColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
-                              {orgInitials}
-                            </div>
-                          )}
+                          <GeneratedAvatar name={org.name} imageUrl={org.custom_image_url} shape="square" size={36} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{org.name}</div>
                             <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>{TYPE_LABELS[org.type] ?? org.type}</div>

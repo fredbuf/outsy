@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "./AuthProvider";
 import { useActiveOrganizer } from "./ActiveOrganizerContext";
+import { avatarGradient } from "./GeneratedAvatar";
 
 // ── AppTopBar ──────────────────────────────────────────────────────────────────
 // Transparent top bar for immersive dark pages (e.g. /events).
@@ -19,28 +20,38 @@ export function AppTopBar() {
     window.dispatchEvent(new CustomEvent("outsy:open-signin"));
   }
 
-  const meta = user?.user_metadata as { avatar_url?: string; full_name?: string } | undefined;
+  const meta = user?.user_metadata as { full_name?: string } | undefined;
 
-  // profileAvatar: loaded on mount from /api/profile (Supabase profiles table).
-  // This is the source of truth — it reflects Outsy-specific uploads.
-  // avatarOverride: set immediately when the user uploads a new avatar on the
-  // same session (via the "outsy:avatar-updated" custom event), so the Home
-  // avatar updates without a reload.
+  // avatarOverride: set immediately when the user uploads a new avatar in
+  // this session (via "outsy:avatar-updated" custom event).
+  // profileAvatar:  custom_avatar_url fetched from /api/profile on mount.
+  // profileLoaded:  true once the fetch has settled (success or error).
   //
-  // Priority: avatarOverride → profileAvatar → meta.avatar_url (Google OAuth fallback)
+  // Render priority:
+  //   1. avatarOverride  — instant post-upload feedback
+  //   2. profileAvatar   — custom_avatar_url from DB
+  //   3. gradient initials — only shown AFTER fetch settles with no custom avatar
+  //   4. neutral skeleton — shown while fetch is in flight
+  //
+  // Google / OAuth avatar_url is never consulted at any step.
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
+  const [orgImageOverride, setOrgImageOverride] = useState<string | null>(null);
 
-  // Fetch Supabase profile avatar on mount / whenever the user changes.
+  // Fetch custom_avatar_url on mount / when the user changes.
+  // Reset loaded state first so the skeleton shows while the new fetch is in flight.
   useEffect(() => {
     if (!user || !session) return;
+    setProfileAvatar(null);
+    setProfileLoaded(false);
     fetch("/api/profile", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        // /api/profile returns { ok, profile: { avatar_url, ... }, ... }
-        if (data?.profile?.avatar_url) setProfileAvatar(data.profile.avatar_url);
+        if (data?.profile?.custom_avatar_url) setProfileAvatar(data.profile.custom_avatar_url);
+        setProfileLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => { setProfileLoaded(true); });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -54,7 +65,21 @@ export function AppTopBar() {
     return () => window.removeEventListener("outsy:avatar-updated", onAvatarUpdated);
   }, []);
 
-  const avatarUrl = avatarOverride ?? profileAvatar ?? meta?.avatar_url;
+  // Listen for organizer image updates dispatched after upload.
+  useEffect(() => {
+    function onOrgImageUpdated(e: Event) {
+      const { organizerId: updatedId, url } = (e as CustomEvent<{ organizerId: string; url: string }>).detail ?? {};
+      if (url && updatedId === activeOrganizer?.organizerId) setOrgImageOverride(url);
+    }
+    window.addEventListener("outsy:org-image-updated", onOrgImageUpdated);
+    return () => window.removeEventListener("outsy:org-image-updated", onOrgImageUpdated);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrganizer?.organizerId]);
+
+  const avatarUrl = avatarOverride ?? profileAvatar ?? null;
+  // avatarReady: true once we know what to show. avatarOverride bypasses the
+  // profile fetch wait so post-upload feedback is instant.
+  const avatarReady = avatarOverride !== null || profileLoaded;
   const initials = (() => {
     const name = meta?.full_name;
     if (!name) return (user?.email?.[0] ?? "?").toUpperCase();
@@ -65,14 +90,6 @@ export function AppTopBar() {
       .join("")
       .toUpperCase();
   })();
-
-  // Derived organizer logo color (same deterministic hash used across the app).
-  const ORG_LOGO_COLORS = ["#1e3a5f","#2d4a1e","#4a1e2d","#1e2d4a","#3a2d1e","#1e4a3a"];
-  function orgLogoColor(name: string) {
-    let h = 0;
-    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-    return ORG_LOGO_COLORS[h % ORG_LOGO_COLORS.length];
-  }
 
   // When in organizer mode, tap target goes to the org's public profile page.
   const avatarHref = activeOrganizer
@@ -116,7 +133,8 @@ export function AppTopBar() {
               borderRadius: 9,
               border: "1.5px solid rgba(94,168,255,0.30)",
               overflow: "hidden",
-              background: orgLogoColor(activeOrganizer.name),
+              background: avatarGradient(activeOrganizer.name),
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.28)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -124,14 +142,14 @@ export function AppTopBar() {
               textDecoration: "none",
             }}
           >
-            {activeOrganizer.image_url ? (
+            {(orgImageOverride ?? activeOrganizer.custom_image_url) ? (
               <img
-                src={activeOrganizer.image_url}
+                src={orgImageOverride ?? activeOrganizer.custom_image_url!}
                 alt={activeOrganizer.name}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
-              <span style={{ fontSize: 14, fontWeight: 800, color: "rgba(255,255,255,0.90)", userSelect: "none" }}>
+              <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.02em", color: "#ffffff", userSelect: "none" }}>
                 {activeOrganizer.name.slice(0, 1).toUpperCase()}
               </span>
             )}
@@ -147,7 +165,7 @@ export function AppTopBar() {
               borderRadius: "50%",
               border: "1.5px solid rgba(255,255,255,0.08)",
               overflow: "hidden",
-              background: "rgba(18,26,36,0.70)",
+              background: !avatarReady || avatarUrl ? "transparent" : avatarGradient(meta?.full_name ?? user?.email?.split("@")[0] ?? null),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -155,14 +173,17 @@ export function AppTopBar() {
               textDecoration: "none",
             }}
           >
-            {avatarUrl ? (
+            {!avatarReady ? (
+              /* Skeleton while profile fetch is in flight — never flashes Google photo */
+              <div style={{ width: "100%", height: "100%", background: "rgba(255,255,255,0.08)" }} />
+            ) : avatarUrl ? (
               <img
                 src={avatarUrl}
                 alt="Avatar"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F7FA" }}>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "-0.02em", color: "#ffffff", userSelect: "none" }}>
                 {initials}
               </span>
             )}

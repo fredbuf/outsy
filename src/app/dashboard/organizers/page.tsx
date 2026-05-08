@@ -3,13 +3,9 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/components/AuthProvider";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const LOGO_COLORS = [
-  "#1e3a5f", "#2d4a1e", "#4a1e2d",
-  "#1e2d4a", "#3a2d1e", "#1e4a3a",
-];
 
 const TYPE_LABELS: Record<string, string> = {
   venue: "Venue",
@@ -30,18 +26,6 @@ const ROLE_LABELS: Record<string, string> = {
   editor: "Editor",
 };
 
-function getLogoColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[hash % LOGO_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type OrganizerEntry = {
@@ -50,6 +34,7 @@ type OrganizerEntry = {
   type: string;
   slug: string | null;
   image_url: string | null;
+  custom_image_url: string | null;
   role: string;
 };
 
@@ -278,41 +263,7 @@ export default function OrganizerDashboardPage() {
               }}
             >
               {/* Logo */}
-              {org.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={org.image_url}
-                  alt={org.name}
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    objectFit: "cover",
-                    flexShrink: 0,
-                    border: "1px solid var(--border-medium)",
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    background: getLogoColor(org.name),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 17,
-                    fontWeight: 800,
-                    letterSpacing: "-0.02em",
-                    color: "rgba(255,255,255,0.85)",
-                    flexShrink: 0,
-                    userSelect: "none",
-                  }}
-                >
-                  {getInitials(org.name)}
-                </div>
-              )}
+              <GeneratedAvatar name={org.name} imageUrl={org.custom_image_url} shape="square" size={48} borderRadius={12} />
 
               {/* Text */}
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>

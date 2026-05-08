@@ -25,6 +25,7 @@ export type UserSearchResult = {
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  custom_avatar_url: string | null;
   friendship: FriendshipInfo;
 };
 
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
   // Exclude the caller — you cannot add yourself
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id,display_name,username,avatar_url")
+    .select("id,display_name,username,avatar_url,custom_avatar_url")
     .or(`display_name.ilike.${pattern},username.ilike.${pattern}`)
     .neq("id", user.id)
     .limit(10);
@@ -93,6 +94,7 @@ export async function GET(req: Request) {
     display_name: p.display_name,
     username: p.username,
     avatar_url: p.avatar_url,
+    custom_avatar_url: (p as { custom_avatar_url?: string | null }).custom_avatar_url ?? null,
     friendship: friendshipMap.get(p.id) ?? null,
   }));
 

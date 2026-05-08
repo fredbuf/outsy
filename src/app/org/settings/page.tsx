@@ -7,21 +7,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import { useActiveOrganizer } from "@/app/components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
-// ── Colour helpers ─────────────────────────────────────────────────────────────
-
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
-const AVATAR_COLORS = ["#7c3aed", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1", "#14b8a6"];
-
-function logoColor(name: string) {
-  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[h % LOGO_COLORS.length];
-}
-function avatarColor(name: string | null) {
-  if (!name) return AVATAR_COLORS[0];
-  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
 function initials(name: string | null) {
   if (!name) return "?";
   const p = name.trim().split(/\s+/);
@@ -108,24 +95,7 @@ function MemberRow({
       }}
     >
       {/* Avatar */}
-      {member.avatarUrl ? (
-        <img
-          src={member.avatarUrl}
-          alt=""
-          style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }}
-        />
-      ) : (
-        <div
-          style={{
-            width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-            background: avatarColor(displayName),
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none",
-          }}
-        >
-          {initials(displayName)}
-        </div>
-      )}
+      <GeneratedAvatar name={displayName} imageUrl={member.avatarUrl} size={38} />
 
       {/* Name + handle */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -473,7 +443,7 @@ export default function OrgSettingsPage() {
 
   if (!activeOrganizer) return null;
 
-  const { organizerId, name, image_url, slug } = activeOrganizer;
+  const { organizerId, name, custom_image_url, slug } = activeOrganizer;
   const showMembers = ["owner", "admin"].includes(activeOrganizer.role);
 
   return (
@@ -522,13 +492,7 @@ export default function OrgSettingsPage() {
         >
           {/* Identity card */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-            {image_url ? (
-              <img src={image_url} alt={name} style={{ width: 44, height: 44, borderRadius: 11, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }} />
-            ) : (
-              <div style={{ width: 44, height: 44, borderRadius: 11, flexShrink: 0, background: logoColor(name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
-                {initials(name)}
-              </div>
-            )}
+            <GeneratedAvatar name={name} imageUrl={custom_image_url} shape="square" size={44} borderRadius={11} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{name}</div>
               <div style={{ fontSize: 12, opacity: 0.4, marginTop: 1, textTransform: "capitalize" }}>{activeOrganizer.type}</div>
@@ -675,13 +639,7 @@ export default function OrgSettingsPage() {
           onClick={() => { setActiveOrganizer(null); router.push("/profile"); }}
           style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", marginBottom: 6, borderRadius: 14, border: "1px solid var(--border-strong)", background: "var(--surface-raised)", cursor: "pointer", color: "inherit", textAlign: "left" }}
         >
-          {personalAvatar ? (
-            <img src={personalAvatar} alt="" style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }} />
-          ) : (
-            <div style={{ width: 38, height: 38, borderRadius: "50%", flexShrink: 0, background: avatarColor(personalName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none" }}>
-              {initials(personalName)}
-            </div>
-          )}
+          <GeneratedAvatar name={personalName} imageUrl={personalAvatar} size={38} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{personalName}</div>
             <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1 }}>Personal account</div>
@@ -698,13 +656,7 @@ export default function OrgSettingsPage() {
               onClick={() => { setActiveOrganizer(org); router.push(org.slug ? `/o/${org.slug}` : "/org"); }}
               style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px", marginBottom: 6, borderRadius: 14, border: "1px solid var(--border-strong)", background: "var(--surface-raised)", cursor: "pointer", color: "inherit", textAlign: "left" }}
             >
-              {org.image_url ? (
-                <img src={org.image_url} alt={org.name} style={{ width: 38, height: 38, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }} />
-              ) : (
-                <div style={{ width: 38, height: 38, borderRadius: 9, flexShrink: 0, background: logoColor(org.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
-                  {initials(org.name)}
-                </div>
-              )}
+              <GeneratedAvatar name={org.name} imageUrl={org.custom_image_url} shape="square" size={38} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{org.name}</div>
                 <div style={{ fontSize: 11, opacity: 0.4, marginTop: 1, textTransform: "capitalize" }}>{org.type}</div>

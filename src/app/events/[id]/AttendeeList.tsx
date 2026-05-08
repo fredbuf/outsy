@@ -6,10 +6,11 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Attendee = { display_name: string | null; avatar_url: string | null; userId?: string | null };
+type Attendee = { display_name: string | null; avatar_url: string | null; custom_avatar_url?: string | null; userId?: string | null };
 type FullAttendee = Attendee & {
   response: "going" | "maybe" | "cant_go";
   username?: string | null;
@@ -19,37 +20,18 @@ type RpcRow = {
   response: string;
   display_name: string | null;
   avatar_url: string | null;
+  custom_avatar_url: string | null;
   username: string | null;
 };
 type OrgProfile = {
   id: string;
   display_name: string | null;
   avatar_url: string | null;
+  custom_avatar_url?: string | null;
   username?: string | null;
 };
 
 type Tab = "going" | "maybe" | "cant_go";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#14b8a6", "#6366f1", "#0284c7",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 // ── AvatarCircle ──────────────────────────────────────────────────────────────
 
@@ -58,34 +40,18 @@ function AvatarCircle({
   size,
   stackBorder,
 }: {
-  a: { display_name: string | null; avatar_url: string | null };
+  a: { display_name: string | null; avatar_url: string | null; custom_avatar_url?: string | null };
   size: number;
   stackBorder?: boolean;
 }) {
-  const border = stackBorder ? "2px solid var(--background)" : "none";
-  return a.avatar_url ? (
-    <img
-      src={a.avatar_url}
-      alt={a.display_name ?? ""}
-      title={a.display_name ?? undefined}
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        objectFit: "cover", border, display: "block", flexShrink: 0,
-      }}
+  const border = stackBorder ? "2px solid var(--background)" : undefined;
+  return (
+    <GeneratedAvatar
+      name={a.display_name}
+      imageUrl={a.custom_avatar_url ?? a.avatar_url ?? null}
+      size={size}
+      style={{ border, flexShrink: 0 }}
     />
-  ) : (
-    <div
-      title={a.display_name ?? undefined}
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        background: getAvatarColor(a.display_name), border,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: Math.round(size * 0.36), fontWeight: 700,
-        color: "#fff", userSelect: "none", flexShrink: 0,
-      }}
-    >
-      {getInitials(a.display_name)}
-    </div>
   );
 }
 
@@ -211,7 +177,7 @@ export function AttendeeList({
   token: string | null;
   avatarSize?: number;
   creatorId?: string | null;
-  creator?: { display_name: string | null; avatar_url: string | null; username: string | null } | null;
+  creator?: { display_name: string | null; avatar_url: string | null; custom_avatar_url?: string | null; username: string | null } | null;
   cohostProfiles?: OrgProfile[];
 }) {
   const router = useRouter();
@@ -268,6 +234,7 @@ export function AttendeeList({
     const attendees: FullAttendee[] = ((data as RpcRow[]) ?? []).map((row) => ({
       display_name: row.display_name,
       avatar_url: row.avatar_url,
+      custom_avatar_url: row.custom_avatar_url,
       userId: row.user_id,
       username: row.username,
       response: row.response as "going" | "maybe" | "cant_go",
@@ -328,7 +295,7 @@ export function AttendeeList({
                 key={i}
                 style={{ marginLeft: i === 0 ? 0 : -(avatarSize * 0.27), zIndex: visibleAvatars.length - i, position: "relative" }}
               >
-                <AvatarCircle a={a} size={avatarSize} stackBorder />
+                <AvatarCircle a={a} size={avatarSize} />
               </div>
             ))}
           </div>

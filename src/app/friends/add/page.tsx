@@ -6,26 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { UserSearchResult } from "@/app/api/users/search/route";
 
-// ── Avatar helpers ─────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Local state ────────────────────────────────────────────────────────────────
 
@@ -44,25 +25,7 @@ function initialButtonState(result: UserSearchResult): ButtonState {
 
 function Avatar({ result }: { result: UserSearchResult }) {
   const label = result.display_name ?? result.username ?? null;
-  return result.avatar_url ? (
-    <img
-      src={result.avatar_url}
-      alt={label ?? ""}
-      style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-    />
-  ) : (
-    <div
-      style={{
-        width: 44, height: 44, borderRadius: "50%",
-        background: getAvatarColor(label),
-        flexShrink: 0, display: "flex", alignItems: "center",
-        justifyContent: "center", fontSize: 15, fontWeight: 700,
-        color: "#fff", userSelect: "none",
-      }}
-    >
-      {getInitials(label)}
-    </div>
-  );
+  return <GeneratedAvatar name={label} imageUrl={result.avatar_url} size={44} />;
 }
 
 function AddButton({

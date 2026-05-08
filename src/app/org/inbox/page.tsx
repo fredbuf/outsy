@@ -7,20 +7,10 @@ import { useAuth } from "@/app/components/AuthProvider";
 import { useActiveOrganizer } from "@/app/components/ActiveOrganizerContext";
 import type { OrgConversationPreview } from "@/app/api/organizers/[id]/messages/route";
 import type { ActivityItem } from "@/app/api/social/activity/route";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const AVATAR_COLORS = ["#7c3aed","#0ea5e9","#10b981","#f59e0b","#ef4444","#ec4899","#6366f1","#14b8a6"];
-function getAvatarColor(name: string | null) {
-  if (!name) return AVATAR_COLORS[0];
-  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
-function getInitials(name: string | null) {
-  if (!name) return "?";
-  const p = name.trim().split(/\s+/);
-  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : name.slice(0, 2).toUpperCase();
-}
 function relativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -52,13 +42,7 @@ function ConversationRow({ conv, orgId }: { conv: OrgConversationPreview; orgId:
         background: isUnread ? "rgba(94,168,255,0.07)" : "rgba(255,255,255,0.04)",
       }}>
         <div style={{ position: "relative", flexShrink: 0 }}>
-          {conv.avatar_url ? (
-            <img src={conv.avatar_url} alt={name} style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover" }} />
-          ) : (
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: getAvatarColor(name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#fff" }}>
-              {getInitials(name)}
-            </div>
-          )}
+          <GeneratedAvatar name={name} imageUrl={conv.custom_avatar_url ?? null} size={44} />
           {isUnread && <span aria-hidden style={{ position: "absolute", bottom: 1, right: 1, width: 10, height: 10, borderRadius: "50%", background: "#5EA8FF", border: "2px solid #0d0b14" }} />}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -80,13 +64,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
   const actorName = item.actor.display_name ?? item.actor.username ?? "Someone";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-      {item.actor.avatar_url ? (
-        <img src={item.actor.avatar_url} alt={actorName} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-      ) : (
-        <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(actorName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-          {getInitials(actorName)}
-        </div>
-      )}
+      <GeneratedAvatar name={actorName} imageUrl={item.actor.custom_avatar_url ?? null} size={40} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, lineHeight: 1.4 }}>
           <span style={{ fontWeight: 600 }}>{actorName}</span>{" "}

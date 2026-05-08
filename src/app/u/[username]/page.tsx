@@ -7,13 +7,14 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { FriendshipButton } from "@/app/profile/[userId]/FriendshipButton";
 import { BackButton } from "@/app/events/[id]/BackButton";
 import { PublicProfileCounters, type PublicEvent } from "./PublicProfileCounters";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── DB queries ─────────────────────────────────────────────────────────────────
 
 const fetchProfile = cache(async (username: string) => {
   const { data } = await supabaseServer()
     .from("profiles")
-    .select("id,display_name,avatar_url,username")
+    .select("id,display_name,avatar_url,custom_avatar_url,username")
     .eq("username", username)
     .maybeSingle();
   return data;
@@ -62,25 +63,6 @@ async function fetchFollowingCount(userId: string): Promise<number> {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 // ── Metadata ───────────────────────────────────────────────────────────────────
 
@@ -165,27 +147,7 @@ export default async function UserProfilePage({
 
           {/* Avatar — absolute, overlapping glass card from above */}
           <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={displayName}
-                style={{
-                  width: 96, height: 96, borderRadius: "50%",
-                  objectFit: "cover", display: "block",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
-                }}
-              />
-            ) : (
-              <div style={{
-                width: 96, height: 96, borderRadius: "50%",
-                background: getAvatarColor(displayName),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 32, fontWeight: 700, color: "#fff", userSelect: "none",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
-              }}>
-                {getInitials(displayName)}
-              </div>
-            )}
+            <GeneratedAvatar name={displayName} imageUrl={profile.custom_avatar_url} size={96} style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.45)" }} />
           </div>
 
           {/* Glass identity card */}

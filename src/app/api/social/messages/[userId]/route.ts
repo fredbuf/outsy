@@ -60,7 +60,7 @@ export async function GET(
 
     supabase
       .from("profiles")
-      .select("id,display_name,username,avatar_url")
+      .select("id,display_name,username,avatar_url,custom_avatar_url")
       .eq("id", otherId)
       .maybeSingle(),
   ]);

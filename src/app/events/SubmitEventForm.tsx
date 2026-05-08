@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthProvider";
 import { useActiveOrganizer } from "../components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { GeneratedAvatar } from "../components/GeneratedAvatar";
 
 export type FormState = {
   title: string;
@@ -46,36 +47,6 @@ const initialForm: FormState = {
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 5 * 1024 * 1024;
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-const LOGO_COLORS = [
-  "#1e3a5f", "#2d4a1e", "#4a1e2d",
-  "#1e2d4a", "#3a2d1e", "#1e4a3a",
-];
-
-function getLogoColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[hash % LOGO_COLORS.length];
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 export function SubmitEventForm({
   onSignInRequest,
@@ -466,70 +437,16 @@ export function SubmitEventForm({
             </span>
 
             {activeOrganizer ? (
-              /* Organizer rounded-square logo */
-              activeOrganizer.image_url ? (
-                <img
-                  src={activeOrganizer.image_url}
-                  alt={activeOrganizer.name}
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 6,
-                    objectFit: "cover",
-                    flexShrink: 0,
-                  }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: 6,
-                    background: getLogoColor(activeOrganizer.name),
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    color: "rgba(255,255,255,0.85)",
-                    flexShrink: 0,
-                    userSelect: "none",
-                  }}
-                >
-                  {activeOrganizer.name.slice(0, 1).toUpperCase()}
-                </div>
-              )
-            ) : avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
+              <GeneratedAvatar
+                name={activeOrganizer.name}
+                imageUrl={activeOrganizer.custom_image_url ?? activeOrganizer.image_url}
+                shape="square"
+                size={26}
+                borderRadius={6}
+                initials={activeOrganizer.name.slice(0, 1).toUpperCase()}
               />
             ) : (
-              <div
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  background: getAvatarColor(displayName),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#fff",
-                  flexShrink: 0,
-                  userSelect: "none",
-                }}
-              >
-                {getInitials(displayName)}
-              </div>
+              <GeneratedAvatar name={displayName} imageUrl={avatarUrl} size={26} />
             )}
 
             <span

@@ -8,6 +8,7 @@ import { useAuth } from "../components/AuthProvider";
 import { useActiveOrganizer } from "../components/ActiveOrganizerContext";
 import { useBottomNav } from "../components/BottomNavContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { GeneratedAvatar } from "../components/GeneratedAvatar";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,8 @@ type Profile = {
   id: string;
   display_name: string | null;
   username: string | null;
-  avatar_url: string | null;
+  avatar_url: string | null;        // legacy – may be a Google OAuth URL; do not use for display
+  custom_avatar_url: string | null; // user-uploaded via Outsy; use this for display
 };
 
 type EventRow = {
@@ -42,29 +44,10 @@ type FollowedOrg = {
   type: string | null;
   slug: string | null;
   image_url: string | null;
+  custom_image_url?: string | null;
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("en-CA", {
@@ -309,7 +292,7 @@ export default function ProfilePage() {
         .select("organizer_id, organizers(id,name,type,slug,image_url)")
         .eq("user_id", user!.id),
     ])
-      .then(([profileJson, friendsJson, orgFollowResult, orgFollowRows]) => {
+      .then(async ([profileJson, friendsJson, orgFollowResult, orgFollowRows]) => {
         if (profileJson?.ok) {
           setProfile(profileJson.profile);
           setEvents(profileJson.events ?? []);
@@ -322,12 +305,26 @@ export default function ProfilePage() {
           setFriends(friendsJson.friends ?? []);
         }
         setOrgFollowingCount(orgFollowResult.count ?? 0);
-        const orgs: FollowedOrg[] = ((orgFollowRows.data ?? []) as { organizers: FollowedOrg | FollowedOrg[] | null }[])
+        const baseOrgs: FollowedOrg[] = ((orgFollowRows.data ?? []) as { organizers: FollowedOrg | FollowedOrg[] | null }[])
           .flatMap((r) => {
             const o = Array.isArray(r.organizers) ? r.organizers[0] : r.organizers;
             return o ? [o] : [];
           });
-        setFollowedOrgs(orgs);
+
+        // Enrich with custom_image_url — separate query so a schema-cache miss
+        // never wipes the followed-org list.
+        const orgIds = baseOrgs.map((o) => o.id);
+        const customImageMap = new Map<string, string | null>();
+        if (orgIds.length > 0) {
+          const { data: customRows } = await supabaseBrowser()
+            .from("organizers")
+            .select("id, custom_image_url")
+            .in("id", orgIds);
+          for (const row of (customRows ?? []) as { id: string; custom_image_url?: string | null }[]) {
+            customImageMap.set(row.id, row.custom_image_url ?? null);
+          }
+        }
+        setFollowedOrgs(baseOrgs.map((o) => ({ ...o, custom_image_url: customImageMap.get(o.id) ?? null })));
       })
       .finally(() => setFetching(false));
 
@@ -416,7 +413,7 @@ export default function ProfilePage() {
     const json = await res.json();
     setUploadingAvatar(false);
     if (json?.ok) {
-      setProfile((prev) => (prev ? { ...prev, avatar_url: json.url } : prev));
+      setProfile((prev) => (prev ? { ...prev, custom_avatar_url: json.url } : prev));
       // Notify all listeners (e.g. AppTopBar) that the avatar has changed.
       // This is more reliable than relying on JWT refresh propagation because
       // user_metadata in the Supabase JWT comes from the OAuth provider and
@@ -560,31 +557,28 @@ export default function ProfilePage() {
         </button>
 
         {/* Avatar + glass card wrapper */}
-        <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 48, marginTop: 8 }}>
+        <div style={{ position: "relative", width: "100%", maxWidth: 360, paddingTop: 56, marginTop: 8 }}>
 
           {/* Avatar — absolute, overlapping glass card from above */}
           <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
             <div style={{ position: "relative", width: 96, height: 96 }}>
-              {profile?.avatar_url ? (
+              {profile?.custom_avatar_url ? (
                 <img
-                  src={profile.avatar_url}
+                  src={profile.custom_avatar_url}
                   alt={avatarLabel ?? ""}
                   style={{
                     width: 96, height: 96, borderRadius: "50%",
                     objectFit: "cover", display: "block",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
+                    boxShadow: "0 8px 28px rgba(0,0,0,0.55)",
                   }}
                 />
               ) : (
-                <div style={{
-                  width: 96, height: 96, borderRadius: "50%",
-                  background: getAvatarColor(avatarLabel),
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 32, fontWeight: 700, color: "#fff", userSelect: "none",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
-                }}>
-                  {getInitials(avatarLabel)}
-                </div>
+                <GeneratedAvatar
+                  name={avatarLabel}
+                  size={96}
+                  shape="circle"
+                  style={{ boxShadow: "0 8px 28px rgba(0,0,0,0.55)" }}
+                />
               )}
               {/* Camera badge */}
               <button
@@ -619,59 +613,60 @@ export default function ProfilePage() {
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
             border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.13)",
             borderRadius: 24,
-            paddingTop: 60,
+            paddingTop: 52,
             paddingBottom: 20,
-            paddingLeft: 16,
-            paddingRight: 16,
+            paddingLeft: 20,
+            paddingRight: 20,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: 4,
           }}>
             {/* Name */}
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
+            <div style={{ fontSize: 30, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
               {profile?.display_name ?? avatarLabel ?? "Anonymous"}
             </div>
             {/* Handle */}
             {(globalHandle ?? profile?.username) && (
-              <div style={{ fontSize: 11, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
+              <div style={{ fontSize: 12, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
                 @{globalHandle ?? profile?.username}
               </div>
             )}
 
             {/* Stats row */}
-            <div style={{ display: "flex", width: "100%", marginTop: 10 }}>
+            <div style={{ display: "flex", width: "100%", marginTop: 12 }}>
               <button
                 type="button"
                 onClick={() => { setActiveSheet("friends"); setSheetSearch(""); router.replace("/profile?sheet=friends", { scroll: false }); }}
-                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", color: "inherit" }}
               >
                 <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{friends.length}</span>
-                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Friends</span>
+                <span style={{ fontSize: 8, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Friends</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setActiveSheet("following"); setSheetSearch(""); router.replace("/profile?sheet=following", { scroll: false }); }}
-                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", color: "inherit" }}
               >
                 <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{orgFollowingCount}</span>
-                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Following</span>
+                <span style={{ fontSize: 8, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Following</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setActiveSheet("events"); setSheetSearch(""); router.replace("/profile?sheet=events", { scroll: false }); }}
-                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "4px 4px", color: "inherit" }}
+                style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "8px 4px", color: "inherit" }}
               >
                 <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: "#FFFFFF" }}>{goingEvents.length + interestedEvents.length + events.length}</span>
-                <span style={{ fontSize: 7, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.04em", textTransform: "uppercase" }}>Events</span>
+                <span style={{ fontSize: 8, fontWeight: 500, color: "#8C98A8", letterSpacing: "0.05em", textTransform: "uppercase" }}>Events</span>
               </button>
             </div>
           </div>
         </div>
 
         {/* Action buttons — below the glass card */}
-        <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 10, marginTop: 22, flexWrap: "wrap", justifyContent: "center" }}>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
@@ -752,13 +747,7 @@ export default function ProfilePage() {
                     onClick={() => setActiveSheet(null)}
                     style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 2px", textDecoration: "none", color: "inherit", borderBottom: "1px solid rgba(255,255,255,0.07)", borderRadius: 2 }}
                   >
-                    {f.avatar_url ? (
-                      <img src={f.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: getAvatarColor(f.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                        {getInitials(f.display_name)}
-                      </div>
-                    )}
+                    <GeneratedAvatar name={f.display_name} imageUrl={f.avatar_url} size={40} />
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{f.display_name ?? "Unknown"}</div>
                       {f.username && <div style={{ fontSize: 12, opacity: 0.5 }}>@{f.username}</div>}
@@ -806,22 +795,7 @@ export default function ProfilePage() {
                       borderBottom: "1px solid rgba(255,255,255,0.07)",
                     }}
                   >
-                    {org.image_url ? (
-                      <img
-                        src={org.image_url}
-                        alt={org.name}
-                        style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover", flexShrink: 0 }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: 44, height: 44, borderRadius: 10,
-                        background: getAvatarColor(org.name),
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0,
-                      }}>
-                        {getInitials(org.name)}
-                      </div>
-                    )}
+                    <GeneratedAvatar name={org.name} imageUrl={org.custom_image_url} shape="square" size={44} borderRadius={10} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{org.name}</div>
                       {org.type && (
@@ -963,23 +937,7 @@ export default function ProfilePage() {
                   opacity: uploadingAvatar ? 0.6 : 1,
                 }}
               >
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt=""
-                    style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", display: "block", border: "2px solid rgba(255,255,255,0.14)" }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 80, height: 80, borderRadius: "50%",
-                    background: getAvatarColor(avatarLabel),
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 26, fontWeight: 700, color: "#fff", userSelect: "none",
-                    border: "2px solid rgba(255,255,255,0.14)",
-                  }}>
-                    {getInitials(avatarLabel)}
-                  </div>
-                )}
+                <GeneratedAvatar name={avatarLabel} imageUrl={profile?.custom_avatar_url ?? null} size={80} style={{ border: "2px solid rgba(255,255,255,0.14)" }} />
                 {/* Camera badge */}
                 <div style={{
                   position: "absolute", bottom: 0, right: 0,
@@ -1148,22 +1106,7 @@ export default function ProfilePage() {
                   }}
                 >
                   {/* Avatar */}
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt=""
-                      style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1.5px solid var(--border-medium)" }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                      background: getAvatarColor(avatarLabel),
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 13, fontWeight: 700, color: "#fff", userSelect: "none",
-                    }}>
-                      {getInitials(avatarLabel)}
-                    </div>
-                  )}
+                  <GeneratedAvatar name={avatarLabel} imageUrl={profile?.custom_avatar_url ?? null} size={36} style={{ flexShrink: 0, border: "1.5px solid var(--border-medium)" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                       {profile?.display_name ?? avatarLabel ?? "You"}
@@ -1184,10 +1127,6 @@ export default function ProfilePage() {
                 ) : (
                   orgPages.map((org) => {
                     const isActive = activeOrganizer?.organizerId === org.organizerId;
-                    const logoColors = ["#1e3a5f","#2d4a1e","#4a1e2d","#1e2d4a","#3a2d1e","#1e4a3a"];
-                    let h = 0; for (let i = 0; i < org.name.length; i++) h = (h * 31 + org.name.charCodeAt(i)) & 0xffff;
-                    const logoColor = logoColors[h % logoColors.length];
-                    const initials2 = (() => { const p = org.name.trim().split(/\s+/); return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : org.name.slice(0,2).toUpperCase(); })();
                     const typeLabels: Record<string,string> = { venue:"Venue",promoter:"Promoter",artist:"Artist",business:"Business",festival:"Festival",collective:"Collective",brand:"Brand",nonprofit:"Non-profit",school:"School",other:"Organizer" };
 
                     return (
@@ -1198,13 +1137,7 @@ export default function ProfilePage() {
                           onClick={() => setSettingsOpen(false)}
                           style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}
                         >
-                          {org.image_url ? (
-                            <img src={org.image_url} alt={org.name} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid var(--border-medium)" }} />
-                          ) : (
-                            <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: logoColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
-                              {initials2}
-                            </div>
-                          )}
+                          <GeneratedAvatar name={org.name} imageUrl={org.custom_image_url ?? org.image_url} shape="square" size={36} borderRadius={9} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{org.name}</div>
                             <div style={{ fontSize: 11, opacity: 0.45, marginTop: 1 }}>{typeLabels[org.type] ?? org.type}</div>

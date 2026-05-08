@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase-server";
 import { FriendshipButton } from "./FriendshipButton";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 import { BackButton } from "../../events/[id]/BackButton";
 
 // ── DB queries ────────────────────────────────────────────────────────────────
@@ -13,7 +14,7 @@ import { BackButton } from "../../events/[id]/BackButton";
 const fetchProfile = cache(async (userId: string) => {
   const { data } = await supabaseServer()
     .from("profiles")
-    .select("id,display_name,avatar_url,username")
+    .select("id,display_name,avatar_url,custom_avatar_url,username")
     .eq("id", userId)
     .maybeSingle();
   return data;
@@ -68,25 +69,6 @@ async function fetchPastEvents(creatorId: string): Promise<HostedEvent[]> {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("en-CA", {
@@ -207,7 +189,7 @@ export async function generateMetadata({
     description: `Events hosted by ${name} on Outsy Montréal`,
     openGraph: {
       title: `${name} | Outsy`,
-      images: profile.avatar_url ? [{ url: profile.avatar_url }] : [],
+      images: (profile.custom_avatar_url ?? profile.avatar_url) ? [{ url: (profile.custom_avatar_url ?? profile.avatar_url)! }] : [],
     },
   };
 }
@@ -276,9 +258,9 @@ export default async function PublicProfilePage({
 
           {/* Avatar — absolute, overlapping glass card from above */}
           <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", zIndex: 2 }}>
-            {profile.avatar_url ? (
+            {profile.custom_avatar_url ? (
               <img
-                src={profile.avatar_url}
+                src={profile.custom_avatar_url}
                 alt={displayName}
                 style={{
                   width: 96, height: 96, borderRadius: "50%",
@@ -287,15 +269,7 @@ export default async function PublicProfilePage({
                 }}
               />
             ) : (
-              <div style={{
-                width: 96, height: 96, borderRadius: "50%",
-                background: getAvatarColor(displayName),
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 32, fontWeight: 700, color: "#fff", userSelect: "none",
-                boxShadow: "0 4px 20px rgba(0,0,0,0.45)",
-              }}>
-                {getInitials(displayName)}
-              </div>
+              <GeneratedAvatar name={displayName} size={96} style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.45)" }} />
             )}
           </div>
 

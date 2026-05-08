@@ -5,23 +5,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { FriendProfile } from "@/app/api/friends/route";
-
-// ── Avatar helpers ─────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-function avatarColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -342,24 +326,7 @@ export function InviteFriendsButton({ eventId, large }: { eventId: string; large
                       }}
                     >
                       {/* Avatar */}
-                      {friend.avatar_url ? (
-                        <img
-                          src={friend.avatar_url}
-                          alt=""
-                          style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 40, height: 40, borderRadius: "50%",
-                            background: avatarColor(name), flexShrink: 0,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            fontSize: 14, fontWeight: 700, color: "#fff", userSelect: "none",
-                          }}
-                        >
-                          {initials(name)}
-                        </div>
-                      )}
+                      <GeneratedAvatar name={name} imageUrl={friend.avatar_url} size={40} style={{ flexShrink: 0 }} />
 
                       {/* Name + username */}
                       <div style={{ flex: 1, minWidth: 0 }}>

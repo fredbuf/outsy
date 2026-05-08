@@ -30,12 +30,12 @@ export async function GET(
     followedIds.length > 0
       ? ((await supabase
           .from("organizers")
-          .select("id, name, slug, image_url, type")
+          .select("id, name, slug, image_url, custom_image_url, type")
           .in("id", followedIds)).data ?? [])
       : [];
 
   const orgMap = new Map(
-    (followedOrgs as { id: string; name: string; slug: string | null; image_url: string | null; type: string | null }[])
+    (followedOrgs as { id: string; name: string; slug: string | null; image_url: string | null; custom_image_url: string | null; type: string | null }[])
       .map((o) => [o.id, o]),
   );
   // Return in insertion order (most recent first).

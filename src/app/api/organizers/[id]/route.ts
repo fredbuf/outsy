@@ -208,7 +208,7 @@ export async function PATCH(
     .from("organizers")
     .update(patch)
     .eq("id", id)
-    .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url,image_url")
+    .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url,image_url,custom_image_url")
     .single();
 
   if (updateError || !organizer) {

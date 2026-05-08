@@ -22,6 +22,7 @@ type Organizer = {
   tiktok_url: string | null;
   youtube_url: string | null;
   image_url: string | null;
+  custom_image_url: string | null;
 };
 
 type OrgEvent = {
@@ -38,7 +39,7 @@ type OrgEvent = {
 const fetchOrganizer = cache(async (slug: string): Promise<Organizer | null> => {
   const { data } = await supabaseServer()
     .from("organizers")
-    .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url,image_url")
+    .select("id,name,type,slug,bio,website_url,instagram_url,tiktok_url,youtube_url,image_url,custom_image_url")
     .eq("slug", slug)
     .maybeSingle();
   return data as Organizer | null;
@@ -309,32 +310,32 @@ export default async function OrganizerPage({
           organizerId={organizer.id}
           organizerName={organizer.name}
           organizerSlug={organizer.slug ?? null}
-          organizerImageUrl={organizer.image_url}
+          organizerCustomImageUrl={organizer.custom_image_url}
         >
           {/* ── Glass card contents ── */}
 
           {/* Name */}
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.025em", lineHeight: 1.1, textAlign: "center" }}>
             {organizer.name}
           </div>
 
           {/* Handle */}
           {orgHandle && (
-            <div style={{ fontSize: 11, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
+            <div style={{ fontSize: 12, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
               @{orgHandle}
             </div>
           )}
 
           {/* Bio */}
           {organizer.bio && (
-            <p style={{ fontSize: 12, fontWeight: 500, color: "#8C98A8", textAlign: "center", margin: "4px 0 0", lineHeight: 1.55, maxWidth: 260 }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: "#8C98A8", textAlign: "center", margin: "6px 0 0", lineHeight: 1.6, maxWidth: 260 }}>
               {organizer.bio}
             </p>
           )}
 
           {/* Social pills */}
           {(organizer.website_url || organizer.instagram_url || organizer.tiktok_url || organizer.youtube_url) && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 8 }}>
               {organizer.website_url && (
                 <a
                   href={organizer.website_url}

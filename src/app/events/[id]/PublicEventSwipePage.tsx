@@ -14,15 +14,9 @@ import { ExpandableDescription } from "./ExpandableDescription";
 import { MomentsClient } from "./moments/MomentsClient";
 import type { MomentRow } from "./moments/page";
 import { BellIcon } from "./CustomIcons";
+import { GeneratedAvatar } from "../../components/GeneratedAvatar";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
 
 function getInitials(name: string | null): string {
   if (!name) return "?";
@@ -31,18 +25,6 @@ function getInitials(name: string | null): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
-
-function getLogoColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[hash % LOGO_COLORS.length];
-}
 
 function categoryBg(cat: string): string {
   switch (cat) {
@@ -129,7 +111,7 @@ type Props = {
   attendees: Attendee[];
   related: RelatedEvent[];
   sourceUrl: string | null;
-  organizers: { name: string; role: string; slug: string | null; image_url: string | null }[];
+  organizers: { name: string; role: string; slug: string | null; image_url: string | null; custom_image_url: string | null }[];
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
@@ -493,17 +475,15 @@ export function PublicEventSwipePage(props: Props) {
                           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
                             {/* Rounded-square logo */}
                             <div style={{ flexShrink: 0 }}>
-                              {o.image_url ? (
+                              {o.custom_image_url ? (
                                 <img
-                                  src={o.image_url}
+                                  src={o.custom_image_url}
                                   alt={o.name}
                                   width={32} height={32}
                                   style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", border: avatarBorder, display: "block" }}
                                 />
                               ) : (
-                                <div style={{ width: 32, height: 32, borderRadius: 8, background: getLogoColor(o.name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none", border: avatarBorder }}>
-                                  {getInitials(o.name)}
-                                </div>
+                                <GeneratedAvatar name={o.name} shape="square" size={32} borderRadius={8} style={{ border: avatarBorder }} />
                               )}
                             </div>
                             <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{o.name}</span>
@@ -529,18 +509,14 @@ export function PublicEventSwipePage(props: Props) {
                             <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
                               style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
                           ) : (
-                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator!.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
-                              {getInitials(creator!.display_name)}
-                            </div>
+                            <GeneratedAvatar name={creator!.display_name} size={28} style={{ border: avatarBorder }} />
                           )}
                         </Link>
                       ) : creator!.avatar_url ? (
                         <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
                           style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
                       ) : (
-                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: getAvatarColor(creator!.display_name), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", userSelect: "none", border: avatarBorder }}>
-                          {getInitials(creator!.display_name)}
-                        </div>
+                        <GeneratedAvatar name={creator!.display_name} size={28} style={{ border: avatarBorder }} />
                       )}
                     </div>
                   )}

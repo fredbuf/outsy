@@ -56,12 +56,12 @@ export async function GET(
     followerOrgIds.length > 0
       ? ((await supabase
           .from("organizers")
-          .select("id, name, slug, image_url, type")
+          .select("id, name, slug, image_url, custom_image_url, type")
           .in("id", followerOrgIds)).data ?? [])
       : [];
 
   const orgMap = new Map(
-    (followerOrgs as { id: string; name: string; slug: string | null; image_url: string | null; type: string | null }[])
+    (followerOrgs as { id: string; name: string; slug: string | null; image_url: string | null; custom_image_url: string | null; type: string | null }[])
       .map((o) => [o.id, o]),
   );
   const orgs = followerOrgIds.map((id) => orgMap.get(id)).filter(Boolean);

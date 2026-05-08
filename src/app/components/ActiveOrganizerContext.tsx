@@ -11,6 +11,7 @@ export type OrgEntry = {
   type: string;
   slug: string | null;
   image_url: string | null;
+  custom_image_url: string | null;
   role: string;
 };
 

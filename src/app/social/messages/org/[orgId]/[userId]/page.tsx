@@ -6,27 +6,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
 import type { OrgMessageRow } from "@/app/api/organizers/[id]/messages/route";
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
@@ -35,7 +17,7 @@ function formatTime(iso: string): string {
   });
 }
 
-type UserProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null };
+type UserProfile = { id: string; display_name: string | null; username: string | null; avatar_url: string | null; custom_avatar_url?: string | null };
 type OrgInfo = { id: string; name: string; slug: string | null; image_url: string | null };
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -157,23 +139,7 @@ export default function OrgMemberChatPage() {
   const otherName = otherUser?.display_name ?? otherUser?.username ?? "User";
 
   function UserAvatar({ size = 40 }: { size?: number }) {
-    if (otherUser?.avatar_url) {
-      return (
-        <img src={otherUser.avatar_url} alt={otherName}
-          style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-      );
-    }
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: "50%",
-        background: getAvatarColor(otherName),
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: Math.round(size * 0.35), fontWeight: 700, color: "#fff",
-        userSelect: "none", flexShrink: 0,
-      }}>
-        {getInitials(otherName)}
-      </div>
-    );
+    return <GeneratedAvatar name={otherName} imageUrl={otherUser?.custom_avatar_url ?? null} size={size} style={{ flexShrink: 0 }} />;
   }
 
   const orgName = organizer?.name ?? "Organizer";

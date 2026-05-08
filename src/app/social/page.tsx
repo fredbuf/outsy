@@ -10,24 +10,7 @@ import type { ActivityItem, MomentMeta } from "@/app/api/social/activity/route";
 import type { ConversationPreview } from "@/app/api/social/conversations/route";
 import type { UserSearchResult } from "@/app/api/users/search/route";
 
-// ── Avatar helpers ─────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  "#7c3aed", "#0ea5e9", "#10b981", "#f59e0b",
-  "#ef4444", "#ec4899", "#6366f1", "#14b8a6",
-];
-function getInitials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-function getAvatarColor(name: string | null): string {
-  if (!name) return AVATAR_COLORS[0];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
+import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 
 // ── Time helpers ───────────────────────────────────────────────────────────────
 
@@ -43,35 +26,9 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
 }
 
-// ── Small avatar circle ────────────────────────────────────────────────────────
-
-function AvatarCircle({
-  avatarUrl,
-  name,
-  size = 40,
-}: {
-  avatarUrl: string | null;
-  name: string | null;
-  size?: number;
-}) {
-  return avatarUrl ? (
-    <img
-      src={avatarUrl}
-      alt={name ?? ""}
-      style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-    />
-  ) : (
-    <div
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        background: getAvatarColor(name),
-        flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: Math.round(size * 0.35), fontWeight: 700, color: "#fff", userSelect: "none",
-      }}
-    >
-      {getInitials(name)}
-    </div>
-  );
+// AvatarCircle — thin alias so call sites don't need to be rewritten
+function AvatarCircle({ avatarUrl, name, size = 40 }: { avatarUrl: string | null; name: string | null; size?: number }) {
+  return <GeneratedAvatar name={name} imageUrl={avatarUrl} size={size} />;
 }
 
 // ── Activity tab ───────────────────────────────────────────────────────────────
@@ -121,7 +78,7 @@ function FriendRequestReceivedRow({
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
         <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
-          <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
+          <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={name} />
         </Link>
         <div style={{ flex: 1, fontSize: 14 }}>
           <span style={{ fontWeight: 600 }}>{name}</span> and you are now friends.
@@ -138,7 +95,7 @@ function FriendRequestReceivedRow({
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
       <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }}>
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
+        <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={name} />
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14 }}>
@@ -194,7 +151,7 @@ function EventInviteRow({ item, onRead }: { item: ActivityItem; onRead: () => vo
           style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block" }}
         />
       ) : (
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} size={52} />
+        <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={actorName} size={52} />
       )}
       {/* Inviter avatar overlaid at bottom-right — only when event image is present */}
       {item.event?.image_url && (
@@ -206,7 +163,7 @@ function EventInviteRow({ item, onRead }: { item: ActivityItem; onRead: () => vo
             lineHeight: 0, flexShrink: 0,
           }}
         >
-          <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} size={20} />
+          <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={actorName} size={20} />
         </div>
       )}
     </div>
@@ -253,7 +210,7 @@ function FriendRequestAcceptedRow({ item, onRead }: { item: ActivityItem; onRead
       onClick={onRead}
     >
       <Link href={`/profile/${item.actor.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={(e) => e.stopPropagation()}>
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={name} />
+        <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={name} />
       </Link>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14 }}>
@@ -289,7 +246,7 @@ function MomentPostedRow({
           cursor: "pointer",
         }}
       >
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+        <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={actorName} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 14, lineHeight: 1.35,
@@ -333,7 +290,7 @@ function MomentCommentRow({
         display: "flex", alignItems: "center", gap: 12,
         padding: "12px 0", borderBottom: "1px solid var(--border)", cursor: "pointer",
       }}>
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+        <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={actorName} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 14, lineHeight: 1.35,
@@ -377,7 +334,7 @@ function RsvpReceivedRow({
         display: "flex", alignItems: "center", gap: 12,
         padding: "12px 0", borderBottom: "1px solid var(--border)", cursor: "pointer",
       }}>
-        <AvatarCircle avatarUrl={item.actor.avatar_url} name={actorName} />
+        <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={actorName} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 14, lineHeight: 1.35,
@@ -461,14 +418,14 @@ function CohostInviteRow({
             style={{ width: 44, height: 44, borderRadius: 10, objectFit: "cover", display: "block" }}
           />
         ) : (
-          <AvatarCircle avatarUrl={item.actor.avatar_url} name={hostName} size={44} />
+          <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={hostName} size={44} />
         )}
         {item.event?.image_url && (
           <div style={{
             position: "absolute", bottom: -3, right: -3,
             borderRadius: "50%", border: "2px solid var(--background)", lineHeight: 0,
           }}>
-            <AvatarCircle avatarUrl={item.actor.avatar_url} name={hostName} size={18} />
+            <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={hostName} size={18} />
           </div>
         )}
       </div>
@@ -577,7 +534,7 @@ function OrgMemberInviteRow({
         padding: "12px 0", borderBottom: "1px solid var(--border)",
       }}
     >
-      <AvatarCircle avatarUrl={item.actor.avatar_url} name={inviterName} />
+      <AvatarCircle avatarUrl={item.actor.custom_avatar_url} name={inviterName} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, lineHeight: 1.3 }}>
           <span style={{ fontWeight: 600 }}>{inviterName}</span>
@@ -789,12 +746,6 @@ function ActivityTab({
 
 // ── Messages tab ───────────────────────────────────────────────────────────────
 
-const LOGO_COLORS = ["#1e3a5f", "#2d4a1e", "#4a1e2d", "#1e2d4a", "#3a2d1e", "#1e4a3a"];
-function getLogoColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
-  return LOGO_COLORS[h % LOGO_COLORS.length];
-}
 
 function OrgConversationRow({ conv }: { conv: ConversationPreview }) {
   const orgName = conv.orgName ?? "Organizer";
@@ -813,13 +764,7 @@ function OrgConversationRow({ conv }: { conv: ConversationPreview }) {
         cursor: "pointer",
       }}>
         <div style={{ position: "relative", flexShrink: 0 }}>
-          {conv.orgImageUrl ? (
-            <img src={conv.orgImageUrl} alt={orgName} style={{ width: 44, height: 44, borderRadius: r, objectFit: "cover" }} />
-          ) : (
-            <div style={{ width: 44, height: 44, borderRadius: r, background: getLogoColor(orgName), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.85)", userSelect: "none" }}>
-              {getInitials(orgName)}
-            </div>
-          )}
+          <GeneratedAvatar name={orgName} imageUrl={conv.orgCustomImageUrl} shape="square" size={44} borderRadius={r} />
           {isUnread && (
             <span aria-hidden style={{ position: "absolute", bottom: 1, right: 1, width: 10, height: 10, borderRadius: "50%", background: "#5EA8FF", border: "2px solid #0d0b14" }} />
           )}
@@ -864,7 +809,7 @@ function ConversationRow({ conv }: { conv: ConversationPreview }) {
       >
         {/* Avatar with unread ring */}
         <div style={{ position: "relative", flexShrink: 0 }}>
-          <AvatarCircle avatarUrl={conv.avatar_url} name={name} size={44} />
+          <AvatarCircle avatarUrl={conv.custom_avatar_url} name={name} size={44} />
           {isUnread && (
             <span
               aria-hidden
@@ -1273,7 +1218,7 @@ function AddFriendSheet({ open, onClose, token }: { open: boolean; onClose: () =
                 }}
               >
                 <Link href={`/profile/${result.id}`} style={{ flexShrink: 0, lineHeight: 0 }} onClick={startClose}>
-                  <AvatarCircle avatarUrl={result.avatar_url} name={label} size={40} />
+                  <AvatarCircle avatarUrl={result.custom_avatar_url} name={label} size={40} />
                 </Link>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <Link href={`/profile/${result.id}`} style={{ textDecoration: "none", color: "inherit" }} onClick={startClose}>

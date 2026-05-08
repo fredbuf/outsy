@@ -53,6 +53,7 @@ export type OrgConversationPreview = {
   display_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  custom_avatar_url: string | null;
   lastMessage: {
     body: string;
     created_at: string;
@@ -106,7 +107,7 @@ export async function GET(
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id,display_name,username,avatar_url")
+    .select("id,display_name,username,avatar_url,custom_avatar_url")
     .in("id", userIds);
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -121,6 +122,7 @@ export async function GET(
         display_name: profile?.display_name ?? null,
         username: profile?.username ?? null,
         avatar_url: profile?.avatar_url ?? null,
+        custom_avatar_url: (profile as { custom_avatar_url?: string | null } | undefined)?.custom_avatar_url ?? null,
         lastMessage: {
           body: msg.body as string,
           created_at: msg.created_at as string,

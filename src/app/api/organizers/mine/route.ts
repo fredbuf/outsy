@@ -20,6 +20,7 @@ type OrganizerEntry = {
   type: string;
   slug: string | null;
   image_url: string | null;
+  custom_image_url: string | null;
   role: string;
 };
 
@@ -33,6 +34,11 @@ export async function GET(req: Request) {
 
   const supabase = supabaseServer();
 
+  // ── Step 1: core membership query ──────────────────────────────────────────
+  // Intentionally does NOT include custom_image_url here.
+  // Adding new columns to the nested join string will break this query if
+  // PostgREST's schema cache hasn't refreshed yet, which would silently
+  // empty the entire org list and log the user out of their org identity.
   const { data, error } = await supabase
     .from("organizer_members")
     .select("role, organizers(id, name, type, slug, image_url)")
@@ -45,7 +51,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Failed to load organizers." }, { status: 500 });
   }
 
-  const organizers: OrganizerEntry[] = (data ?? []).flatMap((row) => {
+  const base = (data ?? []).flatMap((row) => {
     const org = Array.isArray(row.organizers) ? row.organizers[0] : row.organizers;
     if (!org) return [];
     return [{
@@ -57,6 +63,25 @@ export async function GET(req: Request) {
       role: row.role as string,
     }];
   });
+
+  // ── Step 2: enrich with custom_image_url ────────────────────────────────────
+  // Separate query so a schema-cache miss (PGRST204) never affects org visibility.
+  const orgIds = base.map((o) => o.organizerId);
+  const customImageMap = new Map<string, string | null>();
+  if (orgIds.length > 0) {
+    const { data: customRows } = await supabase
+      .from("organizers")
+      .select("id, custom_image_url")
+      .in("id", orgIds);
+    for (const row of (customRows ?? []) as { id: string; custom_image_url?: string | null }[]) {
+      customImageMap.set(row.id, row.custom_image_url ?? null);
+    }
+  }
+
+  const organizers: OrganizerEntry[] = base.map((o) => ({
+    ...o,
+    custom_image_url: customImageMap.get(o.organizerId) ?? null,
+  }));
 
   return NextResponse.json({ ok: true, organizers });
 }
