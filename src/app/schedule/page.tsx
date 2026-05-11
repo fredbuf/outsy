@@ -129,6 +129,26 @@ function ChevronRight() {
   );
 }
 
+function EditActionIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function TrashActionIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4h6v2" />
+    </svg>
+  );
+}
+
 // ── Shared UI ──────────────────────────────────────────────────────────────────
 
 function SkeletonRows({ count = 4 }: { count?: number }) {
@@ -269,6 +289,384 @@ function DateSections({ events }: { events: UserEvent[] }) {
           {section.events.map((e) => <EventRow key={`${e.role}-${e.id}`} event={e} />)}
         </section>
       ))}
+    </div>
+  );
+}
+
+// ── Swipeable hosting row ──────────────────────────────────────────────────────
+// Mobile: swipe left to reveal Edit / Remove action buttons.
+// Desktop: hover reveals action overlay on the right.
+// Only used for role === "hosting" rows (cohosting rows use plain EventRow).
+
+const SWIPE_ACTION_W = 156; // 78px per button
+const SWIPE_ANIM = "transform 0.22s cubic-bezier(0.4,0,0.2,1)";
+
+function SwipeableHostingRow({
+  event,
+  isOpen,
+  onOpen,
+  onClose,
+  onRemoveClick,
+}: {
+  event: UserEvent;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onRemoveClick: () => void;
+}) {
+  const router       = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef     = useRef<HTMLDivElement>(null);
+  const touchStartX  = useRef<number | null>(null);
+  const touchStartY  = useRef<number | null>(null);
+  const touchLockedH = useRef(false);
+  const didDrag      = useRef(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Sync: animate close when parent says this row should be closed
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el || isOpen) return;
+    el.style.transition = SWIPE_ANIM;
+    el.style.transform  = "translateX(0px)";
+  }, [isOpen]);
+
+  // Imperative touchmove — passive:false allows preventDefault to block scroll
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function onTouchMove(e: TouchEvent) {
+      if (touchStartX.current === null) return;
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const dy = e.touches[0].clientY - (touchStartY.current ?? 0);
+      if (!touchLockedH.current) {
+        const adx = Math.abs(dx), ady = Math.abs(dy);
+        if (adx > 8 && adx > ady * 1.3) {
+          touchLockedH.current = true;
+          didDrag.current      = true;
+        } else if (ady > 10) {
+          touchStartX.current = null;
+          return;
+        }
+      }
+      if (touchLockedH.current) {
+        e.preventDefault();
+        const base    = isOpen ? -SWIPE_ACTION_W : 0;
+        const clamped = Math.max(-SWIPE_ACTION_W, Math.min(0, base + dx));
+        const inner   = innerRef.current;
+        if (inner) { inner.style.transition = "none"; inner.style.transform = `translateX(${clamped}px)`; }
+      }
+    }
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, [isOpen]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current  = e.touches[0].clientX;
+    touchStartY.current  = e.touches[0].clientY;
+    touchLockedH.current = false;
+    didDrag.current      = false;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null || !touchLockedH.current) {
+      touchStartX.current  = null;
+      touchStartY.current  = null;
+      touchLockedH.current = false;
+      return;
+    }
+    const dx         = e.changedTouches[0].clientX - touchStartX.current;
+    const netTx      = (isOpen ? -SWIPE_ACTION_W : 0) + dx;
+    touchStartX.current  = null;
+    touchStartY.current  = null;
+    touchLockedH.current = false;
+    const shouldOpen = netTx < -(SWIPE_ACTION_W / 2);
+    const snapTo     = shouldOpen ? -SWIPE_ACTION_W : 0;
+    const inner      = innerRef.current;
+    if (inner) { inner.style.transition = SWIPE_ANIM; inner.style.transform = `translateX(${snapTo}px)`; }
+    if (shouldOpen && !isOpen) onOpen();
+    else if (!shouldOpen && isOpen) onClose();
+  }
+
+  function handleRowClick() {
+    if (didDrag.current) { didDrag.current = false; return; }
+    if (isOpen) { onClose(); return; }
+    router.push(`/events/${event.id}`);
+  }
+
+  const location  = [event.venue_name, event.venue_city].filter(Boolean).join(" · ");
+  const isPrivate = event.visibility === "private";
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: "relative", overflow: "hidden" }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Action buttons — sit behind the sliding row content */}
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: SWIPE_ACTION_W, display: "flex" }}>
+        <button
+          type="button"
+          aria-label="Edit event"
+          onClick={(e) => { e.stopPropagation(); router.push(`/events/${event.id}/edit`); }}
+          style={{
+            flex: 1, border: "none", background: "#2563E2", color: "#fff",
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.02em",
+            cursor: "pointer", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 5,
+          }}
+        >
+          <EditActionIcon />
+          Edit
+        </button>
+        <button
+          type="button"
+          aria-label="Remove event"
+          onClick={(e) => { e.stopPropagation(); onRemoveClick(); }}
+          style={{
+            flex: 1, border: "none", background: "#dc2626", color: "#fff",
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.02em",
+            cursor: "pointer", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 5,
+          }}
+        >
+          <TrashActionIcon />
+          Remove
+        </button>
+      </div>
+
+      {/* Sliding row content — covers action buttons when closed */}
+      <div
+        ref={innerRef}
+        style={{ background: "var(--background)", position: "relative", zIndex: 1, cursor: "pointer", WebkitUserSelect: "none", userSelect: "none" }}
+        onClick={handleRowClick}
+      >
+        <div style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: "1px solid var(--border)", alignItems: "flex-start" }}>
+          <div style={{ flexShrink: 0 }}><Thumbnail src={event.image_url} /></div>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3, paddingTop: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 3,
+                fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                padding: "2px 6px", borderRadius: 20,
+                background: "rgba(99,102,241,0.10)", color: "#6366f1",
+                border: "1px solid rgba(99,102,241,0.18)",
+              }}>
+                Hosting
+              </span>
+              {!event.is_approved && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 3,
+                  fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                  padding: "2px 6px", borderRadius: 20,
+                  background: "rgba(245,158,11,0.12)", color: "#f59e0b",
+                  border: "1px solid rgba(245,158,11,0.20)",
+                }}>
+                  Pending review
+                </span>
+              )}
+              {isPrivate && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 3,
+                  fontSize: 10, fontWeight: 600, letterSpacing: "0.02em",
+                  padding: "2px 6px", borderRadius: 20,
+                  background: "rgba(124,58,237,0.10)", color: "var(--accent)",
+                  border: "1px solid rgba(124,58,237,0.15)",
+                }}>
+                  Private
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+              {event.title}
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.55, display: "flex", flexDirection: "column", gap: 1, marginTop: 1 }}>
+              <span>{formatTime(event.start_at)}</span>
+              {location && (
+                <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <PinIcon />{location}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: hover overlay with action buttons */}
+      {isHovered && !isOpen && (
+        <div
+          style={{
+            position: "absolute", right: 0, top: 0, bottom: 0,
+            display: "flex", alignItems: "center", gap: 8,
+            paddingRight: 12, paddingLeft: 48,
+            background: "linear-gradient(to right, transparent 0%, var(--background) 36%)",
+            zIndex: 2,
+          }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); router.push(`/events/${event.id}/edit`); }}
+            style={{
+              padding: "5px 14px", borderRadius: 8,
+              background: "#2563E2", border: "none",
+              color: "#fff", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", letterSpacing: "0.02em",
+            }}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRemoveClick(); }}
+            style={{
+              padding: "5px 14px", borderRadius: 8,
+              background: "rgba(220,38,38,0.15)",
+              border: "1px solid rgba(220,38,38,0.30)",
+              color: "#f87171", fontSize: 12, fontWeight: 700,
+              cursor: "pointer", letterSpacing: "0.02em",
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Hosting date sections (uses SwipeableHostingRow) ───────────────────────────
+
+function HostingDateSections({
+  events,
+  openRowId,
+  onOpenRow,
+  onRemoveClick,
+}: {
+  events: UserEvent[];
+  openRowId: string | null;
+  onOpenRow: (id: string | null) => void;
+  onRemoveClick: (event: UserEvent) => void;
+}) {
+  const sections = groupByDate(events);
+  return (
+    <div>
+      {sections.map((section) => (
+        <section key={section.dateStr} style={{ marginBottom: 28 }}>
+          <div style={{
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+            opacity: 0.4, textTransform: "uppercase",
+            paddingBottom: 6, borderBottom: "1px solid var(--border)", marginBottom: 2,
+          }}>
+            {section.heading}
+          </div>
+          {section.events.map((e) =>
+            e.role === "cohosting" ? (
+              // Co-hosts didn't create the event — no edit/remove actions
+              <EventRow key={`cohosting-${e.id}`} event={e} />
+            ) : (
+              <SwipeableHostingRow
+                key={`hosting-${e.id}`}
+                event={e}
+                isOpen={openRowId === e.id}
+                onOpen={() => onOpenRow(e.id)}
+                onClose={() => onOpenRow(null)}
+                onRemoveClick={() => onRemoveClick(e)}
+              />
+            )
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+// ── Confirm remove modal ───────────────────────────────────────────────────────
+
+function ConfirmRemoveModal({
+  event,
+  removing,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  event: UserEvent;
+  removing: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.62)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "0 20px",
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          width: "100%", maxWidth: 360,
+          background: "rgba(18,25,36,0.97)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 24px 64px rgba(0,0,0,0.70)",
+          borderRadius: 20,
+          padding: "24px 20px 20px",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 8px", color: "#fff" }}>
+          Remove event?
+        </h2>
+        <p style={{ fontSize: 14, color: "rgba(255,255,255,0.60)", margin: 0, lineHeight: 1.55 }}>
+          Are you sure you want to remove{" "}
+          <span style={{ color: "#fff", fontWeight: 600 }}>"{event.title}"</span>?
+          {" "}This action can&apos;t be undone.
+        </p>
+        {error && (
+          <p style={{ fontSize: 13, color: "#f87171", margin: "10px 0 0" }}>{error}</p>
+        )}
+        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={removing}
+            style={{
+              flex: 1, padding: "11px 0", borderRadius: 12,
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "#fff", fontSize: 14, fontWeight: 600,
+              cursor: removing ? "not-allowed" : "pointer",
+              opacity: removing ? 0.5 : 1,
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={removing}
+            style={{
+              flex: 1, padding: "11px 0", borderRadius: 12,
+              background: removing ? "#7f1d1d" : "#dc2626",
+              border: "none",
+              color: "#fff", fontSize: 14, fontWeight: 700,
+              cursor: removing ? "not-allowed" : "pointer",
+              transition: "background 0.15s",
+            }}
+          >
+            {removing ? "Removing…" : "Remove"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -570,6 +968,35 @@ export default function SchedulePage() {
   const [fetchingAttend,  setFetchingAttend]  = useState(false);
   const [fetchingHosting, setFetchingHosting] = useState(false);
 
+  // ── Hosting swipe / remove state ─────────────────────────────────────────────
+  const [openRowId,    setOpenRowId]    = useState<string | null>(null);
+  const [confirmEvent, setConfirmEvent] = useState<UserEvent | null>(null);
+  const [removing,     setRemoving]     = useState(false);
+  const [removeError,  setRemoveError]  = useState<string | null>(null);
+
+  async function handleConfirmRemove() {
+    if (!confirmEvent || !session?.access_token) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      const res  = await fetch(`/api/events/${confirmEvent.id}`, {
+        method:  "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setHostingEvents((prev) => prev.filter((e) => e.id !== confirmEvent.id));
+        setConfirmEvent(null);
+      } else {
+        setRemoveError(data.error ?? "Failed to remove event.");
+      }
+    } catch {
+      setRemoveError("Failed to remove event.");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   // ── Calendar UI state ────────────────────────────────────────────────────────
   const now = new Date();
   const [calYear,     setCalYear]     = useState(now.getFullYear());
@@ -788,7 +1215,25 @@ export default function SchedulePage() {
         />
       );
     }
-    return <DateSections events={hostingEvents} />;
+    return (
+      <>
+        <HostingDateSections
+          events={hostingEvents}
+          openRowId={openRowId}
+          onOpenRow={(id) => setOpenRowId(id)}
+          onRemoveClick={(event) => { setConfirmEvent(event); setRemoveError(null); }}
+        />
+        {confirmEvent && (
+          <ConfirmRemoveModal
+            event={confirmEvent}
+            removing={removing}
+            error={removeError}
+            onConfirm={handleConfirmRemove}
+            onCancel={() => { if (!removing) { setConfirmEvent(null); setRemoveError(null); } }}
+          />
+        )}
+      </>
+    );
   }
 
   function renderCalendar() {

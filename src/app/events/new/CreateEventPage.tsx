@@ -1850,8 +1850,8 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   {isPrivate ? "Hosted by" : "Organized by"}
                 </p>
                 {activeOrganizer ? (
-                  /* ── Organizer identity — rounded-square logo ── */
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  /* ── Organizer identity — rounded-square logo centered above name ── */
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                     {activeOrganizer.image_url ? (
                       <img
                         src={activeOrganizer.image_url}
