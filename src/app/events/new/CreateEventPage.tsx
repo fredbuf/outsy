@@ -825,6 +825,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
 
+  // Force dark background on html/body so iOS Safari overscroll bounce shows dark, not white
+  useEffect(() => {
+    const prevHtml = document.documentElement.style.background;
+    const prevBody = document.body.style.background;
+    document.documentElement.style.background = "#0B0F14";
+    document.body.style.background = "#0B0F14";
+    return () => {
+      document.documentElement.style.background = prevHtml;
+      document.body.style.background = prevBody;
+    };
+  }, []);
+
   // Lock scroll when any sheet is open
   useEffect(() => {
     document.body.style.overflow = (dateSheetOpen || locationSheetOpen || locationClosing || cohostSheetOpen || cohostClosing || spotsClosing || costClosing || rsvpClosing || optionSheet !== null) ? "hidden" : "";
@@ -1564,71 +1576,78 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       `}</style>
 
       <div style={{ position: "relative", background: "#0B0F14", minHeight: "100dvh", color: "#fff", fontFamily: "Inter, -apple-system, system-ui, sans-serif", ...darkVars }}>
-      <form onSubmit={handleSubmit}>
+      <form id="cep-form" onSubmit={handleSubmit}>
 
         {/* ════════════════════════════════════════════════════════════
             IMMERSIVE HERO LAYOUT
             ════════════════════════════════════════════════════════════ */}
         {/* ── Hero image (full-bleed, 360px, absolute) ───────────────── */}
-        <div
-          style={{
-            position: "absolute", top: 0, left: 0, right: 0,
-            height: 360, zIndex: 1, overflow: "hidden", cursor: "pointer",
-          }}
-          onClick={() => imagePreview ? setPhotoMenuOpen(true) : fileInputRef.current?.click()}
-        >
-          {imagePreview ? (
-            <>
-              <img
-                src={imagePreview}
-                alt="Cover"
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-              />
-              {/* Bottom fade to page bg */}
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 180, background: "linear-gradient(180deg, transparent 0%, #0B0F14 90%)", pointerEvents: "none" }} />
-              {/* Change cover pill */}
-              <div
-                style={{
-                  position: "absolute", top: 108, right: 16, zIndex: 5,
-                  padding: "11px 16px 11px 13px", borderRadius: 999,
-                  background: "rgba(0,0,0,0.6)",
-                  backdropFilter: "blur(20px) saturate(160%)",
-                  WebkitBackdropFilter: "blur(20px) saturate(160%)",
-                  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25), 0 6px 20px rgba(0,0,0,0.4)",
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                  fontSize: 13.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
-                  pointerEvents: "none",
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-                  <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
-                  <circle cx="6.5" cy="6.5" r="1.2" fill="currentColor" />
-                  <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Filled state: div with onClick opens the photo action sheet */}
+        {imagePreview ? (
+          <div
+            style={{
+              position: "absolute", top: 0, left: 0, right: 0,
+              height: 360, zIndex: 1, overflow: "hidden", cursor: "pointer",
+            }}
+            onClick={() => setPhotoMenuOpen(true)}
+          >
+            <img
+              src={imagePreview}
+              alt="Cover"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            {/* Bottom fade to page bg */}
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 180, background: "linear-gradient(180deg, transparent 0%, #0B0F14 90%)", pointerEvents: "none" }} />
+            {/* Change cover pill */}
+            <div
+              style={{
+                position: "absolute", top: 108, right: 16, zIndex: 5,
+                padding: "11px 16px 11px 13px", borderRadius: 999,
+                background: "rgba(0,0,0,0.6)",
+                backdropFilter: "blur(20px) saturate(160%)",
+                WebkitBackdropFilter: "blur(20px) saturate(160%)",
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25), 0 6px 20px rgba(0,0,0,0.4)",
+                display: "inline-flex", alignItems: "center", gap: 8,
+                fontSize: 13.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
+                pointerEvents: "none",
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+                <circle cx="6.5" cy="6.5" r="1.2" fill="currentColor" />
+                <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Change cover
+            </div>
+          </div>
+        ) : (
+          /* Empty state: label so tapping anywhere on the hero natively opens the file picker on iOS Safari */
+          <label
+            htmlFor="cep-file-input"
+            style={{
+              position: "absolute", top: 0, left: 0, right: 0,
+              height: 360, zIndex: 1, overflow: "hidden", cursor: "pointer",
+              display: "block",
+            }}
+          >
+            {/* Empty state: blue-grey gradient */}
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #435C7A 0%, #2a3a52 50%, #0B0F14 100%)" }} />
+            {/* Add photo CTA */}
+            <div style={{ position: "absolute", top: 130, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 72, height: 72, borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 100%)", boxShadow: "0 10px 28px rgba(59,130,246,0.55), inset 0 1px 0 rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="30" height="30" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="white" strokeWidth="1.4" />
+                  <circle cx="6.5" cy="6.5" r="1.2" fill="white" />
+                  <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                Change cover
               </div>
-            </>
-          ) : (
-            <>
-              {/* Empty state: blue-grey gradient */}
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #435C7A 0%, #2a3a52 50%, #0B0F14 100%)" }} />
-              {/* Add photo CTA */}
-              <div style={{ position: "absolute", top: 130, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 72, height: 72, borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 100%)", boxShadow: "0 10px 28px rgba(59,130,246,0.55), inset 0 1px 0 rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="30" height="30" viewBox="0 0 18 18" fill="none">
-                    <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="white" strokeWidth="1.4" />
-                    <circle cx="6.5" cy="6.5" r="1.2" fill="white" />
-                    <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>Add a cover photo</div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: -4 }}>Sets the mood for your invite</div>
-              </div>
-              {/* Bottom fade */}
-              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: "linear-gradient(180deg, transparent, #0B0F14)", pointerEvents: "none" }} />
-            </>
-          )}
-        </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>Add a cover photo</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: -4 }}>Sets the mood for your invite</div>
+            </div>
+            {/* Bottom fade */}
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: "linear-gradient(180deg, transparent, #0B0F14)", pointerEvents: "none" }} />
+          </label>
+        )}
         {/* ════════════════════ END HERO ══════════════════════════════ */}
 
         {/* ── Top bar ─────────────────────────────────────────────── */}
@@ -1935,42 +1954,50 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
         </div>
 
-        {/* File input (hidden) */}
+        {/* File input (hidden) — id required for the label htmlFor association */}
         <input
           ref={fileInputRef}
+          id="cep-file-input"
           type="file"
           accept="image/jpeg,image/png,image/webp"
           style={{ display: "none" }}
           onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
         />
 
-        {/* ── Preview pill / Save button (fixed, bottom-right) ─────── */}
-        {isEditMode ? (
-          <div style={{ position: "fixed", bottom: 30, right: 16, zIndex: 20 }}>
-            <button
-              type="submit"
-              disabled={submitting || !canSubmit}
-              style={{ height: 44, padding: "0 22px", borderRadius: 999, background: submitting || !canSubmit ? "rgba(255,255,255,0.15)" : "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: submitting || !canSubmit ? "none" : "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: submitting || !canSubmit ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
-            >
-              {submitting ? "Saving…" : "Save changes"}
-            </button>
-          </div>
-        ) : (
-          <div style={{ position: "fixed", bottom: 30, right: 16, zIndex: 20 }}>
-            <button
-              type="button"
-              onClick={() => { setError(null); setShowPreview(true); }}
-              style={{ height: 44, padding: "0 18px", borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
-            >
-              Preview
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M3 7h8M7.5 3.5L11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-        )}
-
       </form>
+
+      {/* ── Preview pill / Save button (fixed, bottom-right) ─────────────
+          Rendered OUTSIDE the <form> to guarantee position:fixed is never
+          trapped by a form scroll container. Submit button uses form="cep-form"
+          to remain associated with the form for native submit. zIndex 200 keeps
+          it above the BottomNav (z:150). Bottom uses safe-area-inset-bottom
+          so it clears the iOS home indicator.
+      ────────────────────────────────────────────────────────────────────── */}
+      {isEditMode ? (
+        <div style={{ position: "fixed", bottom: "calc(30px + env(safe-area-inset-bottom, 0px))", right: 16, zIndex: 200 }}>
+          <button
+            type="submit"
+            form="cep-form"
+            disabled={submitting || !canSubmit}
+            style={{ height: 44, padding: "0 22px", borderRadius: 999, background: submitting || !canSubmit ? "rgba(255,255,255,0.15)" : "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: submitting || !canSubmit ? "none" : "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: submitting || !canSubmit ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
+          >
+            {submitting ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      ) : (
+        <div style={{ position: "fixed", bottom: "calc(30px + env(safe-area-inset-bottom, 0px))", right: 16, zIndex: 200 }}>
+          <button
+            type="button"
+            onClick={() => { setError(null); setShowPreview(true); }}
+            style={{ height: 44, padding: "0 18px", borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
+          >
+            Preview
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 7h8M7.5 3.5L11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Photo action sheet ──────────────────────────────────────── */}
       {photoMenuOpen && (
