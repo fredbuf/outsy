@@ -1004,10 +1004,14 @@ export default function SchedulePage() {
   const [calSlideDir, setCalSlideDir] = useState<"prev" | "next" | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // 14-day cutoff for the Upcoming tab — computed once at mount via useState
-  // lazy initializer (the only place impure calls like new Date() are permitted).
+  // Stable date boundaries — computed once at mount via useState lazy initializers.
+  // cutoff14: 14-day forward window for the Upcoming tab.
+  // calendarFrom: 12-month lookback for the Calendar tab.
   const [cutoff14] = useState(
     () => new Date(new Date().getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+  );
+  const [calendarFrom] = useState(
+    () => new Date(new Date().getTime() - 365 * 24 * 60 * 60 * 1000).toISOString(),
   );
 
   // ── Fetch: attending (going / maybe RSVPs) ───────────────────────────────────
@@ -1021,11 +1025,12 @@ export default function SchedulePage() {
       .eq("user_id", user.id)
       .in("response", ["going", "maybe"])
       .then(({ data }) => {
-        const cutoff = new Date().toISOString();
         const rows: UserEvent[] = [];
         for (const row of data ?? []) {
           const ev = Array.isArray(row.events) ? row.events[0] : row.events;
-          if (!ev || ev.start_at < cutoff) continue;
+          // Load events back to calendarFrom so past markers appear in the Calendar tab.
+          // Upcoming tab applies its own future-only filter at render time.
+          if (!ev || ev.start_at < calendarFrom) continue;
           const venue = Array.isArray(ev.venues) ? ev.venues[0] : ev.venues;
           rows.push({
             id:          ev.id,
@@ -1075,9 +1080,9 @@ export default function SchedulePage() {
           role?: string;
         }[] = json.events ?? [];
 
-        const now  = new Date().toISOString();
+        // Keep all events (past + future) so the Calendar tab can show past markers.
+        // The Hosting tab filters to future-only at render time.
         const rows: UserEvent[] = rawEvents
-          .filter((ev) => ev.start_at >= now)
           .map((ev) => ({
             id:          ev.id,
             title:       ev.title,
@@ -1175,7 +1180,10 @@ export default function SchedulePage() {
   function renderUpcoming() {
     if (fetchingAttend) return <SkeletonRows />;
 
-    const upcomingWindow = attendingEvents.filter((e) => e.start_at <= cutoff14);
+    const nowIso = new Date().toISOString();
+    const upcomingWindow = attendingEvents.filter(
+      (e) => e.start_at >= nowIso && e.start_at <= cutoff14,
+    );
 
     if (upcomingWindow.length === 0) {
       const city = "Montréal";
@@ -1200,7 +1208,10 @@ export default function SchedulePage() {
 
   function renderHosting() {
     if (fetchingHosting) return <SkeletonRows />;
-    if (hostingEvents.length === 0) {
+    // hostingEvents contains all dates (for the calendar); show only future here.
+    const nowIso = new Date().toISOString();
+    const futureHosting = hostingEvents.filter((e) => e.start_at >= nowIso);
+    if (futureHosting.length === 0) {
       return (
         <EmptyState
           message="You're not hosting anything yet"
@@ -1218,7 +1229,7 @@ export default function SchedulePage() {
     return (
       <>
         <HostingDateSections
-          events={hostingEvents}
+          events={futureHosting}
           openRowId={openRowId}
           onOpenRow={(id) => setOpenRowId(id)}
           onRemoveClick={(event) => { setConfirmEvent(event); setRemoveError(null); }}

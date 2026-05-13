@@ -14,7 +14,7 @@ import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 const fetchProfile = cache(async (username: string) => {
   const { data } = await supabaseServer()
     .from("profiles")
-    .select("id,display_name,avatar_url,custom_avatar_url,username")
+    .select("id,display_name,avatar_url,custom_avatar_url,username,bio,website_url,instagram_url,tiktok_url,youtube_url")
     .eq("username", username)
     .maybeSingle();
   return data;
@@ -175,6 +175,43 @@ export default async function UserProfilePage({
             {(globalHandle ?? profile.username) && (
               <div style={{ fontSize: 11, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
                 @{globalHandle ?? profile.username}
+              </div>
+            )}
+
+            {/* Bio */}
+            {profile.bio && (
+              <p style={{ fontSize: 13, fontWeight: 500, color: "#8C98A8", textAlign: "center", margin: "6px 0 0", lineHeight: 1.6, maxWidth: 260 }}>
+                {profile.bio}
+              </p>
+            )}
+
+            {/* Social link pills */}
+            {(profile.website_url || profile.instagram_url || profile.tiktok_url || profile.youtube_url) && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 8 }}>
+                {profile.website_url && (
+                  <a href={profile.website_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                    Website
+                  </a>
+                )}
+                {profile.instagram_url && (
+                  <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></svg>
+                    Instagram
+                  </a>
+                )}
+                {profile.tiktok_url && (
+                  <a href={profile.tiktok_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" /></svg>
+                    TikTok
+                  </a>
+                )}
+                {profile.youtube_url && (
+                  <a href={profile.youtube_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" /><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" /></svg>
+                    YouTube
+                  </a>
+                )}
               </div>
             )}
 

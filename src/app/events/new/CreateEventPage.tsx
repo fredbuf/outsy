@@ -189,17 +189,6 @@ export type EditEventData = {
   description_title?: string | null;
 };
 
-const inputStyle: React.CSSProperties = {
-  padding: "11px 14px",
-  borderRadius: 10,
-  border: "1px solid var(--border-strong)",
-  fontSize: 16,
-  background: "transparent",
-  color: "inherit",
-  width: "100%",
-  boxSizing: "border-box",
-};
-
 // ── Calendar event thumbnail type ────────────────────────────────────────
 type CalEvent = { type: "hosting" | "going" | "interested"; image_url: string | null; title: string };
 
@@ -1544,22 +1533,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   }
 
-  // ── Shared glass styles for on-canvas controls ──────────────────
-  const glassCircle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    width: 36, height: 36, borderRadius: "50%",
-    background: "rgba(0,0,0,0.30)",
-    border: "1px solid rgba(255,255,255,0.16)",
-    color: "#fff", cursor: "pointer", flexShrink: 0, textDecoration: "none",
-  };
-  const glassPill: React.CSSProperties = {
-    display: "flex", alignItems: "center", gap: 5,
-    padding: "6px 13px", borderRadius: 20,
-    background: "rgba(0,0,0,0.30)",
-    border: "1px solid rgba(255,255,255,0.16)",
-    color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer",
-  };
-
   const darkVars = {
     color: "#eae8e4",
     "--background":     "rgba(18,25,36,0.55)",
@@ -1583,245 +1556,386 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       />
 
       <style>{`
-        .cep-title::placeholder { color: rgba(255,255,255,0.30); }
-        .cep-location::placeholder { color: rgba(255,255,255,0.32); }
+        .cep-title-b::placeholder { color: rgba(255,255,255,0.38); }
+        .cep-desc-b::placeholder { color: rgba(255,255,255,0.38); }
         .cep-options::-webkit-scrollbar { display: none; }
         .cep-loc-row:hover { background: var(--surface-raised) !important; }
         .cep-loc-row:active { opacity: 0.75; }
       `}</style>
 
-      <div style={{ position: "relative", zIndex: 1, minHeight: "100dvh", background: "linear-gradient(to bottom, #0b0f14 52%, #243b55 100%)", ...darkVars }}>
+      <div style={{ position: "relative", background: "#0B0F14", minHeight: "100dvh", color: "#fff", fontFamily: "Inter, -apple-system, system-ui, sans-serif", ...darkVars }}>
       <form onSubmit={handleSubmit}>
 
         {/* ════════════════════════════════════════════════════════════
-            CANVAS — full composition zone
+            IMMERSIVE HERO LAYOUT
             ════════════════════════════════════════════════════════════ */}
+        {/* ── Hero image (full-bleed, 360px, absolute) ───────────────── */}
         <div
           style={{
-            position: "relative",
-            aspectRatio: "9/10",
-            borderRadius: "0 0 50px 50px",
-            overflow: "hidden",
+            position: "absolute", top: 0, left: 0, right: 0,
+            height: 360, zIndex: 1, overflow: "hidden", cursor: "pointer",
           }}
+          onClick={() => imagePreview ? setPhotoMenuOpen(true) : fileInputRef.current?.click()}
         >
-          {/* Background image */}
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="Cover"
-              style={{
-                position: "absolute", inset: 0,
-                width: "100%", height: "100%",
-                objectFit: "cover",
-              }}
-            />
-          )}
-
-          {/* Overlay — minimal top scrim always; full hero gradient only with image */}
-          <div
-            style={{
-              position: "absolute", inset: 0, pointerEvents: "none",
-              background: imagePreview
-                // Full event-page treatment: dark top band + heavy bottom gradient
-                ? "linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 22%), linear-gradient(to top, rgba(14,8,5,1) 0%, rgba(14,8,5,0.93) 28%, rgba(14,8,5,0.6) 50%, rgba(14,8,5,0.15) 70%, transparent 100%)"
-                // No image: just enough to keep the nav bar readable
-                : "linear-gradient(to bottom, rgba(0,0,0,0.30) 0%, transparent 18%)",
-            }}
-          />
-
-          {/* ── Nav bar: [back] [toggle] [preview] ───────────────── */}
-          <div
-            style={{
-              position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "14px 16px",
-            }}
-          >
-            {/* Back — prefer real history; fall back to /events if opened directly */}
-            <button
-              type="button"
-              aria-label="Back"
-              style={{ ...glassCircle, width: 39, height: 39 }}
-              onClick={() => {
-                if (window.history.length > 1) {
-                  router.back();
-                } else {
-                  router.push("/events");
-                }
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-
-            {/* Toggle — centered, grows to fill */}
-            <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+          {imagePreview ? (
+            <>
+              <img
+                src={imagePreview}
+                alt="Cover"
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              {/* Bottom fade to page bg */}
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 180, background: "linear-gradient(180deg, transparent 0%, #0B0F14 90%)", pointerEvents: "none" }} />
+              {/* Change cover pill */}
               <div
                 style={{
-                  position: "relative",
-                  display: "flex",
-                  width: 224, height: 33,
-                  background: "rgba(0,0,0,0.18)",
-                  backdropFilter: "blur(14px)",
-                  WebkitBackdropFilter: "blur(14px)",
-                  borderRadius: 200,
-                  overflow: "hidden",
-                  flexShrink: 0,
+                  position: "absolute", top: 108, right: 16, zIndex: 5,
+                  padding: "11px 16px 11px 13px", borderRadius: 999,
+                  background: "rgba(0,0,0,0.6)",
+                  backdropFilter: "blur(20px) saturate(160%)",
+                  WebkitBackdropFilter: "blur(20px) saturate(160%)",
+                  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25), 0 6px 20px rgba(0,0,0,0.4)",
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  fontSize: 13.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
+                  pointerEvents: "none",
                 }}
               >
-                {/* Sliding active indicator */}
-                <div aria-hidden="true" style={{
-                  position: "absolute", top: 0,
-                  left: visibility === "public" ? 0 : 112,
-                  width: 112, height: 33,
-                  background: "rgba(255,255,255,0.07)",
-                  borderRadius: 200,
-                  transition: "left 0.2s cubic-bezier(0.25,0.46,0.45,0.94)",
-                  pointerEvents: "none",
-                }} />
-                {(["public", "private"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setVisibility(v)}
-                    style={{
-                      width: 112, height: 33, border: "none",
-                      background: "transparent",
-                      color: "#fff",
-                      fontSize: 13, fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                      position: "relative", zIndex: 1, flexShrink: 0,
-                    }}
-                  >
-                    <img
-                      src={v === "public" ? "/Icons/IconPublic.svg" : "/Icons/IconPrivate.svg"}
-                      width="13" height="13" alt=""
-                      style={{ opacity: 0.9, flexShrink: 0 }}
-                    />
-                    {v === "public" ? "Public" : "Private"}
-                  </button>
-                ))}
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+                  <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+                  <circle cx="6.5" cy="6.5" r="1.2" fill="currentColor" />
+                  <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Change cover
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              {/* Empty state: blue-grey gradient */}
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #435C7A 0%, #2a3a52 50%, #0B0F14 100%)" }} />
+              {/* Add photo CTA */}
+              <div style={{ position: "absolute", top: 130, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 72, height: 72, borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 100%)", boxShadow: "0 10px 28px rgba(59,130,246,0.55), inset 0 1px 0 rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="30" height="30" viewBox="0 0 18 18" fill="none">
+                    <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="white" strokeWidth="1.4" />
+                    <circle cx="6.5" cy="6.5" r="1.2" fill="white" />
+                    <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>Add a cover photo</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: -4 }}>Sets the mood for your invite</div>
+              </div>
+              {/* Bottom fade */}
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: "linear-gradient(180deg, transparent, #0B0F14)", pointerEvents: "none" }} />
+            </>
+          )}
+        </div>
+        {/* ════════════════════ END HERO ══════════════════════════════ */}
 
-            {/* Spacer to balance the back button */}
-            <div style={{ width: 39, flexShrink: 0 }} />
+        {/* ── Top bar ─────────────────────────────────────────────── */}
+        <div style={{ position: "absolute", top: 56, left: 0, right: 0, padding: "0 16px", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Back button — glass pill */}
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => window.history.length > 1 ? router.back() : router.push("/events")}
+            style={{ width: 36, height: 36, borderRadius: 999, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: "none", color: "#fff", flexShrink: 0 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {/* Visibility pill — segmented Public / Private */}
+          <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}>
+            {(["public", "private"] as const).map((v) => {
+              const active = visibility === v;
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVisibility(v)}
+                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, letterSpacing: -0.1, color: active ? "#fff" : "rgba(255,255,255,0.6)", background: active ? "rgba(255,255,255,0.10)" : "transparent", boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.18)" : "none", cursor: "pointer", border: "none", transition: "all 0.18s", fontFamily: "inherit" }}
+                >
+                  {v === "public" ? (
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M1.5 7h11M7 1.5c1.7 1.7 2.5 3.5 2.5 5.5s-.8 3.8-2.5 5.5C5.3 10.8 4.5 9 4.5 7s.8-3.8 2.5-5.5z" stroke="currentColor" strokeWidth="1.4" />
+                    </svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <rect x="2.5" y="6.5" width="9" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M4.5 6.5V4.3a2.5 2.5 0 015 0v2.2" stroke="currentColor" strokeWidth="1.4" />
+                    </svg>
+                  )}
+                  {v === "public" ? "Public" : "Private"}
+                </button>
+              );
+            })}
           </div>
 
-          {/* ── Photo CTA (centered, no-image state only) ─────────── */}
-          {!imagePreview && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                position: "absolute", top: "44%", left: "50%",
-                transform: "translate(-50%, -50%)",
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
-                background: "none", border: "none", cursor: "pointer", zIndex: 5, padding: 0,
-              }}
-            >
-              {/* Liquid glass ellipse */}
-              <div style={{
-                width: 72, height: 72,
-                borderRadius: "50%",
-                background: "rgba(255,255,255,0.10)",
-                border: "1px solid rgba(255,255,255,0.22)",
-                backdropFilter: "blur(16px)",
-                WebkitBackdropFilter: "blur(16px)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
-              }}>
-                <img src="/Icons/IconAddImage.svg" width="29" height="29" alt="" style={{ opacity: 0.85 }} />
-              </div>
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", letterSpacing: "0.01em" }}>Add background image</span>
-            </button>
-          )}
+          {/* Right spacer (preserves symmetry) */}
+          <div style={{ width: 36, flexShrink: 0 }} />
+        </div>
 
-          {/* Modify photo (when image is set) */}
-          {imagePreview && (
-            <div style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 5 }}>
-              <button
-                type="button"
-                onClick={() => setPhotoMenuOpen(true)}
-                style={{ ...glassPill, fontSize: 12, padding: "6px 16px" }}
-              >
-                Modify photo
-              </button>
-            </div>
-          )}
+        {/* ── Scrollable body ──────────────────────────────────────── */}
+        <div style={{ position: "relative", zIndex: 2, paddingTop: 300, paddingBottom: 110 }}>
 
-          {/* ── Bottom composition: title · date · location ─────────── */}
-          <div
-            style={{
-              position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 5,
-              padding: "90px 28px 40px",
-              textAlign: "center",
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
-            }}
-          >
-            {/* Title */}
+          {/* Title block — centered, over the hero fade */}
+          <div style={{ padding: "0 20px 18px", textAlign: "center" }}>
             <input
               required
               placeholder="Event title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="cep-title"
-              style={{
-                width: "100%",
-                background: "transparent", border: "none", outline: "none",
-                fontSize: 32, fontWeight: 800, lineHeight: 1.15,
-                letterSpacing: "-0.02em",
-                color: "#fff",
-                textAlign: "center",
-                fontFamily: "inherit",
-              }}
+              className="cep-title-b"
+              style={{ display: "block", width: "100%", background: "transparent", border: "none", outline: "none", fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.2, color: "#fff", textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" }}
             />
 
-            {/* Date / time row */}
-            <button
-              type="button"
-              onClick={() => setDateSheetOpen(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "none", border: "none", cursor: "pointer",
-                color: dateLine ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.38)",
-                fontSize: 15, fontWeight: 500,
-                fontFamily: "inherit",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              {dateLine || "Date & time"}
-            </button>
+            {/* Date row */}
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setDateSheetOpen(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              >
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ color: "rgba(255,255,255,0.85)", flexShrink: 0 }}>
+                  <rect x="1.5" y="2.5" width="11" height="10" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+                  <path d="M1.5 5.5h11M4.5 1v3M9.5 1v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, letterSpacing: -0.1, color: dateLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)" }}>
+                  {dateLine || "Date & time"}
+                </span>
+              </button>
+            </div>
 
             {/* Location row */}
-            <button
-              type="button"
-              onClick={() => setLocationSheetOpen(true)}
-              style={{
-                display: "flex", alignItems: "center", gap: 6,
-                background: "none", border: "none", cursor: "pointer",
-                color: locationLine ? "rgba(255,255,255,0.60)" : "rgba(255,255,255,0.38)",
-                fontSize: 14, fontWeight: 500,
-                fontFamily: "inherit",
-              }}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              {locationLine || "Location"}
-            </button>
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setLocationSheetOpen(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
+              >
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ color: "rgba(255,255,255,0.85)", flexShrink: 0 }}>
+                  <path d="M7 13c3-3.4 4.5-5.8 4.5-7.7A4.5 4.5 0 002.5 5.3C2.5 7.2 4 9.6 7 13z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+                  <circle cx="7" cy="5.5" r="1.5" stroke="currentColor" strokeWidth="1.4" />
+                </svg>
+                <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, letterSpacing: -0.1, color: locationLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)" }}>
+                  {locationLine || "Location"}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
-        {/* ════════════════════ END CANVAS ════════════════════════════ */}
 
+          {/* Glass content panel — "Add more details" */}
+          <div style={{ margin: "20px 12px 0", borderRadius: 26, background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 20px 60px rgba(0,0,0,0.4)", padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* Section header */}
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.4, color: "rgba(255,255,255,0.45)", textTransform: "uppercase" as const, padding: "2px 4px 0" }}>
+              ADD MORE DETAILS
+            </div>
+
+            {/* Chip row */}
+            <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 8 }}>
+
+              {/* Description chip */}
+              {(() => {
+                const active = descriptionOpen || !!description;
+                const color = active ? "#5EA8FF" : "rgba(255,255,255,0.78)";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionOpen(o => !o)}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px 8px 11px", borderRadius: 999, background: active ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)", boxShadow: `inset 0 0 0 1px ${active ? "rgba(94,168,255,0.38)" : "rgba(255,255,255,0.10)"}`, color, fontSize: 12.5, fontWeight: 500, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.18s", whiteSpace: "nowrap" as const, border: "none", fontFamily: "inherit" }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <path d="M2.5 3.5h9M2.5 7h9M2.5 10.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                    Description
+                  </button>
+                );
+              })()}
+
+              {/* Spots chip (private events only) */}
+              {isPrivate && (() => {
+                const active = spotsMode === "limited" && Boolean(spotsLimit);
+                const color = active ? "#5EA8FF" : "rgba(255,255,255,0.78)";
+                const label = active && spotsLimit ? `${spotsLimit} spots` : "Spots";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setSpotsDraftMode(spotsMode); setSpotsDraftCount(spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0 ? parseInt(spotsLimit) : 10); setOptionSheet("spots"); }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px 8px 11px", borderRadius: 999, background: active ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)", boxShadow: `inset 0 0 0 1px ${active ? "rgba(94,168,255,0.38)" : "rgba(255,255,255,0.10)"}`, color, fontSize: 12.5, fontWeight: 500, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.18s", whiteSpace: "nowrap" as const, border: "none", fontFamily: "inherit" }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <circle cx="5.5" cy="5" r="2.3" stroke="currentColor" strokeWidth="1.3" />
+                      <path d="M1.5 12c0-2 1.8-3.4 4-3.4s4 1.4 4 3.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                      <path d="M9 5.5a2 2 0 100-3M11 11.5c0-1.5-1-2.6-2.4-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                    </svg>
+                    {label}
+                  </button>
+                );
+              })()}
+
+              {/* Cost chip (private events only) */}
+              {isPrivate && (() => {
+                const active = costMode !== "free";
+                const color = active ? "#5EA8FF" : "rgba(255,255,255,0.78)";
+                const costLabel = costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
+                  ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount}`
+                  : costMode === "door" ? "Pay on site"
+                  : "Cost";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setCostDraftTopMode(costMode === "free" ? "free" : "paid"); setCostDraftPayMethod(costMode === "door" ? "door" : "advance"); setCostDraftAmount(costAmount); setCostDraftCurrency(costCurrency); setCostDraftContact(costPaymentContact); setOptionSheet("cost"); }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px 8px 11px", borderRadius: 999, background: active ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)", boxShadow: `inset 0 0 0 1px ${active ? "rgba(94,168,255,0.38)" : "rgba(255,255,255,0.10)"}`, color, fontSize: 12.5, fontWeight: 500, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.18s", whiteSpace: "nowrap" as const, border: "none", fontFamily: "inherit" }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 4.5a1 1 0 011-1h8a1 1 0 011 1v1.2a1.3 1.3 0 000 2.6v1.2a1 1 0 01-1 1H3a1 1 0 01-1-1V8.3a1.3 1.3 0 000-2.6V4.5z" stroke="currentColor" strokeWidth="1.3" />
+                      <path d="M6 4v6" stroke="currentColor" strokeWidth="1.3" strokeDasharray="1 1.4" />
+                    </svg>
+                    {costLabel}
+                  </button>
+                );
+              })()}
+
+              {/* RSVP by chip (private events only) */}
+              {isPrivate && (() => {
+                const active = !!rsvpDeadline;
+                const color = active ? "#5EA8FF" : "rgba(255,255,255,0.78)";
+                const label = active
+                  ? (() => { const [y, m, d] = rsvpDeadline.split("-").map(Number); return `RSVP by ${new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`; })()
+                  : "RSVP by";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => { setRsvpDraft(rsvpDeadline); setOptionSheet("rsvp"); }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 13px 8px 11px", borderRadius: 999, background: active ? "rgba(94,168,255,0.14)" : "rgba(255,255,255,0.05)", boxShadow: `inset 0 0 0 1px ${active ? "rgba(94,168,255,0.38)" : "rgba(255,255,255,0.10)"}`, color, fontSize: 12.5, fontWeight: 500, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.18s", whiteSpace: "nowrap" as const, border: "none", fontFamily: "inherit" }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <rect x="1.5" y="2.5" width="11" height="10" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M1.5 5.5h11M4.5 1v3M9.5 1v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                    </svg>
+                    {label}
+                  </button>
+                );
+              })()}
+
+            </div>
+
+            {/* Expanded description field */}
+            {(descriptionOpen || !!description) && (
+              <div style={{ borderRadius: 14, padding: "10px 14px 12px", background: "rgba(94,168,255,0.05)", boxShadow: "inset 0 0 0 1px rgba(94,168,255,0.22)", display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" style={{ color: "#5EA8FF", flexShrink: 0 }}>
+                    <path d="M2.5 3.5h9M2.5 7h9M2.5 10.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: 0.4, color: "#5EA8FF", textTransform: "uppercase" as const }}>DESCRIPTION</span>
+                </div>
+                <textarea
+                  placeholder="What's the vibe? Who should come?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="cep-desc-b"
+                  rows={3}
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", background: "transparent", border: "none", outline: "none", fontSize: 13.5, fontWeight: 400, lineHeight: 1.45, color: "#fff", fontFamily: "inherit", resize: "none" }}
+                />
+              </div>
+            )}
+
+            {/* Public-only: category + source URL */}
+            {!isPrivate && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as Category)}
+                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13, background: "rgba(255,255,255,0.05)", color: "#fff", fontFamily: "inherit", outline: "none" }}
+                >
+                  <option value="concerts">Concerts</option>
+                  <option value="nightlife">Nightlife</option>
+                  <option value="arts_culture">Arts &amp; Culture</option>
+                  <option value="comedy">Comedy</option>
+                  <option value="sports">Sports</option>
+                  <option value="family">Family</option>
+                </select>
+                <input
+                  placeholder="Tickets / info link"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  style={{ padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.10)", fontSize: 13, background: "rgba(255,255,255,0.05)", color: "#fff", fontFamily: "inherit", outline: "none" }}
+                />
+              </div>
+            )}
+
+          </div>
+
+          {/* Hosted by card */}
+          {user && (
+            <div style={{ padding: "18px 12px 0" }}>
+              <div style={{ borderRadius: 22, padding: "18px 16px 20px", background: "rgba(255,255,255,0.04)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600, letterSpacing: -0.1, whiteSpace: "nowrap" }}>
+                  {isPrivate ? "Hosted by" : "Organized by"}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {/* Host avatar */}
+                  {activeOrganizer ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                      {activeOrganizer.image_url ? (
+                        <img src={activeOrganizer.image_url} alt={activeOrganizer.name} style={{ width: 44, height: 44, borderRadius: 7, objectFit: "cover", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.25)" }} />
+                      ) : (
+                        <GeneratedAvatar name={activeOrganizer.name} imageUrl={activeOrganizer.custom_image_url} shape="square" size={44} borderRadius={7} initials={activeOrganizer.name.slice(0, 1).toUpperCase()} />
+                      )}
+                      <span style={{ fontSize: 12, fontWeight: 500, color: "#fff" }}>{activeOrganizer.name}</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt={displayName} style={{ width: 44, height: 44, borderRadius: 999, objectFit: "cover", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.25)" }} />
+                      ) : (
+                        <div style={{ width: 44, height: 44, borderRadius: 999, background: "linear-gradient(135deg, #d8b394 0%, #8a5a3b 100%)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.25)", fontSize: 16, fontWeight: 700, color: "#fff" }}>
+                          {displayName.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <span style={{ fontSize: 12, fontWeight: 500, color: "#fff" }}>{displayName.split(" ")[0]}</span>
+                    </div>
+                  )}
+
+                  {/* Cohost avatars */}
+                  {cohostProfiles.map((cp) => (
+                    <div key={cp.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                      {cp.avatar_url ? (
+                        <img src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 44, height: 44, borderRadius: 999, objectFit: "cover", boxShadow: "inset 0 0 0 1.5px rgba(255,255,255,0.25)" }} />
+                      ) : (
+                        <GeneratedAvatar name={cp.display_name} imageUrl={cp.avatar_url} size={44} />
+                      )}
+                      <span style={{ fontSize: 12, fontWeight: 500, color: "#fff" }}>{(cp.display_name ?? "").split(" ")[0] || "Cohost"}</span>
+                    </div>
+                  ))}
+
+                  {/* + Cohost dashed slot */}
+                  <button
+                    type="button"
+                    onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
+                    style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, cursor: "pointer", background: "none", border: "none", padding: 0, fontFamily: "inherit" }}
+                  >
+                    <div style={{ width: 44, height: 44, borderRadius: 999, border: "1.5px dashed rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.02)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 12 12" fill="none" style={{ color: "rgba(255,255,255,0.7)" }}>
+                        <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.55)" }}>Cohost</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 16px 0" }}>{error}</p>}
+
+        </div>
+
+        {/* File input (hidden) */}
         <input
           ref={fileInputRef}
           type="file"
@@ -1830,269 +1944,32 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           onChange={(e) => handleImageChange(e.target.files?.[0] ?? null)}
         />
 
-        {/* ── Lower section ────────────────────────────────────────── */}
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 16px 80px" }}>
-
-          {/* ── Hosted by / Organized by + description card ──────────── */}
-          {user && (
-            <div
-              style={{
-                marginTop: 16,
-                borderRadius: 20,
-                background: "rgba(18,25,36,0.14)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                overflow: "hidden",
-              }}
-            >
-              {/* Header section — centered */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "22px 16px 0", gap: 10 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#f5f7fa" }}>
-                  {isPrivate ? "Hosted by" : "Organized by"}
-                </p>
-                {activeOrganizer ? (
-                  /* ── Organizer identity — rounded-square logo centered above name ── */
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    {activeOrganizer.image_url ? (
-                      <img
-                        src={activeOrganizer.image_url}
-                        alt={activeOrganizer.name}
-                        style={{ width: 28, height: 28, borderRadius: 7, objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }}
-                      />
-                    ) : (
-                      <GeneratedAvatar name={activeOrganizer.name} imageUrl={activeOrganizer.custom_image_url} shape="square" size={28} borderRadius={7} initials={activeOrganizer.name.slice(0, 1).toUpperCase()} style={{ border: "2px solid rgba(18,25,36,0.8)" }} />
-                    )}
-                    <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{activeOrganizer.name}</span>
-                  </div>
-                ) : (
-                  /* ── Personal identity — circle avatar + cohosts ── */
-                  <>
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt={displayName} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", flexShrink: 0 }} />
-                      ) : (
-                        <GeneratedAvatar name={displayName} imageUrl={avatarUrl} size={28} style={{ border: "2px solid rgba(18,25,36,0.8)" }} />
-                      )}
-                      {cohostProfiles.map((cp) => (
-                        cp.avatar_url ? (
-                          <img key={cp.id} src={cp.avatar_url} alt={cp.display_name ?? ""} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8, flexShrink: 0 }} />
-                        ) : (
-                          <GeneratedAvatar key={cp.id} name={cp.display_name} imageUrl={cp.avatar_url} size={28} style={{ border: "2px solid rgba(18,25,36,0.8)", marginLeft: -8 }} />
-                        )
-                      ))}
-                    </div>
-                    {/* + cohost button */}
-                    <button
-                      type="button"
-                      onClick={() => { setCohostSheetOpen(true); setCohostSearch(""); }}
-                      style={{
-                        height: 19, padding: "0 13px", borderRadius: 10, border: "none",
-                        background: "rgba(255,255,255,0.05)",
-                        cursor: "pointer", fontSize: 10, fontWeight: 700, color: "#fff",
-                        marginBottom: 6, fontFamily: "inherit",
-                      }}
-                    >
-                      + cohost
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 16px" }} />
-
-              {/* Description — white button or expanded editor */}
-              <div
-                onBlur={(e) => {
-                  const container = e.currentTarget;
-                  if (container.contains(e.relatedTarget as Node | null)) return;
-                  setTimeout(() => {
-                    if (container.contains(document.activeElement)) return;
-                    if (!description && !descriptionTitle) setDescriptionOpen(false);
-                  }, 0);
-                }}
-              >
-                {descriptionOpen || description ? (
-                  <div style={{ padding: "14px 18px 18px" }}>
-                    <input
-                      ref={descriptionTitleInputRef}
-                      type="text"
-                      placeholder="Section title (optional)"
-                      value={descriptionTitle}
-                      onChange={(e) => setDescriptionTitle(e.target.value)}
-                      style={{
-                        display: "block", width: "100%", boxSizing: "border-box",
-                        padding: "0 0 10px", border: "none",
-                        fontSize: 16, fontWeight: 600, textAlign: "center",
-                        background: "transparent", color: "inherit",
-                        outline: "none", fontFamily: "inherit",
-                        borderBottom: "1px solid var(--border)",
-                        marginBottom: 10,
-                      }}
-                    />
-                    <textarea
-                      placeholder="What's this event about?"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={4}
-                      style={{
-                        display: "block", width: "100%", boxSizing: "border-box",
-                        padding: 0, border: "none",
-                        fontSize: 16, background: "transparent", color: "inherit",
-                        resize: "vertical", outline: "none", textAlign: "center",
-                        fontFamily: "inherit", lineHeight: 1.6,
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div style={{ padding: "14px 16px 18px", display: "flex", justifyContent: "center" }}>
-                    <button
-                      type="button"
-                      onClick={() => setDescriptionOpen(true)}
-                      style={{
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        width: "85%", height: 33,
-                        background: "#ffffff", border: "none", borderRadius: 10,
-                        cursor: "pointer", color: "#1f2b39", fontSize: 13, fontWeight: 700,
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      Add a description
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Public-only: category + tickets ─────────────────────── */}
-          {!isPrivate && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                style={inputStyle}
-              >
-                <option value="concerts">Concerts</option>
-                <option value="nightlife">Nightlife</option>
-                <option value="arts_culture">Arts &amp; Culture</option>
-                <option value="comedy">Comedy</option>
-                <option value="sports">Sports</option>
-                <option value="family">Family</option>
-              </select>
-              <input
-                placeholder="Tickets / info link"
-                value={sourceUrl}
-                onChange={(e) => setSourceUrl(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          )}
-
-          {/* ── Options chips (private only) ────────────────────────── */}
-          {isPrivate && (() => {
-            const spotsLabel = spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0
-              ? `${spotsLimit} spots` : null;
-            const costLabel = costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
-              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount} · Interac`
-              : costMode === "door" && costAmount.trim() && parseFloat(costAmount) > 0
-              ? `${costCurrency === "CAD" ? "CA$" : "$"}${costAmount} · on site`
-              : costMode === "door" ? "Pay on site"
-              : costMode === "paid" ? "Paid"
-              : null;
-            const rsvpLabel = rsvpDeadline ? (() => {
-              const [y, m, d] = rsvpDeadline.split("-").map(Number);
-              return new Date(y, m - 1, d).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
-            })() : null;
-
-            const chipBase: React.CSSProperties = {
-              display: "flex", alignItems: "center", gap: 5,
-              height: 30, padding: "0 12px", borderRadius: 999, flexShrink: 0,
-              cursor: "pointer", fontSize: 12, fontWeight: 500,
-              color: "#8c98a8", background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.10)",
-              fontFamily: "inherit",
-            };
-
-            return (
-              <div className="cep-options" style={{ display: "flex", gap: 8, overflowX: "auto", padding: "12px 0 2px", scrollbarWidth: "none" }}>
-                <button type="button" onClick={() => {
-                  // Seed draft from committed state
-                  setSpotsDraftMode(spotsMode);
-                  setSpotsDraftCount(spotsMode === "limited" && spotsLimit.trim() && parseInt(spotsLimit) > 0 ? parseInt(spotsLimit) : 10);
-                  setOptionSheet("spots");
-                }}
-                  style={{ ...chipBase, color: spotsLabel ? "#fff" : "#8c98a8", background: spotsLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
-                  <img src="/Icons/IconSpots.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
-                  {spotsLabel ?? "Spots"}
-                </button>
-                <button type="button" onClick={() => {
-                  setCostDraftTopMode(costMode === "free" ? "free" : "paid");
-                  setCostDraftPayMethod(costMode === "door" ? "door" : "advance");
-                  setCostDraftAmount(costAmount);
-                  setCostDraftCurrency(costCurrency);
-                  setCostDraftContact(costPaymentContact);
-                  setOptionSheet("cost");
-                }}
-                  style={{ ...chipBase, color: costLabel ? "#fff" : "#8c98a8", background: costLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
-                  <img src="/Icons/IconCost.svg" width="14" height="14" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
-                  {costLabel ?? "Cost"}
-                </button>
-                <button type="button" onClick={() => { setRsvpDraft(rsvpDeadline); setOptionSheet("rsvp"); }}
-                  style={{ ...chipBase, color: rsvpLabel ? "#fff" : "#8c98a8", background: rsvpLabel ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.05)" }}>
-                  <img src="/Icons/IconRSVPby.svg" width="13" height="13" alt="" style={{ opacity: 0.7, flexShrink: 0 }} />
-                  {rsvpLabel ? `RSVP by ${rsvpLabel}` : "RSVP by"}
-                </button>
-              </div>
-            );
-          })()}
-
-          {error && (
-            <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 0 0" }}>{error}</p>
-          )}
-
-          {/* ── Submit / Preview button ──────────────────────────────── */}
-          {isEditMode ? (
+        {/* ── Preview pill / Save button (fixed, bottom-right) ─────── */}
+        {isEditMode ? (
+          <div style={{ position: "fixed", bottom: 30, right: 16, zIndex: 20 }}>
             <button
               type="submit"
               disabled={submitting || !canSubmit}
-              style={{
-                display: "block", width: "100%", marginTop: 20,
-                padding: "14px", borderRadius: 12, border: "none",
-                fontWeight: 700, fontSize: 15,
-                background: submitting || !canSubmit ? "var(--surface-subtle)" : "var(--foreground)",
-                color: submitting || !canSubmit ? "inherit" : "var(--background)",
-                cursor: submitting || !canSubmit ? "not-allowed" : "pointer",
-              }}
+              style={{ height: 44, padding: "0 22px", borderRadius: 999, background: submitting || !canSubmit ? "rgba(255,255,255,0.15)" : "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: submitting || !canSubmit ? "none" : "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: submitting || !canSubmit ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
             >
               {submitting ? "Saving…" : "Save changes"}
             </button>
-          ) : (
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16, paddingBottom: 16 }}>
-              <button
-                type="button"
-                disabled={!canSubmit}
-                onClick={() => { setError(null); setShowPreview(true); }}
-                style={{
-                  height: 30, padding: "0 22px",
-                  borderRadius: 999,
-                  background: !canSubmit ? "rgba(255,255,255,0.35)" : "#ffffff",
-                  color: "#435c7a",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  fontWeight: 500, fontSize: 12,
-                  cursor: !canSubmit ? "not-allowed" : "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                Preview
-              </button>
-              {imageFile && !imageBytesReady && (
-                <p style={{ fontSize: 11, opacity: 0.5, margin: "6px 0 0", textAlign: "right" }}>
-                  Preparing image…
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div style={{ position: "fixed", bottom: 30, right: 16, zIndex: 20 }}>
+            <button
+              type="button"
+              onClick={() => { setError(null); setShowPreview(true); }}
+              style={{ height: 44, padding: "0 18px", borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
+            >
+              Preview
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M3 7h8M7.5 3.5L11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        )}
+
       </form>
 
       {/* ── Photo action sheet ──────────────────────────────────────── */}

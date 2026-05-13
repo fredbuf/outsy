@@ -18,6 +18,11 @@ type Profile = {
   username: string | null;
   avatar_url: string | null;        // legacy – may be a Google OAuth URL; do not use for display
   custom_avatar_url: string | null; // user-uploaded via Outsy; use this for display
+  bio: string | null;
+  website_url: string | null;
+  instagram_url: string | null;
+  tiktok_url: string | null;
+  youtube_url: string | null;
 };
 
 type EventRow = {
@@ -259,6 +264,11 @@ export default function ProfilePage() {
   const [editClosing, setEditClosing] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -300,6 +310,11 @@ export default function ProfilePage() {
           setInterestedEvents(profileJson.interested ?? []);
           setDisplayName(profileJson.profile?.display_name ?? "");
           setUsername(profileJson.profile?.username ?? "");
+          setBio(profileJson.profile?.bio ?? "");
+          setWebsiteUrl(profileJson.profile?.website_url ?? "");
+          setInstagramUrl(profileJson.profile?.instagram_url ?? "");
+          setTiktokUrl(profileJson.profile?.tiktok_url ?? "");
+          setYoutubeUrl(profileJson.profile?.youtube_url ?? "");
         }
         if (friendsJson?.ok) {
           setFriends(friendsJson.friends ?? []);
@@ -381,7 +396,15 @@ export default function ProfilePage() {
         "content-type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ display_name: displayName, username }),
+      body: JSON.stringify({
+        display_name: displayName,
+        username,
+        bio: bio || null,
+        website_url: websiteUrl || null,
+        instagram_url: instagramUrl || null,
+        tiktok_url: tiktokUrl || null,
+        youtube_url: youtubeUrl || null,
+      }),
     });
     const json = await res.json();
     setSaving(false);
@@ -389,6 +412,11 @@ export default function ProfilePage() {
     if (json?.ok) {
       setProfile(json.profile);
       setUsername(json.profile?.username ?? "");
+      setBio(json.profile?.bio ?? "");
+      setWebsiteUrl(json.profile?.website_url ?? "");
+      setInstagramUrl(json.profile?.instagram_url ?? "");
+      setTiktokUrl(json.profile?.tiktok_url ?? "");
+      setYoutubeUrl(json.profile?.youtube_url ?? "");
       setSaveSuccess(true);
       setTimeout(() => {
         setSaveSuccess(false);
@@ -632,6 +660,43 @@ export default function ProfilePage() {
             {(globalHandle ?? profile?.username) && (
               <div style={{ fontSize: 12, fontWeight: 400, color: "#8C98A8", letterSpacing: "0.01em" }}>
                 @{globalHandle ?? profile?.username}
+              </div>
+            )}
+
+            {/* Bio */}
+            {profile?.bio && (
+              <p style={{ fontSize: 13, fontWeight: 500, color: "#8C98A8", textAlign: "center", margin: "6px 0 0", lineHeight: 1.6, maxWidth: 260 }}>
+                {profile.bio}
+              </p>
+            )}
+
+            {/* Social link pills */}
+            {(profile?.website_url || profile?.instagram_url || profile?.tiktok_url || profile?.youtube_url) && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 8 }}>
+                {profile.website_url && (
+                  <a href={profile.website_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                    Website
+                  </a>
+                )}
+                {profile.instagram_url && (
+                  <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></svg>
+                    Instagram
+                  </a>
+                )}
+                {profile.tiktok_url && (
+                  <a href={profile.tiktok_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" /></svg>
+                    TikTok
+                  </a>
+                )}
+                {profile.youtube_url && (
+                  <a href={profile.youtube_url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 500, color: "#C7D0DB", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", textDecoration: "none" }}>
+                    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" /><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" /></svg>
+                    YouTube
+                  </a>
+                )}
               </div>
             )}
 
@@ -893,12 +958,16 @@ export default function ProfilePage() {
               borderRadius: 24,
               width: "100%",
               maxWidth: 400,
+              maxHeight: "90dvh",
+              display: "flex",
+              flexDirection: "column",
               overflow: "hidden",
               boxShadow: "0 32px 80px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.04) inset",
             }}
           >
-            {/* Header — 3-column grid */}
+            {/* Header — 3-column grid (fixed, does not scroll) */}
             <div style={{
+              flexShrink: 0,
               display: "grid", gridTemplateColumns: "44px 1fr 44px",
               alignItems: "center", padding: "14px 16px 12px",
               borderBottom: "1px solid rgba(255,255,255,0.07)",
@@ -923,6 +992,9 @@ export default function ProfilePage() {
               </div>
               <div />
             </div>
+
+            {/* Scrollable body — avatar + form fields */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
 
             {/* Avatar — centred hero section */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 20px 20px", gap: 12 }}>
@@ -1009,6 +1081,88 @@ export default function ProfilePage() {
                 3–30 characters · letters, numbers, underscores
               </span>
 
+              {/* Bio */}
+              <div style={{ borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)", overflow: "hidden", marginTop: 4 }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>Bio</span>
+                </div>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell people a bit about yourself…"
+                  maxLength={1000}
+                  rows={3}
+                  style={{
+                    display: "block", width: "100%", boxSizing: "border-box",
+                    padding: "4px 14px 12px",
+                    background: "none", border: "none", outline: "none",
+                    fontSize: 15, fontWeight: 400, color: "#fff", fontFamily: "inherit",
+                    resize: "none", lineHeight: 1.55,
+                  }}
+                />
+              </div>
+
+              {/* Links section label */}
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.07em", textTransform: "uppercase", paddingLeft: 2, marginTop: 6 }}>
+                Links
+              </div>
+
+              {/* Website */}
+              <div style={{ borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)", overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>Website</span>
+                </div>
+                <input
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://yoursite.com"
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "4px 14px 12px", background: "none", border: "none", outline: "none", fontSize: 15, fontWeight: 400, color: "#fff", fontFamily: "inherit" }}
+                />
+              </div>
+
+              {/* Instagram */}
+              <div style={{ borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)", overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>Instagram</span>
+                </div>
+                <input
+                  type="url"
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder="https://instagram.com/yourname"
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "4px 14px 12px", background: "none", border: "none", outline: "none", fontSize: 15, fontWeight: 400, color: "#fff", fontFamily: "inherit" }}
+                />
+              </div>
+
+              {/* TikTok */}
+              <div style={{ borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)", overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>TikTok</span>
+                </div>
+                <input
+                  type="url"
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder="https://tiktok.com/@yourname"
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "4px 14px 12px", background: "none", border: "none", outline: "none", fontSize: 15, fontWeight: 400, color: "#fff", fontFamily: "inherit" }}
+                />
+              </div>
+
+              {/* YouTube */}
+              <div style={{ borderRadius: 14, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.11)", overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px 2px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.38)", letterSpacing: "0.07em", textTransform: "uppercase" }}>YouTube</span>
+                </div>
+                <input
+                  type="url"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="https://youtube.com/@yourname"
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "4px 14px 12px", background: "none", border: "none", outline: "none", fontSize: 15, fontWeight: 400, color: "#fff", fontFamily: "inherit" }}
+                />
+              </div>
+
               {saveError && (
                 <p style={{ fontSize: 13, color: "#f87171", margin: 0 }}>{saveError}</p>
               )}
@@ -1039,6 +1193,8 @@ export default function ProfilePage() {
                 {saving ? "Saving…" : saveSuccess ? "Saved ✓" : "Save changes"}
               </button>
             </form>
+
+            </div>{/* end scrollable body */}
           </div>
         </div>
       )}

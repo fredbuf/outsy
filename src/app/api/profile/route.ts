@@ -4,6 +4,18 @@ import { supabaseServer } from "@/lib/supabase-server";
 
 // Usernames: 3–30 chars, lowercase letters / digits / underscores only.
 const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
+const BIO_MAX = 1000;
+const URL_MAX = 500;
+
+function sanitizeUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
 
 async function getAuthUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -24,7 +36,7 @@ export async function GET(req: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id,display_name,username,avatar_url,custom_avatar_url")
+    .select("id,display_name,username,avatar_url,custom_avatar_url,bio,website_url,instagram_url,tiktok_url,youtube_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -118,7 +130,8 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { display_name, username } = body as Record<string, unknown>;
+  const payload = body as Record<string, unknown>;
+  const { display_name, username } = payload;
   const patch: Record<string, unknown> = {};
 
   if (typeof display_name === "string") {
@@ -151,6 +164,38 @@ export async function PATCH(req: Request) {
     }
   }
 
+  if ("bio" in payload) {
+    patch.bio =
+      typeof payload.bio === "string" && payload.bio.trim()
+        ? payload.bio.trim().slice(0, BIO_MAX)
+        : null;
+  }
+
+  for (const field of ["website_url", "instagram_url", "tiktok_url", "youtube_url"] as const) {
+    if (field in payload) {
+      const val = payload[field];
+      if (val === null || val === "") {
+        patch[field] = null;
+      } else if (typeof val === "string") {
+        const trimmed = val.trim();
+        if (trimmed.length > URL_MAX) {
+          return NextResponse.json(
+            { ok: false, error: `${field.replace("_url", "").replace("_", "")} URL must be ${URL_MAX} characters or fewer.` },
+            { status: 400 }
+          );
+        }
+        const clean = sanitizeUrl(trimmed);
+        if (!clean) {
+          return NextResponse.json(
+            { ok: false, error: `Invalid URL for ${field.replace("_url", "").replace("_", "")}. Must start with http:// or https://.` },
+            { status: 400 }
+          );
+        }
+        patch[field] = clean;
+      }
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: "No fields to update." }, { status: 400 });
   }
@@ -159,7 +204,7 @@ export async function PATCH(req: Request) {
     .from("profiles")
     .update(patch)
     .eq("id", user.id)
-    .select("id,display_name,username,avatar_url,custom_avatar_url")
+    .select("id,display_name,username,avatar_url,custom_avatar_url,bio,website_url,instagram_url,tiktok_url,youtube_url")
     .single();
 
   if (error) {
