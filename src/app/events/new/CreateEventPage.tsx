@@ -1651,7 +1651,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         {/* ════════════════════ END HERO ══════════════════════════════ */}
 
         {/* ── Top bar ─────────────────────────────────────────────── */}
-        <div style={{ position: "absolute", top: 56, left: 0, right: 0, padding: "0 16px", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ position: "absolute", top: 20, left: 0, right: 0, padding: "0 16px", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {/* Back button — glass pill */}
           <button
             type="button"
@@ -1697,7 +1697,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         </div>
 
         {/* ── Scrollable body ──────────────────────────────────────── */}
-        <div style={{ position: "relative", zIndex: 2, paddingTop: 300, paddingBottom: 110 }}>
+        {/* pointerEvents:none on the wrapper lets taps in the 300px padding zone
+            fall through to the hero label beneath (zIndex:1). The inner content
+            div restores pointer events for all actual interactive elements.     */}
+        <div style={{ position: "relative", zIndex: 2, paddingTop: 300, paddingBottom: "max(40px, env(safe-area-inset-bottom, 40px))", pointerEvents: "none" }}>
+        <div style={{ pointerEvents: "auto" }}>
 
           {/* Title block — centered, over the hero fade */}
           <div style={{ padding: "0 20px 18px", textAlign: "center" }}>
@@ -1952,7 +1956,32 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           {/* Error */}
           {error && <p style={{ color: "#dc2626", fontSize: 13, margin: "12px 16px 0" }}>{error}</p>}
 
-        </div>
+          {/* ── Preview / Save button — inline below hosted-by ──────── */}
+          <div style={{ padding: "20px 16px 0", display: "flex", justifyContent: "flex-end" }}>
+            {isEditMode ? (
+              <button
+                type="submit"
+                disabled={submitting || !canSubmit}
+                style={{ height: 44, padding: "0 22px", borderRadius: 999, background: submitting || !canSubmit ? "rgba(255,255,255,0.10)" : "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: submitting || !canSubmit ? "none" : "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: submitting || !canSubmit ? "rgba(255,255,255,0.4)" : "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: submitting || !canSubmit ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
+              >
+                {submitting ? "Saving…" : "Save changes"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setError(null); setShowPreview(true); }}
+                style={{ height: 44, padding: "0 18px", borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
+              >
+                Preview
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 7h8M7.5 3.5L11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+        </div>{/* end pointerEvents:auto content wrapper */}
+        </div>{/* end scrollable body */}
 
         {/* File input (hidden) — id required for the label htmlFor association */}
         <input
@@ -1965,39 +1994,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         />
 
       </form>
-
-      {/* ── Preview pill / Save button (fixed, bottom-right) ─────────────
-          Rendered OUTSIDE the <form> to guarantee position:fixed is never
-          trapped by a form scroll container. Submit button uses form="cep-form"
-          to remain associated with the form for native submit. zIndex 200 keeps
-          it above the BottomNav (z:150). Bottom uses safe-area-inset-bottom
-          so it clears the iOS home indicator.
-      ────────────────────────────────────────────────────────────────────── */}
-      {isEditMode ? (
-        <div style={{ position: "fixed", bottom: "calc(30px + env(safe-area-inset-bottom, 0px))", right: 16, zIndex: 200 }}>
-          <button
-            type="submit"
-            form="cep-form"
-            disabled={submitting || !canSubmit}
-            style={{ height: 44, padding: "0 22px", borderRadius: 999, background: submitting || !canSubmit ? "rgba(255,255,255,0.15)" : "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: submitting || !canSubmit ? "none" : "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: submitting || !canSubmit ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
-          >
-            {submitting ? "Saving…" : "Save changes"}
-          </button>
-        </div>
-      ) : (
-        <div style={{ position: "fixed", bottom: "calc(30px + env(safe-area-inset-bottom, 0px))", right: 16, zIndex: 200 }}>
-          <button
-            type="button"
-            onClick={() => { setError(null); setShowPreview(true); }}
-            style={{ height: 44, padding: "0 18px", borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 50%, #2563EB 100%)", boxShadow: "0 8px 24px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.25)", border: "none", display: "inline-flex", alignItems: "center", gap: 7, color: "#fff", fontSize: 14.5, fontWeight: 600, letterSpacing: -0.1, cursor: "pointer", transition: "all 0.2s", fontFamily: "inherit" }}
-          >
-            Preview
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 7h8M7.5 3.5L11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-      )}
 
       {/* ── Photo action sheet ──────────────────────────────────────── */}
       {photoMenuOpen && (
