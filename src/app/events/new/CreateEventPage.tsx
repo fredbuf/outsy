@@ -1587,7 +1587,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           <div
             style={{
               position: "absolute", top: 0, left: 0, right: 0,
-              height: 360, zIndex: 1, overflow: "hidden", cursor: "pointer",
+              aspectRatio: "9/10", zIndex: 1, overflow: "hidden", cursor: "pointer",
             }}
             onClick={() => setPhotoMenuOpen(true)}
           >
@@ -1601,18 +1601,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             {/* Change cover pill */}
             <div
               style={{
-                position: "absolute", top: 108, right: 16, zIndex: 5,
-                padding: "11px 16px 11px 13px", borderRadius: 999,
-                background: "rgba(0,0,0,0.6)",
+                position: "absolute", top: 108, left: "50%", transform: "translateX(-50%)", zIndex: 5,
+                padding: "8px 14px 8px 11px", borderRadius: 999,
+                background: "rgba(0,0,0,0.5)",
                 backdropFilter: "blur(20px) saturate(160%)",
                 WebkitBackdropFilter: "blur(20px) saturate(160%)",
-                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.25), 0 6px 20px rgba(0,0,0,0.4)",
-                display: "inline-flex", alignItems: "center", gap: 8,
-                fontSize: 13.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
-                pointerEvents: "none",
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18)",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                fontSize: 12.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
+                opacity: 0.75, pointerEvents: "none", whiteSpace: "nowrap",
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+              <svg width="13" height="13" viewBox="0 0 18 18" fill="none">
                 <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
                 <circle cx="6.5" cy="6.5" r="1.2" fill="currentColor" />
                 <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -1626,7 +1626,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             htmlFor="cep-file-input"
             style={{
               position: "absolute", top: 0, left: 0, right: 0,
-              height: 360, zIndex: 1, overflow: "hidden", cursor: "pointer",
+              aspectRatio: "9/10", zIndex: 1, overflow: "hidden", cursor: "pointer",
               display: "block",
             }}
           >
@@ -1700,7 +1700,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         {/* pointerEvents:none on the wrapper lets taps in the 300px padding zone
             fall through to the hero label beneath (zIndex:1). The inner content
             div restores pointer events for all actual interactive elements.     */}
-        <div style={{ position: "relative", zIndex: 2, paddingTop: 300, paddingBottom: "max(40px, env(safe-area-inset-bottom, 40px))", pointerEvents: "none" }}>
+        <div style={{ position: "relative", zIndex: 2, paddingTop: "calc(100vw * 10 / 9 - 60px)", paddingBottom: "max(40px, env(safe-area-inset-bottom, 40px))", pointerEvents: "none" }}>
         <div style={{ pointerEvents: "auto" }}>
 
           {/* Title block — centered, over the hero fade */}
@@ -1861,7 +1861,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                   onChange={(e) => setDescription(e.target.value)}
                   className="cep-desc-b"
                   rows={3}
-                  style={{ display: "block", width: "100%", boxSizing: "border-box", background: "transparent", border: "none", outline: "none", fontSize: 13.5, fontWeight: 400, lineHeight: 1.45, color: "#fff", fontFamily: "inherit", resize: "none" }}
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", background: "transparent", border: "none", outline: "none", fontSize: 16, fontWeight: 400, lineHeight: 1.45, color: "#fff", fontFamily: "inherit", resize: "none" }}
                 />
               </div>
             )}
