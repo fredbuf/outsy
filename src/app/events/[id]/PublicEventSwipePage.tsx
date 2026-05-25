@@ -3,18 +3,15 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "../../components/AuthProvider";
 import { useTileTransition } from "../../components/TileTransitionProvider";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
-import { ActionBar } from "./ActionBar";
 import { AttendeeList } from "./AttendeeList";
-import { ShareButton, type EventPreview } from "./ShareButton";
-import { ExpandableDescription } from "./ExpandableDescription";
+import { type EventPreview } from "./ShareButton";
 import { MomentsClient } from "./moments/MomentsClient";
 import type { MomentRow } from "./moments/page";
-import { BellIcon } from "./CustomIcons";
-import { GeneratedAvatar } from "../../components/GeneratedAvatar";
+import { EventBody } from "./EventBody";
+import { useAuth } from "../../components/AuthProvider";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -97,12 +94,16 @@ type Props = {
   category: string;
   source: string;
   creatorId: string | null;
-  creator: { display_name: string | null; avatar_url: string | null; username: string | null } | null;
+  creator: { display_name: string | null; avatar_url: string | null; custom_avatar_url?: string | null; username: string | null } | null;
   cohostIds: string[];
   dateLine: string;
   timeLine: string | null;
   mapHref: string;
   venueName: string | null;
+  venueAddress: string | null;
+  venueCity: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
   description: string | null;
   descriptionTitle: string | null;
   price: string | null;
@@ -112,10 +113,18 @@ type Props = {
   related: RelatedEvent[];
   sourceUrl: string | null;
   organizers: { name: string; role: string; slug: string | null; image_url: string | null; custom_image_url: string | null }[];
+  eventOrganizerIds?: string[];
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
   startAt: string;
+  // Details section
+  spotsLimited: boolean;
+  spotsLimit: number | null;
+  eventPrice: number | null;
+  eventCurrency: string;
+  paymentMethod: string | null;
+  rsvpDeadline: string | null;
   preview?: EventPreview;
   previewMode?: boolean;
   onPreviewBack?: () => void;
@@ -132,22 +141,24 @@ export function PublicEventSwipePage(props: Props) {
     id, imageUrl, title, category, source,
     creatorId, creator, cohostIds,
     dateLine, timeLine, mapHref, venueName,
+    venueAddress, venueCity, venueLat, venueLng,
     description, descriptionTitle,
     price, isAnnounced,
     rsvpCounts, attendees, related,
     sourceUrl,
     organizers,
+    eventOrganizerIds = [],
     guestsCanPost, guestsCanReact,
     initialMoments,
     startAt,
+    spotsLimited, spotsLimit,
+    eventPrice, eventCurrency, paymentMethod, rsvpDeadline,
     previewMode = false,
     onPreviewBack,
     onPublish,
     previewSubmitting = false,
     previewError = null,
   } = props;
-
-  const [page, setPage] = useState(0); // 0 = about, 1 = moments
 
   // Hero entry animation — start hidden if a tile transition is in progress,
   // then reveal as the expansion overlay fades out.
@@ -168,30 +179,6 @@ export function PublicEventSwipePage(props: Props) {
     dateStr: smartDate(startAt),
     venueName,
   };
-
-  const cssVars = {
-    "--border":         "rgba(255,255,255,0.10)",
-    "--border-strong":  "rgba(255,255,255,0.18)",
-    "--btn-bg":         "rgba(18,25,36,0.55)",
-    "--btn-bg-active":  "rgba(255,255,255,0.13)",
-    "--surface-subtle": "rgba(255,255,255,0.04)",
-    "--background":     "rgba(18,25,36,0.55)",
-    "--foreground":     "#f5f7fa",
-    "--accent":         "#5EA8FF",
-    color: "#f5f7fa",
-  } as React.CSSProperties;
-
-  const iconBtnStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    width: 34, height: 34, borderRadius: "50%",
-    background: "rgba(18,25,36,0.20)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    color: "#f5f7fa", cursor: "pointer", flexShrink: 0,
-    padding: 0,
-  };
-
-  const avatarBorder = "2px solid rgba(18,25,36,0.85)";
-  const hasAttendees = rsvpCounts.going > 0 || rsvpCounts.maybe > 0;
 
   return (
     <main style={{
@@ -274,7 +261,7 @@ export function PublicEventSwipePage(props: Props) {
               {previewSubmitting ? "Publishing…" : "Publish"}
             </button>
           ) : (
-            <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} />
+            <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} eventOrganizerIds={eventOrganizerIds} />
           )}
         </div>
 
@@ -355,243 +342,91 @@ export function PublicEventSwipePage(props: Props) {
         </div>
       )}
 
-      {/* ── SEGMENTED CONTROL ─────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", padding: "16px 20px 8px" }}>
-        <div style={{ position: "relative", display: "flex", gap: 6 }}>
-          {/* Sliding white pill indicator */}
-          <div aria-hidden="true" style={{
-            position: "absolute",
-            top: 0, left: 0,
-            width: 101, height: 25,
-            borderRadius: 20,
-            background: "#ffffff",
-            border: "1px solid rgba(255,255,255,0.12)",
-            transform: `translateX(${page === 0 ? 0 : 107}px)`,
-            transition: "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)",
-            pointerEvents: "none",
-            zIndex: 0,
-          }} />
-          <button
-            type="button"
-            onClick={() => setPage(0)}
-            style={{
-              width: 101, height: 25, borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "transparent",
-              fontWeight: page === 0 ? 700 : 600, fontSize: 12,
-              cursor: "pointer",
-              color: page === 0 ? "#1f3659" : "#ffffff",
-              position: "relative", zIndex: 1,
-              transition: "color 0.2s",
-            }}
-          >
-            About
-          </button>
-          <button
-            type="button"
-            onClick={() => setPage(1)}
-            style={{
-              width: 101, height: 25, borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "transparent",
-              fontWeight: page === 1 ? 700 : 600, fontSize: 12,
-              cursor: "pointer",
-              color: page === 1 ? "#1f3659" : "#ffffff",
-              position: "relative", zIndex: 1,
-              transition: "color 0.2s",
-            }}
-          >
-            Moments
-          </button>
-        </div>
-      </div>
-
-      {/* ── CONTENT ───────────────────────────────────────────────────────── */}
-      <div style={cssVars as React.CSSProperties}>
-
-          {/* ── ABOUT PANEL ─────────────────────────────────────────────── */}
-          <div style={{ display: page === 0 ? "block" : "none" }}>
-          <div style={{ padding: "16px 20px 48px" }}>
-
-              {/* RSVP / Tickets */}
-              <ActionBar
-                eventId={id}
-                initialCounts={rsvpCounts}
-                sourceUrl={sourceUrl}
-                visibility="public"
-                previewMode={previewMode}
-              />
-
-              {/* Attendees row */}
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: 12, padding: "18px 0 16px",
-              }}>
-                {hasAttendees ? (
-                  <AttendeeList
-                    eventId={id}
-                    initialAttendees={attendees}
-                    goingCount={rsvpCounts.going}
-                    maybeCount={rsvpCounts.maybe}
-                    cantGoCount={rsvpCounts.cant_go}
-                    visibility="public"
-                    token={session?.access_token ?? null}
-                    avatarSize={28}
-                    creatorId={creatorId}
-                    creator={creator}
-                  />
-                ) : (
-                  <span style={{ fontSize: 12, opacity: 0.45 }}>No guests yet — be first!</span>
-                )}
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  <ShareButton title={title} eventId={id} preview={sharePreview} />
-                  <button type="button" style={iconBtnStyle} aria-label="Notifications">
-                    <BellIcon size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Organized by card
-                  Decision logic:
-                  - organizers.length > 0  → show organizer logo(s) as rounded-square; hide creator row
-                  - organizers.length === 0, creator exists → show personal creator circle avatar
-                  - neither → omit the card entirely */}
-              {(organizers.length > 0 || creator) && (
-                <div style={{
-                  borderRadius: 20,
-                  background: "rgba(18,25,36,0.14)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  padding: "16px",
-                }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#f5f7fa", textAlign: "center", margin: "0 0 12px" }}>
-                    Organized by
-                  </p>
-
-                  {organizers.length > 0 ? (
-                    /* ── Organizer identities — rounded-square logos ── */
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: description ? 14 : 0 }}>
-                      {organizers.map((o) => {
-                        const logo = (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
-                            {/* Rounded-square logo */}
-                            <div style={{ flexShrink: 0 }}>
-                              {o.custom_image_url ? (
-                                <img
-                                  src={o.custom_image_url}
-                                  alt={o.name}
-                                  width={32} height={32}
-                                  style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", display: "block" }}
-                                />
-                              ) : (
-                                <GeneratedAvatar name={o.name} shape="square" size={32} borderRadius={8} />
-                              )}
-                            </div>
-                            <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{o.name}</span>
-                          </div>
-                        );
-                        return (
-                          <div key={o.name}>
-                            {o.slug ? (
-                              <Link href={`/o/${o.slug}`} style={{ textDecoration: "none", display: "block" }}>
-                                {logo}
-                              </Link>
-                            ) : logo}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* ── Personal creator — circle avatar (no organizer linked) ── */
-                    <div style={{ display: "flex", justifyContent: "center", marginBottom: description ? 14 : 0 }}>
-                      {creatorId ? (
-                        <Link href={`/profile/${creatorId}`} style={{ lineHeight: 0, display: "block", textDecoration: "none" }}>
-                          {creator!.avatar_url ? (
-                            <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
-                              style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                          ) : (
-                            <GeneratedAvatar name={creator!.display_name} size={28} style={{ border: avatarBorder }} />
-                          )}
-                        </Link>
-                      ) : creator!.avatar_url ? (
-                        <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
-                          style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                      ) : (
-                        <GeneratedAvatar name={creator!.display_name} size={28} style={{ border: avatarBorder }} />
+      {/* ── EVENT BODY ────────────────────────────────────────────────────── */}
+      <EventBody
+        eventId={id}
+        eventTitle={title}
+        category={category}
+        visibility="public"
+        isHostOrCohost={false}
+        previewMode={previewMode}
+        sharePreview={sharePreview}
+        initialRsvpCounts={rsvpCounts}
+        sourceUrl={sourceUrl}
+        attendees={attendees}
+        creatorId={creatorId}
+        creator={creator}
+        cohostIds={cohostIds}
+        spotsLimited={spotsLimited}
+        spotsLimit={spotsLimit}
+        description={description}
+        descriptionTitle={descriptionTitle}
+        organizers={organizers}
+        venueName={venueName}
+        venueAddress={venueAddress}
+        venueCity={venueCity}
+        venueLat={venueLat}
+        venueLng={venueLng}
+        mapHref={mapHref}
+        eventPrice={eventPrice}
+        eventCurrency={eventCurrency}
+        paymentMethod={paymentMethod}
+        paymentContact={null}
+        rsvpDeadline={rsvpDeadline}
+        guestsCanPost={guestsCanPost}
+        guestsCanReact={guestsCanReact}
+        initialMoments={initialMoments}
+        eventOrganizerIds={eventOrganizerIds}
+        relatedEventsNode={related.length > 0 ? (
+          <section style={{ padding: "0 20px 80px" }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12, color: "#f5f7fa" }}>More events like this</h2>
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
+              {related.map((r) => {
+                const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
+                const { series, edition } = splitSeriesTitle(r.title);
+                return (
+                  <Link key={r.id} href={`/events/${r.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
+                    <div style={{ position: "relative", width: 190, height: 220, borderRadius: 12, overflow: "hidden", background: categoryBg(r.category_primary) }}>
+                      {r.image_url && (
+                        <img src={r.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                       )}
-                    </div>
-                  )}
-
-                  {description && (
-                    <>
-                      <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 0 14px" }} />
-                      {descriptionTitle && (
-                        <p style={{ fontSize: 14, fontWeight: 600, textAlign: "center", margin: "0 0 6px", color: "#f5f7fa" }}>
-                          {descriptionTitle}
-                        </p>
-                      )}
-                      <div style={{ fontSize: 13, color: "#ffffff", textAlign: "center", lineHeight: 1.55 }}>
-                        <ExpandableDescription text={description} />
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px", display: "flex", flexDirection: "column", gap: 2 }}>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(r.start_at)}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: edition ? 1 : 2, WebkitBoxOrient: "vertical" }}>
+                          {series}
+                        </div>
+                        {edition && (
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{edition}</div>
+                        )}
+                        {rVenue?.name && (
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
+                          </div>
+                        )}
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ) : undefined}
+      />
 
-              {/* More events like this */}
-              {related.length > 0 && (
-                <section style={{ paddingTop: 32 }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>More events like this</h2>
-                  <div style={{ display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none", paddingBottom: 4 }}>
-                    {related.map((r) => {
-                      const rVenue = Array.isArray(r.venues) ? r.venues[0] : r.venues;
-                      const { series, edition } = splitSeriesTitle(r.title);
-                      return (
-                        <Link key={r.id} href={`/events/${r.id}`} style={{ textDecoration: "none", color: "inherit", flexShrink: 0 }}>
-                          <div style={{ position: "relative", width: 190, height: 220, borderRadius: 12, overflow: "hidden", background: categoryBg(r.category_primary) }}>
-                            {r.image_url && (
-                              <img src={r.image_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                            )}
-                            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.1) 70%, transparent 100%)" }} />
-                            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "8px 10px 11px", display: "flex", flexDirection: "column", gap: 2 }}>
-                              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", fontWeight: 500 }}>{smartDate(r.start_at)}</div>
-                              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", lineHeight: 1.25, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: edition ? 1 : 2, WebkitBoxOrient: "vertical" }}>
-                                {series}
-                              </div>
-                              {edition && (
-                                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{edition}</div>
-                              )}
-                              {rVenue?.name && (
-                                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {rVenue.city ? `${rVenue.name}, ${rVenue.city}` : rVenue.name}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-          </div>
-          </div>
-
-          {/* ── MOMENTS PANEL ─────────────────────────────────────────── */}
-          <div style={{ display: page === 1 ? "block" : "none" }}>
-            <MomentsClient
-              embedded
-              eventId={id}
-              eventTitle={title}
-              creatorId={creatorId}
-              cohostIds={cohostIds}
-              guestsCanPost={guestsCanPost}
-              guestsCanReact={guestsCanReact}
-              initialMoments={initialMoments}
-              visibility="public"
-            />
-          </div>
-
+      {/* Hidden AttendeeList — keeps guest-list modal functional via outsy:open-guest-list event */}
+      <div style={{ display: "none" }}>
+        <AttendeeList
+          eventId={id}
+          initialAttendees={attendees}
+          goingCount={rsvpCounts.going}
+          maybeCount={rsvpCounts.maybe}
+          cantGoCount={rsvpCounts.cant_go}
+          visibility="public"
+          token={session?.access_token ?? null}
+          creatorId={creatorId}
+          creator={creator}
+        />
       </div>
 
     </main>

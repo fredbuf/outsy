@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { isEventHost } from "@/lib/event-host";
 
 export const dynamic = "force-dynamic";
 
@@ -60,9 +61,9 @@ export async function GET(
     const user = await resolveAuth(req);
     const creatorId = event.creator_id as string | null;
     const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
-    const isHostOrCohost = user !== null && (creatorId === user.id || cohostIds.includes(user.id));
+    const hostAccess = user !== null && await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
 
-    if (!isHostOrCohost) {
+    if (!hostAccess) {
       let isInvolved = false;
       if (user) {
         const [{ data: rsvp }, { data: invite }] = await Promise.all([
@@ -172,7 +173,7 @@ export async function POST(
 
   const creatorId = event.creator_id as string | null;
   const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
-  const isHostOrCohost = creatorId === user.id || cohostIds.includes(user.id);
+  const isHostOrCohost = await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
 
   // For private events, require host/cohost or RSVP
   if (isPrivate && !isHostOrCohost) {

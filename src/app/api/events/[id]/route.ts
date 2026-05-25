@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
 import { createNotification } from "@/lib/notifications";
+import { canManageEvent } from "@/lib/event-host";
 
 type Category = "concerts" | "nightlife" | "arts_culture" | "comedy" | "sports" | "family";
 const TITLE_MAX = 140;
@@ -111,7 +112,8 @@ export async function PATCH(
   if (existing.source !== "manual") {
     return NextResponse.json({ ok: false, error: "Imported events cannot be edited." }, { status: 403 });
   }
-  if (existing.creator_id !== user.id) {
+  const canManage = await canManageEvent(supabase, id, user.id, existing.creator_id ?? null);
+  if (!canManage) {
     return NextResponse.json({ ok: false, error: "You don't own this event." }, { status: 403 });
   }
 
@@ -295,8 +297,7 @@ export async function PATCH(
       } : {}),
     })
     .eq("id", id)
-    .eq("source", "manual")
-    .eq("creator_id", user.id); // double-check ownership at DB level
+    .eq("source", "manual");
 
   if (updateError) {
     return NextResponse.json({ ok: false, error: `Update failed: ${updateError.message}` }, { status: 500 });
@@ -343,7 +344,8 @@ export async function DELETE(
   if (existing.source !== "manual") {
     return NextResponse.json({ ok: false, error: "Imported events cannot be deleted." }, { status: 403 });
   }
-  if (existing.creator_id !== user.id) {
+  const canDelete = await canManageEvent(supabase, id, user.id, existing.creator_id ?? null);
+  if (!canDelete) {
     return NextResponse.json({ ok: false, error: "You don't own this event." }, { status: 403 });
   }
 
@@ -351,8 +353,7 @@ export async function DELETE(
     .from("events")
     .delete()
     .eq("id", id)
-    .eq("source", "manual")
-    .eq("creator_id", user.id); // double-check at DB level
+    .eq("source", "manual");
 
   if (deleteError) {
     return NextResponse.json({ ok: false, error: `Delete failed: ${deleteError.message}` }, { status: 500 });

@@ -1046,7 +1046,14 @@ export default function SchedulePage() {
           });
         }
         rows.sort((a, b) => a.start_at.localeCompare(b.start_at));
-        setAttendingEvents(rows);
+        // Merge with any service-role supplement already added by the hosting effect.
+        // Browser rows take priority (they carry venue info); supplement fills gaps.
+        setAttendingEvents((prev) => {
+          const seen = new Map<string, UserEvent>();
+          for (const e of rows) seen.set(e.id, e);
+          for (const e of prev) { if (!seen.has(e.id)) seen.set(e.id, e); }
+          return Array.from(seen.values()).sort((a, b) => a.start_at.localeCompare(b.start_at));
+        });
         setFetchingAttend(false);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1098,6 +1105,27 @@ export default function SchedulePage() {
 
         rows.sort((a, b) => a.start_at.localeCompare(b.start_at));
         setHostingEvents(rows);
+
+        // Supplement attendingEvents with service-role going/maybe data.
+        // The browser-side attending query uses anon+RLS and may fail to join events
+        // for org-linked private events even when the user is the creator.
+        // /api/profile uses service_role so it always returns the correct rows.
+        type ProfileRsvpRow = { id: string; title: string; start_at: string; image_url: string | null; visibility: string; is_approved: boolean };
+        const srGoing = (json.going ?? []) as ProfileRsvpRow[];
+        const srMaybe = (json.interested ?? []) as ProfileRsvpRow[];
+        const supplement: UserEvent[] = [
+          ...srGoing.map((ev) => ({ id: ev.id, title: ev.title, start_at: ev.start_at, image_url: ev.image_url, visibility: ev.visibility as "public" | "private", venue_name: null, venue_city: null, role: "attending" as const, response: "going" as const, is_approved: ev.is_approved })),
+          ...srMaybe.map((ev) => ({ id: ev.id, title: ev.title, start_at: ev.start_at, image_url: ev.image_url, visibility: ev.visibility as "public" | "private", venue_name: null, venue_city: null, role: "attending" as const, response: "maybe" as const, is_approved: ev.is_approved })),
+        ];
+        if (supplement.length > 0) {
+          setAttendingEvents((prev) => {
+            const seen = new Map<string, UserEvent>();
+            for (const e of prev) seen.set(e.id, e);  // keep existing (may have venue info)
+            for (const e of supplement) { if (!seen.has(e.id)) seen.set(e.id, e); }
+            return Array.from(seen.values()).sort((a, b) => a.start_at.localeCompare(b.start_at));
+          });
+        }
+
         setFetchingHosting(false);
       })
       .catch(() => setFetchingHosting(false));

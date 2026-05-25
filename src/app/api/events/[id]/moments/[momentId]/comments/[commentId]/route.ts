@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { isEventHost } from "@/lib/event-host";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +76,9 @@ export async function DELETE(
 
   const creatorId = event.creator_id as string | null;
   const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
-  const isHostOrCohost = creatorId === user.id || cohostIds.includes(user.id);
+  const hostAccess = await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
 
-  if (!isHostOrCohost) {
+  if (!hostAccess) {
     return NextResponse.json({ ok: false, error: "Not authorized to delete this comment." }, { status: 403 });
   }
 

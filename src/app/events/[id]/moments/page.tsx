@@ -1,6 +1,7 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
+import { fetchEventOrganizerIds } from "@/lib/event-host";
 
 // Never serve a cached page — always re-render so moments are fresh from Supabase.
 export const dynamic = "force-dynamic";
@@ -192,9 +193,12 @@ export default async function MomentsPage({
 
   // Private events: skip SSR pre-load — no auth context in RSC.
   // MomentsClient refetches immediately from the gated API route.
-  const moments = (event as Record<string, unknown>).visibility === "private"
-    ? []
-    : await fetchMoments(id);
+  const [moments, eventOrganizerIds] = await Promise.all([
+    (event as Record<string, unknown>).visibility === "private"
+      ? Promise.resolve([])
+      : fetchMoments(id),
+    fetchEventOrganizerIds(supabaseServer(), id),
+  ]);
 
   const creatorId = event.creator_id as string | null;
   const cohostIds = Array.isArray(event.cohost_ids)
@@ -213,6 +217,7 @@ export default async function MomentsPage({
       eventTitle={event.title as string}
       creatorId={creatorId}
       cohostIds={cohostIds}
+      eventOrganizerIds={eventOrganizerIds}
       guestsCanPost={guestsCanPost}
       guestsCanReact={guestsCanReact}
       initialMoments={moments}

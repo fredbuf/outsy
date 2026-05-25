@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -194,6 +194,15 @@ export function AttendeeList({
       handleOpen();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Allow EventBody's GuestsRow to open the modal via a custom event
+  const handleOpenRef = useRef(handleOpen);
+  useEffect(() => { handleOpenRef.current = handleOpen; });
+  useEffect(() => {
+    const handler = () => handleOpenRef.current();
+    window.addEventListener("outsy:open-guest-list", handler);
+    return () => window.removeEventListener("outsy:open-guest-list", handler);
   }, []);
 
   useEffect(() => {

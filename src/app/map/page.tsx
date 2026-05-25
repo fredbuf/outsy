@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Script from "next/script";
+import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
@@ -11,7 +11,6 @@ import { BackButton } from "../events/[id]/BackButton";
 import { GeneratedAvatar } from "../components/GeneratedAvatar";
 
 const MONTREAL = { lat: 45.5017, lng: -73.5673 };
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 // MAP_ID is intentionally NOT passed to the Map constructor.
 //
 // Google Maps has two renderers:
@@ -1137,6 +1136,7 @@ export default function MapPage() {
   // the venue-centered view. isDeepLinkActiveRef is set SYNCHRONOUSLY on mount
   // before any async op, so it is guaranteed to be true before this callback fires.
   const placeUserMarker = useCallback((map: google.maps.Map, lat: number, lng: number) => {
+    if (!window.google?.maps || !(map instanceof window.google.maps.Map)) return;
     const pos = { lat, lng };
     userPosRef.current = pos;
     setUserPos(pos); // expose to useMemo so distance-sort updates
@@ -1274,13 +1274,12 @@ export default function MapPage() {
     setMapsLoaded(true);
   }, [placeUserMarker]);
 
-  // When returning to /map, the component remounts fresh but the Google Maps
-  // script is already loaded — onLoad won't fire again. Call initMap directly
-  // if the API is available and we haven't initialized yet.
+  // Load Google Maps once (idempotent) and initialize the map.
+  // loadGoogleMaps() returns immediately if the API is already present, which
+  // covers the "returning to /map after already loading" case without needing a
+  // separate remount effect or Next.js <Script> component.
   useEffect(() => {
-    if (typeof window !== "undefined" && window.google?.maps && !mapRef.current) {
-      initMap();
-    }
+    loadGoogleMaps().then(initMap).catch(console.error);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1422,12 +1421,6 @@ export default function MapPage() {
 
   return (
     <>
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=marker,places`}
-        strategy="afterInteractive"
-        onLoad={initMap}
-      />
-
       {/* Full-viewport map container — position:fixed removes it from the
           document flow so body:has(.bottom-nav) padding-bottom doesn't create
           a white strip below the map. Covers the full screen behind BottomNav. */}

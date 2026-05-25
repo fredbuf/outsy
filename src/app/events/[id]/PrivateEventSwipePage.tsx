@@ -4,19 +4,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../components/AuthProvider";
+import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
 import { useTileTransition } from "../../components/TileTransitionProvider";
+import { isEventHostOrCohost } from "@/lib/event-ownership";
 import { BackButton } from "./BackButton";
 import { EventOwnerActions } from "./EventOwnerActions";
-import { ActionBar } from "./ActionBar";
 import { AttendeeList } from "./AttendeeList";
-import { InviteFriendsButton } from "./InviteFriendsButton";
-import { ShareButton, type EventPreview } from "./ShareButton";
-import { PaymentReveal } from "./PaymentReveal";
-import { ExpandableDescription } from "./ExpandableDescription";
+import { type EventPreview } from "./ShareButton";
 import { MomentsClient } from "./moments/MomentsClient";
 import type { MomentRow } from "./moments/page";
-import { BellIcon } from "./CustomIcons";
-import { GeneratedAvatar } from "../../components/GeneratedAvatar";
+import { EventBody } from "./EventBody";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -47,14 +44,19 @@ type Props = {
   category: string;
   source: string;
   creatorId: string | null;
-  creator: { display_name: string | null; avatar_url: string | null; username: string | null } | null;
+  creator: { display_name: string | null; avatar_url: string | null; custom_avatar_url?: string | null; username: string | null } | null;
   cohostIds: string[];
   cohostProfiles: CohostProfile[];
+  eventOrganizerIds?: string[];
   organizers?: { name: string; role: string; slug: string | null; image_url: string | null; custom_image_url: string | null }[];
   dateLine: string;
   timeLine: string | null;
   privateMapHref: string | null;
   venueName: string | null;
+  venueAddress: string | null;
+  venueCity: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
   description: string | null;
   descriptionTitle: string | null;
   spotsLimited: boolean;
@@ -82,8 +84,9 @@ type Props = {
 export function PrivateEventSwipePage(props: Props) {
   const {
     id, imageUrl, title, category, source,
-    creatorId, creator, cohostIds, cohostProfiles, organizers = [],
-    dateLine, timeLine, privateMapHref, venueName, description, descriptionTitle,
+    creatorId, creator, cohostIds, cohostProfiles, eventOrganizerIds = [], organizers = [],
+    dateLine, timeLine, privateMapHref, venueName, venueAddress, venueCity, venueLat, venueLng,
+    description, descriptionTitle,
     spotsLimited, spotsLimit, eventPrice, eventCurrency,
     paymentMethod, paymentContact, rsvpDeadline,
     rsvpCounts, attendees,
@@ -97,11 +100,14 @@ export function PrivateEventSwipePage(props: Props) {
   } = props;
 
   const { user, session } = useAuth();
-  const isHostOrCohost = !previewMode && Boolean(user) && (
-    user!.id === creatorId || cohostIds.includes(user!.id)
-  );
-
-  const [page, setPage] = useState(0); // 0 = about, 1 = moments
+  const { activeOrganizer } = useActiveOrganizer();
+  const isHostOrCohost = !previewMode && isEventHostOrCohost({
+    userId: user?.id ?? null,
+    activeOrganizerId: activeOrganizer?.organizerId ?? null,
+    creatorId,
+    eventOrganizerIds,
+    cohostIds,
+  });
 
   // Hero entry animation — mirrors PublicEventSwipePage
   const { isTransitioning } = useTileTransition();
@@ -112,34 +118,6 @@ export function PrivateEventSwipePage(props: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTransitioning]);
-
-  // CSS custom properties inherited by child components (ActionBar, ShareButton, etc.)
-  const cssVars = {
-    "--border":         "rgba(255,255,255,0.10)",
-    "--border-strong":  "rgba(255,255,255,0.18)",
-    "--btn-bg":         "rgba(18,25,36,0.55)",
-    "--btn-bg-active":  "rgba(255,255,255,0.13)",
-    "--surface-subtle": "rgba(255,255,255,0.04)",
-    "--background":     "rgba(18,25,36,0.55)",
-    "--foreground":     "#f5f7fa",
-    "--accent":         "#5EA8FF",
-    color: "#f5f7fa",
-  } as React.CSSProperties;
-
-  // Small circle icon button (bell)
-  const iconBtnStyle: React.CSSProperties = {
-    display: "flex", alignItems: "center", justifyContent: "center",
-    width: 34, height: 34, borderRadius: "50%",
-    background: "rgba(18,25,36,0.20)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    color: "#f5f7fa", cursor: "pointer", flexShrink: 0,
-    padding: 0,
-  };
-
-  const avatarBorder = "2px solid rgba(18,25,36,0.85)";
-
-  const hasDetails = spotsLimited || eventPrice !== null || paymentMethod === "door" || !!rsvpDeadline;
-  const hasAttendees = rsvpCounts.going > 0 || rsvpCounts.maybe > 0;
 
   return (
     // The page background IS the unified surface — a single gradient from near-black
@@ -221,7 +199,7 @@ export function PrivateEventSwipePage(props: Props) {
               {previewSubmitting ? "Publishing…" : "Publish"}
             </button>
           ) : (
-            <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} />
+            <EventOwnerActions compact eventId={id} creatorId={creatorId} source={source} eventOrganizerIds={eventOrganizerIds} />
           )}
         </div>
 
@@ -307,289 +285,58 @@ export function PrivateEventSwipePage(props: Props) {
         </div>
       )}
 
-      {/* ── SEGMENTED CONTROL ─────────────────────────────────────────────── */}
-      <div style={{ display: "flex", justifyContent: "center", padding: "16px 20px 8px" }}>
-        <div style={{ position: "relative", display: "flex", gap: 6 }}>
-          {/* Sliding white pill indicator */}
-          <div aria-hidden="true" style={{
-            position: "absolute",
-            top: 0, left: 0,
-            width: 101, height: 25,
-            borderRadius: 20,
-            background: "#ffffff",
-            border: "1px solid rgba(255,255,255,0.12)",
-            transform: `translateX(${page === 0 ? 0 : 107}px)`,
-            transition: "transform 0.28s cubic-bezier(0.25,0.46,0.45,0.94)",
-            pointerEvents: "none",
-            zIndex: 0,
-          }} />
-          <button
-            type="button"
-            onClick={() => setPage(0)}
-            style={{
-              width: 101, height: 25, borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "transparent",
-              fontWeight: page === 0 ? 700 : 600, fontSize: 12,
-              cursor: "pointer",
-              color: page === 0 ? "#1f3659" : "#ffffff",
-              position: "relative", zIndex: 1,
-              transition: "color 0.2s",
-            }}
-          >
-            About
-          </button>
-          <button
-            type="button"
-            onClick={() => setPage(1)}
-            style={{
-              width: 101, height: 25, borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "transparent",
-              fontWeight: page === 1 ? 700 : 600, fontSize: 12,
-              cursor: "pointer",
-              color: page === 1 ? "#1f3659" : "#ffffff",
-              position: "relative", zIndex: 1,
-              transition: "color 0.2s",
-            }}
-          >
-            Moments
-          </button>
-        </div>
-      </div>
+      {/* ── EVENT BODY ────────────────────────────────────────────────────── */}
+      <EventBody
+        eventId={id}
+        eventTitle={title}
+        category={category}
+        visibility="private"
+        isHostOrCohost={isHostOrCohost}
+        previewMode={previewMode}
+        sharePreview={preview}
+        initialRsvpCounts={rsvpCounts}
+        sourceUrl={null}
+        attendees={attendees}
+        creatorId={creatorId}
+        creator={creator}
+        cohostIds={cohostIds}
+        cohostProfiles={cohostProfiles}
+        spotsLimited={spotsLimited}
+        spotsLimit={spotsLimit}
+        description={description}
+        descriptionTitle={descriptionTitle}
+        organizers={organizers}
+        venueName={venueName}
+        venueAddress={venueAddress}
+        venueCity={venueCity}
+        venueLat={venueLat}
+        venueLng={venueLng}
+        mapHref={privateMapHref}
+        eventPrice={eventPrice}
+        eventCurrency={eventCurrency}
+        paymentMethod={paymentMethod}
+        paymentContact={paymentContact}
+        rsvpDeadline={rsvpDeadline}
+        guestsCanPost={guestsCanPost}
+        guestsCanReact={guestsCanReact}
+        initialMoments={initialMoments}
+        eventOrganizerIds={eventOrganizerIds}
+      />
 
-      {/* ── CONTENT ───────────────────────────────────────────────────────── */}
-      <div style={cssVars as React.CSSProperties}>
-
-          {/* ── ABOUT PANEL ─────────────────────────────────────────────── */}
-          <div style={{ display: page === 0 ? "block" : "none" }}>
-          <div style={{ padding: "16px 20px 48px" }}>
-
-              {/* RSVP — guests only; hosts skip this bar */}
-              {(!isHostOrCohost || previewMode) && (
-                <ActionBar
-                  eventId={id}
-                  initialCounts={rsvpCounts}
-                  sourceUrl={null}
-                  visibility="private"
-                  previewMode={previewMode}
-                />
-              )}
-
-              {/* ── ATTENDEES ROW ──────────────────────────────────────── */}
-              {/* Figma: avatar stack + "+N going" on left;               */}
-              {/* Share + Bell (+ Invite for hosts) circle icons on right  */}
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                gap: 12, padding: "18px 0 16px",
-              }}>
-                {/* Left: attendee stack + count */}
-                {hasAttendees ? (
-                  <AttendeeList
-                    eventId={id}
-                    initialAttendees={attendees}
-                    goingCount={rsvpCounts.going}
-                    maybeCount={rsvpCounts.maybe}
-                    cantGoCount={rsvpCounts.cant_go}
-                    visibility="private"
-                    token={session?.access_token ?? null}
-                    avatarSize={28}
-                    creatorId={creatorId}
-                    creator={creator}
-                    cohostProfiles={cohostProfiles}
-                  />
-                ) : (
-                  <span style={{ fontSize: 12, opacity: 0.45 }}>
-                    {isHostOrCohost ? "No guests yet." : "No guests yet — be first!"}
-                  </span>
-                )}
-
-                {/* Right: action icons */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  {/* Invite (hosts only) */}
-                  {isHostOrCohost && <InviteFriendsButton eventId={id} />}
-                  {/* Share */}
-                  <ShareButton title={title} eventId={id} preview={preview} />
-                  {/* Bell */}
-                  <button type="button" style={iconBtnStyle} aria-label="Notifications">
-                    <BellIcon size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {/* ── UNIFIED INFO CARD ──────────────────────────────────── */}
-              {/* Decision logic:                                          */}
-              {/* - organizers.length > 0 → show organizer(s) as         */}
-              {/*   rounded-square logos; hide personal creator row       */}
-              {/* - no organizers, creator exists → personal circle stack */}
-              {/* - neither → omit card                                   */}
-              {(organizers.length > 0 || creator) && (
-                <div style={{
-                  borderRadius: 20,
-                  background: "rgba(18,25,36,0.14)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  padding: "16px",
-                }}>
-                  {/* Label */}
-                  <p style={{
-                    fontSize: 14, fontWeight: 600, color: "#f5f7fa",
-                    textAlign: "center", margin: "0 0 12px",
-                  }}>
-                    Hosted by
-                  </p>
-
-                  {organizers.length > 0 ? (
-                    /* ── Organizer identities — rounded-square logos ── */
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: description ? 14 : 0 }}>
-                      {organizers.map((o) => {
-                        const logo = (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center" }}>
-                            <div style={{ flexShrink: 0 }}>
-                              {o.custom_image_url ? (
-                                <img
-                                  src={o.custom_image_url}
-                                  alt={o.name}
-                                  width={32} height={32}
-                                  style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", border: avatarBorder, display: "block" }}
-                                />
-                              ) : (
-                                <GeneratedAvatar name={o.name} shape="square" size={32} borderRadius={8} style={{ border: avatarBorder }} />
-                              )}
-                            </div>
-                            <span style={{ fontSize: 13, color: "#f5f7fa", fontWeight: 500 }}>{o.name}</span>
-                          </div>
-                        );
-                        return (
-                          <div key={o.name}>
-                            {o.slug ? (
-                              <Link href={`/o/${o.slug}`} style={{ textDecoration: "none", display: "block" }}>
-                                {logo}
-                              </Link>
-                            ) : logo}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* ── Personal creator — circle avatar + cohosts ── */
-                    <div style={{ display: "flex", justifyContent: "center", marginBottom: description ? 14 : 0 }}>
-                      {creatorId ? (
-                        <Link
-                          href={`/profile/${creatorId}`}
-                          style={{ lineHeight: 0, display: "block", textDecoration: "none", position: "relative", zIndex: cohostProfiles.length + 1 }}
-                        >
-                          {creator!.avatar_url ? (
-                            <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
-                              style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                          ) : (
-                            <GeneratedAvatar name={creator!.display_name} size={28} style={{ border: avatarBorder }} />
-                          )}
-                        </Link>
-                      ) : creator!.avatar_url ? (
-                        <img src={creator!.avatar_url} alt={creator!.display_name ?? ""} width={28} height={28}
-                          style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block", position: "relative", zIndex: cohostProfiles.length + 1 }} />
-                      ) : (
-                        <GeneratedAvatar name={creator!.display_name} size={28} style={{ border: avatarBorder, position: "relative", zIndex: cohostProfiles.length + 1 }} />
-                      )}
-                      {cohostProfiles.map((cp, i) => (
-                        <Link
-                          key={cp.id}
-                          href={`/profile/${cp.id}`}
-                          style={{ lineHeight: 0, display: "block", textDecoration: "none", marginLeft: -8, position: "relative", zIndex: cohostProfiles.length - i }}
-                        >
-                          {cp.avatar_url ? (
-                            <img src={cp.avatar_url} alt={cp.display_name ?? ""} width={28} height={28}
-                              style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", border: avatarBorder, display: "block" }} />
-                          ) : (
-                            <GeneratedAvatar name={cp.display_name} size={28} style={{ border: avatarBorder }} />
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Divider + description — inside the same card */}
-                  {description && (
-                    <>
-                      <div style={{ height: 1, background: "rgba(255,255,255,0.10)", margin: "0 0 14px" }} />
-                      {descriptionTitle && (
-                        <p style={{ fontSize: 14, fontWeight: 600, textAlign: "center", margin: "0 0 6px", color: "#f5f7fa" }}>
-                          {descriptionTitle}
-                        </p>
-                      )}
-                      <div style={{ fontSize: 13, color: "#ffffff", textAlign: "center", lineHeight: 1.55 }}>
-                        <ExpandableDescription text={description} />
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* ── EVENT DETAILS (spots / price / deadline) ───────────── */}
-              {hasDetails && (
-                <div style={{
-                  marginTop: 10,
-                  borderRadius: 20,
-                  background: "rgba(18,25,36,0.14)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  padding: "14px 16px",
-                }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, opacity: 0.50, textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 12px", textAlign: "center" }}>
-                    Details
-                  </p>
-                  <div style={{ display: "grid", gap: 10, justifyItems: "center" }}>
-                    {spotsLimited && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-                        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
-                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                        </svg>
-                        <span>{spotsLimit} spots available</span>
-                      </div>
-                    )}
-                    {(eventPrice !== null || paymentMethod === "door") && (
-                      <PaymentReveal
-                        price={eventPrice}
-                        currency={eventCurrency}
-                        paymentMethod={paymentMethod}
-                        paymentContact={paymentContact}
-                      />
-                    )}
-                    {rsvpDeadline && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
-                        <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, flexShrink: 0 }}>
-                          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        <span>
-                          {`RSVP by ${(() => {
-                            const [y, m, d] = rsvpDeadline.split("-").map(Number);
-                            return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-                          })()}`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-          </div>
-          </div>
-
-          {/* ── MOMENTS PANEL ─────────────────────────────────────────── */}
-          <div style={{ display: page === 1 ? "block" : "none" }}>
-            <MomentsClient
-              embedded
-              eventId={id}
-              eventTitle={title}
-              creatorId={creatorId}
-              cohostIds={cohostIds}
-              guestsCanPost={guestsCanPost}
-              guestsCanReact={guestsCanReact}
-              initialMoments={initialMoments}
-              visibility="private"
-            />
-          </div>
-
+      {/* Hidden AttendeeList — keeps guest-list modal functional via outsy:open-guest-list event */}
+      <div style={{ display: "none" }}>
+        <AttendeeList
+          eventId={id}
+          initialAttendees={attendees}
+          goingCount={rsvpCounts.going}
+          maybeCount={rsvpCounts.maybe}
+          cantGoCount={rsvpCounts.cant_go}
+          visibility="private"
+          token={session?.access_token ?? null}
+          creatorId={creatorId}
+          creator={creator}
+          cohostProfiles={cohostProfiles}
+        />
       </div>
 
     </main>

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase-server";
+import { fetchEventOrganizerIds } from "@/lib/event-host";
 import { type EventPreview } from "./ShareButton";
 import { PrivateEventSwipePage } from "./PrivateEventSwipePage";
 import { PublicEventSwipePage } from "./PublicEventSwipePage";
@@ -268,17 +269,20 @@ export default async function EventPage({
   const creatorRaw = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles;
   const creator = creatorRaw as { display_name: string | null; avatar_url: string | null; custom_avatar_url: string | null; username: string | null } | null;
   const creatorId = (event as { creator_id?: string | null }).creator_id ?? null;
-  const [related, rsvpCounts, attendees, organizers] = await Promise.all([
+  const [related, rsvpCounts, attendees, organizers, organizerIds] = await Promise.all([
     fetchRelated(id, event.category_primary),
     fetchRsvpCounts(id),
     fetchAttendees(id),
     fetchOrganizers(id),
+    fetchEventOrganizerIds(supabaseServer(), id),
   ]);
 
   /* ── Private event: swipe layout ───────────────────────────────────────── */
   if (event.visibility === "private") {
     const venueLat = (venue as { lat?: number | null } | null)?.lat ?? null;
     const venueLng = (venue as { lng?: number | null } | null)?.lng ?? null;
+    const venueAddress = (venue as { address_line1?: string | null } | null)?.address_line1 ?? null;
+    const venueCity = (venue as { city?: string | null } | null)?.city ?? null;
     const venueCoords =
       typeof venueLat === "number" && typeof venueLng === "number"
         ? `&lat=${venueLat}&lng=${venueLng}`
@@ -303,6 +307,7 @@ export default async function EventPage({
       // MomentsClient refetches immediately from the gated API route.
       Promise.resolve([] as Awaited<ReturnType<typeof fetchMomentsForEvent>>),
       fetchOrganizers(id),
+      // organizerIds already fetched above in the top-level Promise.all
     ]);
     const spotsLimited = evtExt.spots_mode === "limited" && (evtExt.spots_limit ?? 0) > 0;
     const eventPrice = typeof evtExt.price === "number" && evtExt.price > 0 ? evtExt.price : null;
@@ -348,10 +353,15 @@ export default async function EventPage({
         cohostIds={cohostIds}
         cohostProfiles={cohostProfiles}
         organizers={privateOrganizers}
+        eventOrganizerIds={organizerIds}
         dateLine={dateLine}
         timeLine={timeLine}
         privateMapHref={privateMapHref}
         venueName={venue?.name ?? null}
+        venueAddress={venueAddress}
+        venueCity={venueCity}
+        venueLat={venueLat}
+        venueLng={venueLng}
         description={(event.description as string | null) ?? null}
         descriptionTitle={(evtExt.description_title as string | null) ?? null}
         spotsLimited={spotsLimited}
@@ -381,11 +391,20 @@ export default async function EventPage({
   const isAnnounced = (event as { status?: string }).status === "announced";
   const pubLat = (venue as { lat?: number | null } | null)?.lat ?? null;
   const pubLng = (venue as { lng?: number | null } | null)?.lng ?? null;
+  const pubAddress = (venue as { address_line1?: string | null } | null)?.address_line1 ?? null;
+  const pubCity = (venue as { city?: string | null } | null)?.city ?? null;
   const pubCoords =
     typeof pubLat === "number" && typeof pubLng === "number"
       ? `&lat=${pubLat}&lng=${pubLng}`
       : "";
   const mapHref = venue ? `/map?eventId=${id}${pubCoords}` : "/map";
+  const pubSpotsMode = (event as { spots_mode?: string | null }).spots_mode ?? null;
+  const pubSpotsLimit = (event as { spots_limit?: number | null }).spots_limit ?? null;
+  const pubSpotsLimited = pubSpotsMode === "limited" && (pubSpotsLimit ?? 0) > 0;
+  const pubEventPrice = typeof event.min_price === "number" && event.min_price > 0 ? event.min_price : null;
+  const pubEventCurrency = (event as { currency?: string | null }).currency ?? "CAD";
+  const pubPaymentMethod = (event as { payment_method?: string | null }).payment_method ?? null;
+  const pubRsvpDeadline = (event as { rsvp_deadline?: string | null }).rsvp_deadline ?? null;
   const pubStartD = new Date(event.start_at);
   const pubIsUnknownTime = pubStartD.getUTCHours() === 0 && pubStartD.getUTCMinutes() === 0;
   const dateLine = pubStartD.toLocaleString("en-US", {
@@ -414,10 +433,15 @@ export default async function EventPage({
       creatorId={creatorId}
       creator={creator}
       cohostIds={cohostIds}
+      eventOrganizerIds={organizerIds}
       dateLine={dateLine}
       timeLine={timeLine}
       mapHref={mapHref}
       venueName={venue?.name ?? null}
+      venueAddress={pubAddress}
+      venueCity={pubCity}
+      venueLat={pubLat}
+      venueLng={pubLng}
       description={(event.description as string | null) ?? null}
       descriptionTitle={(event as { description_title?: string | null }).description_title ?? null}
       price={price}
@@ -431,6 +455,12 @@ export default async function EventPage({
       guestsCanReact={guestsCanReact}
       initialMoments={initialMoments as never}
       startAt={event.start_at}
+      spotsLimited={pubSpotsLimited}
+      spotsLimit={pubSpotsLimit}
+      eventPrice={pubEventPrice}
+      eventCurrency={pubEventCurrency}
+      paymentMethod={pubPaymentMethod}
+      rsvpDeadline={pubRsvpDeadline}
     />
   );
 }

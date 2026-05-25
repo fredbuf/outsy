@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { fetchLinkPreview } from "@/lib/fetch-link-preview";
+import { isEventHost } from "@/lib/event-host";
 
 // Never cache this route — always fetch fresh moments from Supabase.
 export const dynamic = "force-dynamic";
@@ -44,8 +45,8 @@ export async function GET(
     const user = await resolveAuth(req);
     const creatorId = event.creator_id as string | null;
     const cohostIds = Array.isArray(event.cohost_ids) ? (event.cohost_ids as string[]) : [];
-    const isHostOrCohost = user !== null && (creatorId === user.id || cohostIds.includes(user.id));
-    if (!isHostOrCohost) {
+    const hostAccess = user !== null && await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
+    if (!hostAccess) {
       let isInvolved = false;
       if (user) {
         const [{ data: rsvp }, { data: invite }] = await Promise.all([
@@ -226,15 +227,14 @@ export async function POST(
   const cohostIds = Array.isArray(event.cohost_ids)
     ? (event.cohost_ids as string[])
     : [];
-  const isHost = creatorId === user.id;
-  const isCohost = cohostIds.includes(user.id);
+  const isHostOrCohost = await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
 
   // Read moments_guests_can_post (new column — defaults false if absent)
   const guestsCanPost = Boolean(
     (event as Record<string, unknown>).moments_guests_can_post ?? false
   );
 
-  if (!isHost && !isCohost && !guestsCanPost) {
+  if (!isHostOrCohost && !guestsCanPost) {
     return NextResponse.json(
       { ok: false, error: "Posting is not enabled for this event." },
       { status: 403 }
@@ -303,7 +303,7 @@ export async function POST(
 
   const reactionsEnabled = body.reactions_enabled !== false;
   const commentsEnabled = body.comments_enabled !== false;
-  const isPinned = (isHost || isCohost) && body.is_pinned === true;
+  const isPinned = isHostOrCohost && body.is_pinned === true;
 
   // Unpin any existing pinned moment before pinning the new one
   if (isPinned) {

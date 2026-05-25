@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { fetchLinkPreview } from "@/lib/fetch-link-preview";
+import { isEventHost } from "@/lib/event-host";
 
 const BODY_MAX = 1000;
 
@@ -62,7 +63,8 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     ? (event.cohost_ids as string[])
     : [];
 
-  if (creatorId !== user.id && !cohostIds.includes(user.id)) {
+  const hostAccess = await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
+  if (!hostAccess) {
     return NextResponse.json({ ok: false, error: "Not authorized." }, { status: 403 });
   }
 
@@ -99,7 +101,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     ? (event.cohost_ids as string[])
     : [];
 
-  if (creatorId !== user.id && !cohostIds.includes(user.id)) {
+  const hostAccess = await isEventHost(supabase, eventId, user.id, { creatorId, cohostIds });
+  if (!hostAccess) {
     return NextResponse.json({ ok: false, error: "Only the host can pin moments." }, { status: 403 });
   }
 
@@ -173,7 +176,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
       ? (editEvent.cohost_ids as string[])
       : [];
 
-    if (editCreatorId !== user.id && !editCohostIds.includes(user.id)) {
+    const hostAccess = await isEventHost(supabase, eventId, user.id, { creatorId: editCreatorId, cohostIds: editCohostIds });
+    if (!hostAccess) {
       return NextResponse.json({ ok: false, error: "Not authorized." }, { status: 403 });
     }
   }

@@ -4,8 +4,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Script from "next/script";
 import { useAuth } from "../../components/AuthProvider";
+import { loadGoogleMaps } from "@/lib/loadGoogleMaps";
 import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { PublicEventSwipePage } from "../[id]/PublicEventSwipePage";
@@ -673,6 +673,11 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [privatePlaceId, setPrivatePlaceId] = useState<string | null>(null);
 
   const [mapsReady, setMapsReady] = useState(false);
+
+  useEffect(() => {
+    loadGoogleMaps().then(() => setMapsReady(true)).catch(console.error);
+  }, []);
+
   const [category, setCategory] = useState<Category>(
     () => (editData?.category_primary as Category) ?? "concerts"
   );
@@ -1485,6 +1490,10 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
           timeLine={previewTimeLine}
           privateMapHref={privateMapHref}
           venueName={privatePlaceName || null}
+          venueAddress={null}
+          venueCity={null}
+          venueLat={privateLat}
+          venueLng={privateLng}
           description={description || null}
           descriptionTitle={descriptionTitle || null}
           spotsLimited={spotsLimited}
@@ -1523,8 +1532,18 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
         timeLine={previewTimeLine}
         mapHref="#"
         venueName={venueName || null}
+        venueAddress={null}
+        venueCity={null}
+        venueLat={null}
+        venueLng={null}
         description={description || null}
         descriptionTitle={descriptionTitle || null}
+        spotsLimited={false}
+        spotsLimit={null}
+        eventPrice={null}
+        eventCurrency={"CAD"}
+        paymentMethod={null}
+        rsvpDeadline={null}
         price={null}
         isAnnounced={false}
         rsvpCounts={previewRsvpCounts}
@@ -1561,12 +1580,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
 
   return (
     <>
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}&libraries=marker,places`}
-        strategy="afterInteractive"
-        onLoad={() => setMapsReady(true)}
-      />
-
       <style>{`
         .cep-title-b::placeholder { color: rgba(255,255,255,0.38); }
         .cep-desc-b::placeholder { color: rgba(255,255,255,0.38); }
@@ -1579,39 +1592,160 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
       <form id="cep-form" onSubmit={handleSubmit}>
 
         {/* ════════════════════════════════════════════════════════════
-            IMMERSIVE HERO LAYOUT
+            IMMERSIVE HERO — matches PublicEventSwipePage layout exactly
+            Hero is position:relative (in normal flow), aspectRatio 9/10,
+            rounded bottom corners. Title + date + location live inside
+            the bottom scrim overlay, matching the final event card.
             ════════════════════════════════════════════════════════════ */}
-        {/* ── Hero image (full-bleed, 360px, absolute) ───────────────── */}
-        {/* Filled state: div with onClick opens the photo action sheet */}
-        {imagePreview ? (
-          <div
-            style={{
-              position: "absolute", top: 0, left: 0, right: 0,
-              aspectRatio: "9/10", zIndex: 1, overflow: "hidden", cursor: "pointer",
-            }}
-            onClick={() => setPhotoMenuOpen(true)}
-          >
+        <div style={{ position: "relative", aspectRatio: "9/10", borderRadius: "0 0 50px 50px", overflow: "hidden" }}>
+
+          {/* ── Layer 1: image or empty-state (full-bleed, absolute) ── */}
+          {imagePreview ? (
             <img
               src={imagePreview}
               alt="Cover"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+              onClick={() => setPhotoMenuOpen(true)}
+              style={{ display: "block", width: "100%", height: "100%", objectFit: "cover", cursor: "pointer" }}
             />
-            {/* Bottom fade to page bg */}
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 180, background: "linear-gradient(180deg, transparent 0%, #0B0F14 90%)", pointerEvents: "none" }} />
-            {/* Change cover pill */}
-            <div
-              style={{
-                position: "absolute", top: 108, left: "50%", transform: "translateX(-50%)", zIndex: 5,
-                padding: "8px 14px 8px 11px", borderRadius: 999,
-                background: "rgba(0,0,0,0.5)",
-                backdropFilter: "blur(20px) saturate(160%)",
-                WebkitBackdropFilter: "blur(20px) saturate(160%)",
-                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18)",
-                display: "inline-flex", alignItems: "center", gap: 6,
-                fontSize: 12.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
-                opacity: 0.75, pointerEvents: "none", whiteSpace: "nowrap",
-              }}
+          ) : (
+            /* Empty state: label triggers native file picker on iOS Safari */
+            <label
+              htmlFor="cep-file-input"
+              style={{ position: "absolute", inset: 0, display: "block", cursor: "pointer" }}
             >
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #435C7A 0%, #2a3a52 50%, #0B0F14 100%)" }} />
+              <div style={{ position: "absolute", top: 130, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 72, height: 72, borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 100%)", boxShadow: "0 10px 28px rgba(59,130,246,0.55), inset 0 1px 0 rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="30" height="30" viewBox="0 0 18 18" fill="none">
+                    <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="white" strokeWidth="1.4" />
+                    <circle cx="6.5" cy="6.5" r="1.2" fill="white" />
+                    <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>Add a cover photo</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: -4 }}>Sets the mood for your invite</div>
+              </div>
+            </label>
+          )}
+
+          {/* ── Layer 2: top bar (back + visibility toggle) ─────────── */}
+          <div style={{ position: "absolute", top: 20, left: 0, right: 0, padding: "0 16px", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={() => window.history.length > 1 ? router.back() : router.push("/events")}
+              style={{ width: 36, height: 36, borderRadius: 999, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: "none", color: "#fff", flexShrink: 0 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}>
+              {(["public", "private"] as const).map((v) => {
+                const active = visibility === v;
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setVisibility(v)}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, letterSpacing: -0.1, color: active ? "#fff" : "rgba(255,255,255,0.6)", background: active ? "rgba(255,255,255,0.10)" : "transparent", boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.18)" : "none", cursor: "pointer", border: "none", transition: "all 0.18s", fontFamily: "inherit" }}
+                  >
+                    {v === "public" ? (
+                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                        <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+                        <path d="M1.5 7h11M7 1.5c1.7 1.7 2.5 3.5 2.5 5.5s-.8 3.8-2.5 5.5C5.3 10.8 4.5 9 4.5 7s.8-3.8 2.5-5.5z" stroke="currentColor" strokeWidth="1.4" />
+                      </svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                        <rect x="2.5" y="6.5" width="9" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.4" />
+                        <path d="M4.5 6.5V4.3a2.5 2.5 0 015 0v2.2" stroke="currentColor" strokeWidth="1.4" />
+                      </svg>
+                    )}
+                    {v === "public" ? "Public" : "Private"}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ width: 36, flexShrink: 0 }} />
+          </div>
+
+          {/* ── Layer 3: gradient scrim — visual only ───────────────── */}
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            padding: "80px 24px 32px",
+            background: "linear-gradient(to top, rgba(11,15,20,1) 0%, rgba(11,15,20,0.93) 25%, rgba(11,15,20,0.55) 50%, transparent 100%)",
+            pointerEvents: "none",
+            zIndex: 1,
+          }} />
+
+          {/* ── Layer 4: scrim content — title + date + location ────── */}
+          {/* stopPropagation so tapping inputs doesn't bubble to img onClick */}
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              padding: "80px 24px 32px",
+              textAlign: "center",
+              zIndex: 2,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              required
+              placeholder="Event title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="cep-title-b"
+              style={{ display: "block", width: "100%", background: "transparent", border: "none", outline: "none", fontSize: 26, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.02em", color: "#f5f7fa", textAlign: "center", fontFamily: "inherit", boxSizing: "border-box", textShadow: "0px 4px 30px rgba(0,0,0,0.9)" }}
+            />
+
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => setDateSheetOpen(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit", textShadow: "0px 4px 30px rgba(0,0,0,0.9)" }}
+              >
+                <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0, color: "#f5f7fa" }}>
+                  <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span style={{ fontSize: 13, fontWeight: 500, color: dateLine ? "#f5f7fa" : "rgba(255,255,255,0.38)" }}>
+                  {dateLine || "Date & time"}
+                </span>
+              </button>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setLocationSheetOpen(true)}
+                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit", textShadow: "0px 4px 30px rgba(0,0,0,0.9)" }}
+              >
+                <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0, color: "#f5f7fa" }}>
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                </svg>
+                <span style={{ fontSize: 13, fontWeight: 500, color: locationLine ? "#f5f7fa" : "rgba(255,255,255,0.38)", opacity: locationLine ? 0.8 : 1 }}>
+                  {locationLine || "Location"}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* ── Layer 5: "Change cover" pill (filled state only) ─────── */}
+          {imagePreview && (
+            <div style={{
+              position: "absolute", top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 5,
+              padding: "8px 14px 8px 11px", borderRadius: 999,
+              background: "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(20px) saturate(160%)",
+              WebkitBackdropFilter: "blur(20px) saturate(160%)",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.18)",
+              display: "inline-flex", alignItems: "center", gap: 6,
+              fontSize: 12.5, fontWeight: 600, color: "#fff", letterSpacing: -0.1,
+              opacity: 0.75, pointerEvents: "none", whiteSpace: "nowrap",
+            }}>
               <svg width="13" height="13" viewBox="0 0 18 18" fill="none">
                 <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
                 <circle cx="6.5" cy="6.5" r="1.2" fill="currentColor" />
@@ -1619,135 +1753,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               </svg>
               Change cover
             </div>
-          </div>
-        ) : (
-          /* Empty state: label so tapping anywhere on the hero natively opens the file picker on iOS Safari */
-          <label
-            htmlFor="cep-file-input"
-            style={{
-              position: "absolute", top: 0, left: 0, right: 0,
-              aspectRatio: "9/10", zIndex: 1, overflow: "hidden", cursor: "pointer",
-              display: "block",
-            }}
-          >
-            {/* Empty state: blue-grey gradient */}
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #435C7A 0%, #2a3a52 50%, #0B0F14 100%)" }} />
-            {/* Add photo CTA */}
-            <div style={{ position: "absolute", top: 130, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 72, height: 72, borderRadius: 999, background: "linear-gradient(180deg, #5EA8FF 0%, #3B82F6 100%)", boxShadow: "0 10px 28px rgba(59,130,246,0.55), inset 0 1px 0 rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="30" height="30" viewBox="0 0 18 18" fill="none">
-                  <rect x="2" y="2" width="14" height="14" rx="2.5" stroke="white" strokeWidth="1.4" />
-                  <circle cx="6.5" cy="6.5" r="1.2" fill="white" />
-                  <path d="M3 13l3.5-3.5 3 3L13 8l2.5 2.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#fff" }}>Add a cover photo</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: -4 }}>Sets the mood for your invite</div>
-            </div>
-            {/* Bottom fade */}
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 60, background: "linear-gradient(180deg, transparent, #0B0F14)", pointerEvents: "none" }} />
-          </label>
-        )}
+          )}
+
+        </div>
         {/* ════════════════════ END HERO ══════════════════════════════ */}
 
-        {/* ── Top bar ─────────────────────────────────────────────── */}
-        <div style={{ position: "absolute", top: 20, left: 0, right: 0, padding: "0 16px", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          {/* Back button — glass pill */}
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={() => window.history.length > 1 ? router.back() : router.push("/events")}
-            style={{ width: 36, height: 36, borderRadius: 999, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", border: "none", color: "#fff", flexShrink: 0 }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-
-          {/* Visibility pill — segmented Public / Private */}
-          <div style={{ display: "inline-flex", padding: 3, borderRadius: 999, background: "rgba(255,255,255,0.06)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)" }}>
-            {(["public", "private"] as const).map((v) => {
-              const active = visibility === v;
-              return (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setVisibility(v)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 600, letterSpacing: -0.1, color: active ? "#fff" : "rgba(255,255,255,0.6)", background: active ? "rgba(255,255,255,0.10)" : "transparent", boxShadow: active ? "inset 0 0 0 1px rgba(255,255,255,0.18)" : "none", cursor: "pointer", border: "none", transition: "all 0.18s", fontFamily: "inherit" }}
-                >
-                  {v === "public" ? (
-                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4" />
-                      <path d="M1.5 7h11M7 1.5c1.7 1.7 2.5 3.5 2.5 5.5s-.8 3.8-2.5 5.5C5.3 10.8 4.5 9 4.5 7s.8-3.8 2.5-5.5z" stroke="currentColor" strokeWidth="1.4" />
-                    </svg>
-                  ) : (
-                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                      <rect x="2.5" y="6.5" width="9" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.4" />
-                      <path d="M4.5 6.5V4.3a2.5 2.5 0 015 0v2.2" stroke="currentColor" strokeWidth="1.4" />
-                    </svg>
-                  )}
-                  {v === "public" ? "Public" : "Private"}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Right spacer (preserves symmetry) */}
-          <div style={{ width: 36, flexShrink: 0 }} />
-        </div>
-
         {/* ── Scrollable body ──────────────────────────────────────── */}
-        {/* pointerEvents:none on the wrapper lets taps in the 300px padding zone
-            fall through to the hero label beneath (zIndex:1). The inner content
-            div restores pointer events for all actual interactive elements.     */}
-        <div style={{ position: "relative", zIndex: 2, paddingTop: "calc(100vw * 10 / 9 - 60px)", paddingBottom: "max(40px, env(safe-area-inset-bottom, 40px))", pointerEvents: "none" }}>
-        <div style={{ pointerEvents: "auto" }}>
-
-          {/* Title block — centered, over the hero fade */}
-          <div style={{ padding: "0 20px 18px", textAlign: "center" }}>
-            <input
-              required
-              placeholder="Event title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="cep-title-b"
-              style={{ display: "block", width: "100%", background: "transparent", border: "none", outline: "none", fontSize: 32, fontWeight: 700, lineHeight: 1.1, letterSpacing: -0.2, color: "#fff", textAlign: "center", fontFamily: "inherit", boxSizing: "border-box" }}
-            />
-
-            {/* Date row */}
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setDateSheetOpen(true)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-              >
-                <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ color: "rgba(255,255,255,0.85)", flexShrink: 0 }}>
-                  <rect x="1.5" y="2.5" width="11" height="10" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
-                  <path d="M1.5 5.5h11M4.5 1v3M9.5 1v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-                <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, letterSpacing: -0.1, color: dateLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)" }}>
-                  {dateLine || "Date & time"}
-                </span>
-              </button>
-            </div>
-
-            {/* Location row */}
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-              <button
-                type="button"
-                onClick={() => setLocationSheetOpen(true)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}
-              >
-                <svg width="15" height="15" viewBox="0 0 14 14" fill="none" style={{ color: "rgba(255,255,255,0.85)", flexShrink: 0 }}>
-                  <path d="M7 13c3-3.4 4.5-5.8 4.5-7.7A4.5 4.5 0 002.5 5.3C2.5 7.2 4 9.6 7 13z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                  <circle cx="7" cy="5.5" r="1.5" stroke="currentColor" strokeWidth="1.4" />
-                </svg>
-                <span style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, letterSpacing: -0.1, color: locationLine ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.38)" }}>
-                  {locationLine || "Location"}
-                </span>
-              </button>
-            </div>
-          </div>
+        <div style={{ paddingBottom: "max(40px, env(safe-area-inset-bottom, 40px))" }}>
 
           {/* Glass content panel — "Add more details" */}
           <div style={{ margin: "20px 12px 0", borderRadius: 26, background: "rgba(255,255,255,0.04)", backdropFilter: "blur(20px) saturate(160%)", WebkitBackdropFilter: "blur(20px) saturate(160%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 20px 60px rgba(0,0,0,0.4)", padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1980,7 +1992,6 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
             )}
           </div>
 
-        </div>{/* end pointerEvents:auto content wrapper */}
         </div>{/* end scrollable body */}
 
         {/* File input (hidden) — id required for the label htmlFor association */}

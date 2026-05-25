@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
 import { createNotification } from "@/lib/notifications";
+import { canManageEvent, fetchEventOrganizerIds } from "@/lib/event-host";
 
 async function getAuthUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -41,13 +42,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "userId is required." }, { status: 400 });
   }
 
-  if (inviteeId === user.id) {
-    return NextResponse.json({ ok: false, error: "Cannot invite yourself." }, { status: 400 });
-  }
-
   const supabase = supabaseServer();
 
-  // Verify event exists, is private, and caller is the creator
+  // Verify event exists, is private, and caller has manage access
   const { data: event } = await supabase
     .from("events")
     .select("id,creator_id,visibility,title")
@@ -57,11 +54,21 @@ export async function POST(
   if (!event) {
     return NextResponse.json({ ok: false, error: "Event not found." }, { status: 404 });
   }
-  if (event.creator_id !== user.id) {
-    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
-  }
   if (event.visibility !== "private") {
     return NextResponse.json({ ok: false, error: "Only private events can be invited to." }, { status: 400 });
+  }
+
+  const canManage = await canManageEvent(supabase, eventId, user.id, event.creator_id ?? null);
+  if (!canManage) {
+    return NextResponse.json({ ok: false, error: "Forbidden." }, { status: 403 });
+  }
+
+  // Block self-invite only for personal events.
+  // For org-owned events the org manager's personal profile is a valid guest.
+  const eventOrganizerIds = await fetchEventOrganizerIds(supabase, eventId);
+  const isPersonalEvent = eventOrganizerIds.length === 0;
+  if (isPersonalEvent && inviteeId === user.id) {
+    return NextResponse.json({ ok: false, error: "Cannot invite yourself." }, { status: 400 });
   }
 
   // Verify invitee exists

@@ -393,7 +393,7 @@ export function ShareButton({
           width: 34, height: 34, borderRadius: "50%",
           border: "1px solid rgba(255,255,255,0.12)",
           background: copied ? "rgba(18,25,36,0.40)" : "rgba(18,25,36,0.20)",
-          cursor: "pointer", color: "inherit", flexShrink: 0,
+          cursor: "pointer", color: "#ffffff", flexShrink: 0,
           transition: "background 0.15s",
         }}
       >

@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/components/AuthProvider";
+import { useActiveOrganizer } from "@/app/components/ActiveOrganizerContext";
+import { isEventHostOrCohost } from "@/lib/event-ownership";
 import { GeneratedAvatar } from "@/app/components/GeneratedAvatar";
 import type { MomentRow, SurveyOptionRow, SurveyVoter } from "./page";
 
@@ -2554,6 +2556,7 @@ export function MomentsClient({
   eventTitle,
   creatorId,
   cohostIds,
+  eventOrganizerIds = [],
   guestsCanPost,
   guestsCanReact,
   initialMoments,
@@ -2564,6 +2567,7 @@ export function MomentsClient({
   eventTitle: string;
   creatorId: string | null;
   cohostIds: string[];
+  eventOrganizerIds?: string[];
   guestsCanPost: boolean;
   guestsCanReact: boolean;
   initialMoments: MomentRow[];
@@ -2572,13 +2576,18 @@ export function MomentsClient({
   embedded?: boolean;
 }) {
   const { user, session, loading: authLoading } = useAuth();
+  const { activeOrganizer } = useActiveOrganizer();
   const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkedMomentId = searchParams.get("moment");
 
-  const isHostOrCohost =
-    user != null &&
-    (user.id === creatorId || cohostIds.includes(user.id));
+  const isHostOrCohost = isEventHostOrCohost({
+    userId: user?.id ?? null,
+    activeOrganizerId: activeOrganizer?.organizerId ?? null,
+    creatorId,
+    eventOrganizerIds,
+    cohostIds,
+  });
 
   const canPost = isHostOrCohost || (user != null && guestsCanPost);
 

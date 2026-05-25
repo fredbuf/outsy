@@ -4,16 +4,19 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/AuthProvider";
 import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
+import { isEventOwner } from "@/lib/event-ownership";
 
 export function EventOwnerActions({
   eventId,
   creatorId,
   source,
+  eventOrganizerIds = [],
   compact = false,
 }: {
   eventId: string;
   creatorId: string | null;
   source: string | null;
+  eventOrganizerIds?: string[];
   compact?: boolean;
 }) {
   const { user, session } = useAuth();
@@ -23,7 +26,12 @@ export function EventOwnerActions({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const isOwner = Boolean(user && user.id === creatorId && source === "manual");
+  const isOwner = source === "manual" && isEventOwner({
+    userId: user?.id ?? null,
+    activeOrganizerId: activeOrganizer?.organizerId ?? null,
+    creatorId,
+    eventOrganizerIds,
+  });
   if (!isOwner && !compact) return null;
 
   async function handleDelete() {

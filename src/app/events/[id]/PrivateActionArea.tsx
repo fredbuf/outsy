@@ -1,6 +1,8 @@
 "use client";
 
 import { useAuth } from "../../components/AuthProvider";
+import { useActiveOrganizer } from "../../components/ActiveOrganizerContext";
+import { isEventHostOrCohost } from "@/lib/event-ownership";
 import { ActionBar } from "./ActionBar";
 import { AttendeeList } from "./AttendeeList";
 import { InviteFriendsButton } from "./InviteFriendsButton";
@@ -14,6 +16,7 @@ export function PrivateActionArea({
   eventTitle,
   creatorId,
   cohostIds,
+  eventOrganizerIds = [],
   initialCounts,
   initialAttendees,
   preview,
@@ -22,15 +25,21 @@ export function PrivateActionArea({
   eventTitle: string;
   creatorId: string | null;
   cohostIds: string[];
+  eventOrganizerIds?: string[];
   initialCounts: Counts;
   initialAttendees: Attendee[];
   preview?: EventPreview;
 }) {
   const { user, session } = useAuth();
+  const { activeOrganizer } = useActiveOrganizer();
   const token = session?.access_token ?? null;
-  const isHost =
-    Boolean(user) &&
-    (user!.id === creatorId || cohostIds.includes(user!.id));
+  const isHost = isEventHostOrCohost({
+    userId: user?.id ?? null,
+    activeOrganizerId: activeOrganizer?.organizerId ?? null,
+    creatorId,
+    eventOrganizerIds,
+    cohostIds,
+  });
 
   return isHost ? (
     <HostView
