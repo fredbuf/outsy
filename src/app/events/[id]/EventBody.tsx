@@ -8,7 +8,9 @@ import { useAuth } from "../../components/AuthProvider";
 import { GeneratedAvatar } from "../../components/GeneratedAvatar";
 import { MomentsClient } from "./moments/MomentsClient";
 import type { MomentRow } from "./moments/page";
-import { GoingIcon, CantGoIcon, MaybeIcon, BellIcon } from "./CustomIcons";
+import { BellIcon } from "./CustomIcons";
+import { RsvpButton } from "@/components/RsvpButton";
+import { PublicRsvpButton } from "@/components/PublicRsvpButton";
 import { ShareButton, type EventPreview } from "./ShareButton";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -127,107 +129,6 @@ function CalendarToast({ visible }: { visible: boolean }) {
       <span style={{ fontSize: 14, fontWeight: 600, color: "#f5f7fa" }}>Added to your calendar</span>
     </div>
   );
-}
-
-// ── RsvpSegmented ─────────────────────────────────────────────────────────────
-
-function RsvpSegmented({
-  myRsvp,
-  onSelect,
-  busy,
-  onSignIn,
-  isLoggedIn,
-}: {
-  myRsvp: RsvpResponse | null;
-  onSelect: (r: RsvpResponse) => void;
-  busy: boolean;
-  onSignIn: () => void;
-  isLoggedIn: boolean;
-}) {
-  const cells: { id: RsvpResponse; label: string; tone: string; Icon: () => React.ReactElement }[] = [
-    { id: "going",   label: "Going",     tone: C.going,  Icon: () => <GoingIcon  size={28} /> },
-    { id: "maybe",   label: "Maybe",     tone: C.maybe,  Icon: () => <MaybeIcon  size={28} /> },
-    { id: "cant_go", label: "Can't go",  tone: C.cantgo, Icon: () => <CantGoIcon size={28} /> },
-  ];
-
-  return (
-    <div>
-      <div style={{
-        display: "flex",
-        alignItems: "stretch",
-        height: 76,
-        background: C.surface,
-        borderRadius: 20,
-        border: `1px solid ${C.border}`,
-        padding: 4,
-        gap: 3,
-        boxSizing: "border-box",
-      }}>
-        {cells.map(({ id, label, tone, Icon }) => {
-          const active = myRsvp === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              disabled={busy}
-              onClick={() => { if (!isLoggedIn) { onSignIn(); return; } onSelect(id); }}
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 5,
-                padding: "8px 4px",
-                borderRadius: 16,
-                border: "none",
-                background: active ? `rgba(${hexToRgb(tone)}, 0.16)` : "transparent",
-                boxShadow: active ? `0 0 0 1.2px rgba(${hexToRgb(tone)}, 0.55) inset` : "none",
-                cursor: busy ? "wait" : "pointer",
-                transition: "background 0.15s, box-shadow 0.15s",
-                color: active ? tone : "rgba(255,255,255,0.85)",
-              }}
-            >
-              <div style={{ color: active ? tone : "rgba(255,255,255,0.70)" }}>
-                <Icon />
-              </div>
-              <span style={{
-                fontSize: 13,
-                fontWeight: active ? 700 : 500,
-                color: active ? tone : "rgba(255,255,255,0.85)",
-              }}>
-                {label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {!isLoggedIn && (
-        <p style={{ fontSize: 12, color: C.dim, textAlign: "center", margin: "8px 0 0" }}>
-          <button
-            type="button"
-            onClick={onSignIn}
-            style={{
-              background: "none", border: "none", padding: 0,
-              cursor: "pointer", fontSize: "inherit",
-              color: C.accent, fontWeight: 600,
-            }}
-          >
-            Sign in
-          </button>
-          {" "}to mark your attendance
-        </p>
-      )}
-    </div>
-  );
-}
-
-// hex → "r, g, b" for rgba() usage
-function hexToRgb(hex: string): string {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return "255,255,255";
-  return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
 }
 
 // ── GuestsRow ─────────────────────────────────────────────────────────────────
@@ -1010,6 +911,7 @@ export function EventBody(props: EventBodyProps) {
     eventId, eventTitle, visibility, isHostOrCohost, previewMode = false,
     sharePreview,
     initialRsvpCounts,
+    sourceUrl,
     attendees, creatorId, creator, cohostIds, cohostProfiles,
     spotsLimited, spotsLimit,
     description, descriptionTitle,
@@ -1204,15 +1106,46 @@ export function EventBody(props: EventBodyProps) {
         <div style={{ display: renderedTab === "about" ? "block" : "none" }}>
           <div style={{ padding: "20px 20px 72px", display: "flex", flexDirection: "column", gap: 24 }}>
 
-            {/* RSVP Segmented selector */}
+            {/* RSVP buttons */}
             {(!isHostOrCohost || previewMode) && (
-              <RsvpSegmented
-                myRsvp={myRsvp}
-                onSelect={handleRsvp}
-                busy={busy}
-                onSignIn={openSignIn}
-                isLoggedIn={Boolean(user)}
-              />
+              <div style={{ opacity: busy ? 0.6 : 1, pointerEvents: busy ? "none" : "auto" }}>
+                {visibility === "public" ? (
+                  <PublicRsvpButton
+                    value={myRsvp === "maybe" ? "interested" : myRsvp === "cant_go" ? null : myRsvp}
+                    onChange={(s) => {
+                      if (!user) { openSignIn(); return; }
+                      const r = s === null ? myRsvp : s === "interested" ? "maybe" : s;
+                      if (r) handleRsvp(r);
+                    }}
+                    onTicketsClick={sourceUrl ? () => window.open(sourceUrl!, "_blank", "noreferrer") : undefined}
+                  />
+                ) : (
+                  <RsvpButton
+                    value={myRsvp === "cant_go" ? "cant" : myRsvp}
+                    onChange={(s) => {
+                      if (!user) { openSignIn(); return; }
+                      const r = s === null ? myRsvp : s === "cant" ? "cant_go" : s;
+                      if (r) handleRsvp(r);
+                    }}
+                  />
+                )}
+                {!user && (
+                  <p style={{ fontSize: 12, color: C.dim, textAlign: "center", margin: "8px 0 0" }}>
+                    <button
+                      type="button"
+                      onClick={openSignIn}
+                      style={{
+                        background: "none", border: "none", padding: 0,
+                        cursor: "pointer", fontSize: "inherit",
+                        color: C.accent, fontWeight: 600,
+                      }}
+                    >
+                      Sign in
+                    </button>
+                    {" "}to mark your attendance
+                  </p>
+                )}
+              </div>
             )}
 
             {/* Guests row */}
