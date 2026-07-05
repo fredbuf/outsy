@@ -490,13 +490,12 @@ function OrgMemberInviteRow({
   onRead: () => void;
 }) {
   const invite = item.orgMemberInvite;
-  if (!invite) return null;
-
   const [status, setStatus] = useState<"pending" | "accepting" | "declining" | "accepted" | "declined">(
-    invite.status === "accepted" ? "accepted"
-    : invite.status === "declined" ? "declined"
+    invite?.status === "accepted" ? "accepted"
+    : invite?.status === "declined" ? "declined"
     : "pending",
   );
+  if (!invite) return null;
 
   const inviterName = item.actor.display_name ?? item.actor.username ?? "Someone";
   const orgId = item.entity_id;

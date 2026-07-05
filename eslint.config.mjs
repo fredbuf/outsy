@@ -35,12 +35,6 @@ const eslintConfig = defineConfig([
       "react/no-unescaped-entities": "warn",
     },
   },
-  {
-    files: ["src/app/social/page.tsx"],
-    rules: {
-      "react-hooks/rules-of-hooks": "warn",
-    },
-  },
 ]);
 
 export default eslintConfig;
