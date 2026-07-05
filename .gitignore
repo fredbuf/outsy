@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local editor/agent state
+.claude/settings.local.json
+
+# logs
+*.log
+
+# allow a future committed env template
+!.env.example
