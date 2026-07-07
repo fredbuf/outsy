@@ -1,7 +1,15 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase-server";
 import { createNotification } from "@/lib/notifications";
+
+// Validates shape only — the value is used untrimmed, as before.
+const FriendRequestBody = z.object({
+  recipientId: z
+    .string({ error: "recipientId is required." })
+    .refine((s) => s.trim().length > 0, { error: "recipientId is required." }),
+});
 
 async function getAuthUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -36,10 +44,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { recipientId } = body as Record<string, unknown>;
-  if (typeof recipientId !== "string" || !recipientId.trim()) {
-    return NextResponse.json({ ok: false, error: "recipientId is required." }, { status: 400 });
+  const parsed = FriendRequestBody.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid request body.",
+        details: parsed.error.issues.map(
+          (issue) => `${issue.path.join(".") || "body"}: ${issue.message}`
+        ),
+      },
+      { status: 400 }
+    );
   }
+  const { recipientId } = parsed.data;
 
   if (recipientId === user.id) {
     return NextResponse.json({ ok: false, error: "Cannot add yourself." }, { status: 400 });
