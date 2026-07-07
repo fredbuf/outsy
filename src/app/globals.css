@@ -21,6 +21,12 @@
   /* Interactive */
   --btn-bg: rgba(28, 25, 23, 0.07);
   --btn-bg-active: rgba(28, 25, 23, 0.13);
+
+  /* Brand blues — constant across themes (used on dark glass surfaces
+     like the bottom nav; see BottomNav/OutsyNav) */
+  --accent-blue: #5EA8FF;
+  --accent-blue-deep: #2563E2;
+  --badge-red: #FF4D4F;
 }
 
 @theme inline {
@@ -80,6 +86,16 @@ body.settings-open .bottom-nav {
   transform: translateX(-50%) translateY(calc(100% + 32px)) !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* OutsyNav variant: the root is a full-width fixed wrapper (not X-centered),
+   so hide with a plain Y-slide. Higher specificity overrides the rule above. */
+.bottom-nav.outsy-nav {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease;
+}
+.bottom-nav.outsy-nav[data-hidden],
+body.settings-open .bottom-nav.outsy-nav {
+  transform: translateY(calc(100% + 32px)) !important;
 }
 
 /* ── Settings drawer: slide in from right ────────────────────────────────  */

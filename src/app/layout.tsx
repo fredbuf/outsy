@@ -4,7 +4,9 @@ import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
 import { ActiveOrganizerProvider } from "./components/ActiveOrganizerContext";
 import { Header } from "./components/Header";
-import { BottomNav } from "./components/BottomNav";
+// Previous nav kept for rollback: swap OutsyBottomNav back to BottomNav here.
+// import { BottomNav } from "./components/BottomNav";
+import { OutsyBottomNav } from "./components/OutsyBottomNav";
 import { BottomNavProvider } from "./components/BottomNavContext";
 import { TileTransitionProvider } from "./components/TileTransitionProvider";
 
@@ -48,7 +50,7 @@ export default function RootLayout({
               <TileTransitionProvider>
                 <Header />
                 {children}
-                <BottomNav />
+                <OutsyBottomNav />
               </TileTransitionProvider>
             </BottomNavProvider>
           </ActiveOrganizerProvider>
