@@ -1,6 +1,53 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase-server";
+
+const messageIdField = z
+  .string({ error: "messageId is required." })
+  .refine((s) => s.trim().length > 0, { error: "messageId is required." });
+
+const messageBodyField = z
+  .string({ error: "body is required." })
+  .refine((s) => s.trim().length > 0, { error: "body is required." })
+  .refine((s) => s.length <= 2000, { error: "Message too long (max 2000 chars)." });
+
+// { eventId } shares an event (body ignored); otherwise { body } sends text.
+const SendMessageBody = z
+  .object({
+    body: z.string().optional(),
+    eventId: z.string().optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.eventId?.trim()) return; // event share — no other fields required
+    if (!val.body?.trim()) {
+      ctx.addIssue({ code: "custom", path: ["body"], message: "body is required." });
+    } else if (val.body.length > 2000) {
+      ctx.addIssue({ code: "custom", path: ["body"], message: "Message too long (max 2000 chars)." });
+    }
+  });
+
+const EditMessageBody = z.object({
+  messageId: messageIdField,
+  body: messageBodyField,
+});
+
+const DeleteMessageBody = z.object({
+  messageId: messageIdField,
+});
+
+function invalidBodyResponse(error: z.ZodError) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: error.issues[0]?.message ?? "Invalid request body.",
+      details: error.issues.map(
+        (issue) => `${issue.path.join(".") || "body"}: ${issue.message}`
+      ),
+    },
+    { status: 400 }
+  );
+}
 
 async function getAuthUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -154,7 +201,11 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { body: msgBody, eventId } = bodyJson as Record<string, unknown>;
+  const parsedSend = SendMessageBody.safeParse(bodyJson);
+  if (!parsedSend.success) {
+    return invalidBodyResponse(parsedSend.error);
+  }
+  const { body: msgBody, eventId } = parsedSend.data;
 
   const supabase = supabaseServer();
 
@@ -223,11 +274,10 @@ export async function POST(
   }
 
   // ── Text message ───────────────────────────────────────────────────────────
+  // Unreachable when the schema passed (body is required without eventId);
+  // kept for TypeScript narrowing.
   if (typeof msgBody !== "string" || !msgBody.trim()) {
     return NextResponse.json({ ok: false, error: "body is required." }, { status: 400 });
-  }
-  if (msgBody.length > 2000) {
-    return NextResponse.json({ ok: false, error: "Message too long (max 2000 chars)." }, { status: 400 });
   }
 
   const { data: newMessage, error: insertError } = await supabase
@@ -274,16 +324,11 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { messageId, body: newBody } = bodyJson as Record<string, unknown>;
-  if (typeof messageId !== "string" || !messageId.trim()) {
-    return NextResponse.json({ ok: false, error: "messageId is required." }, { status: 400 });
+  const parsedEdit = EditMessageBody.safeParse(bodyJson);
+  if (!parsedEdit.success) {
+    return invalidBodyResponse(parsedEdit.error);
   }
-  if (typeof newBody !== "string" || !newBody.trim()) {
-    return NextResponse.json({ ok: false, error: "body is required." }, { status: 400 });
-  }
-  if (newBody.length > 2000) {
-    return NextResponse.json({ ok: false, error: "Message too long (max 2000 chars)." }, { status: 400 });
-  }
+  const { messageId, body: newBody } = parsedEdit.data;
 
   const supabase = supabaseServer();
 
@@ -341,10 +386,11 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { messageId } = bodyJson as Record<string, unknown>;
-  if (typeof messageId !== "string" || !messageId.trim()) {
-    return NextResponse.json({ ok: false, error: "messageId is required." }, { status: 400 });
+  const parsedDelete = DeleteMessageBody.safeParse(bodyJson);
+  if (!parsedDelete.success) {
+    return invalidBodyResponse(parsedDelete.error);
   }
+  const { messageId } = parsedDelete.data;
 
   const supabase = supabaseServer();
 
