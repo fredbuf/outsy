@@ -1,9 +1,12 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase-server";
 import { createOrgNotification } from "@/lib/notifications";
 
-const VALID_RESPONSES = new Set(["going", "maybe", "cant_go"]);
+const RsvpBody = z.object({
+  response: z.enum(["going", "maybe", "cant_go"]),
+});
 
 async function getCounts(supabase: ReturnType<typeof supabaseServer>, eventId: string) {
   const { data } = await supabase
@@ -83,10 +86,20 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const response = String((body as Record<string, unknown>).response ?? "");
-  if (!VALID_RESPONSES.has(response)) {
-    return NextResponse.json({ ok: false, error: "Invalid RSVP response." }, { status: 400 });
+  const parsed = RsvpBody.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "Invalid RSVP response.",
+        details: parsed.error.issues.map(
+          (issue) => `${issue.path.join(".") || "body"}: ${issue.message}`
+        ),
+      },
+      { status: 400 }
+    );
   }
+  const { response } = parsed.data;
 
   const { error } = await supabase
     .from("rsvps")
