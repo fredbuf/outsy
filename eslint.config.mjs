@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Static design-handoff artifacts, not application code.
     "docs/**",
+    // Figma Make exploration exports kept as design reference — harness-
+    // coupled by design, never wired into the app. Excluded from tsconfig
+    // too; see tsconfig.json.
+    "src/components/menu-option-*.tsx",
   ]),
   // Pre-existing violations in these files, downgraded to warnings so CI can
   // gate new code at error level. Remove each entry once the file is fixed —
