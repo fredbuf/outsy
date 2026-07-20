@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Ticket, CalendarDays, MessageSquare, CircleUser } from "lucide-react";
-import { OutsyNav, type OutsyNavItem, type OutsyNavKey } from "@/components/outsy-nav";
+import { OutsyNav, type OutsyNavItem, type OutsyNavKey } from "@/components/outsy-nav-option9";
 import { useAuth } from "./AuthProvider";
 import { useActiveOrganizer } from "./ActiveOrganizerContext";
 
