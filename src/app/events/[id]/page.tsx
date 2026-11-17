@@ -193,6 +193,9 @@ export async function generateMetadata({
   return {
     title: `${event.title} | Outsy`,
     description: ogDescription,
+    // Private events are shared by link only — keep them out of search engines.
+    // Open Graph tags stay so invitation link previews keep working.
+    ...(event.visibility === "private" ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
       title: ogTitle,
       description: ogDescription,
@@ -369,7 +372,9 @@ export default async function EventPage({
         eventPrice={eventPrice}
         eventCurrency={eventCurrency}
         paymentMethod={evtExt.payment_method ?? null}
-        paymentContact={evtExt.payment_contact ?? null}
+        // The contact itself is never serialized into the page — the client
+        // fetches it from the gated /api/events/[id]/payment-contact route.
+        hasPaymentContact={Boolean(evtExt.payment_contact)}
         rsvpDeadline={rsvpDeadline}
         rsvpCounts={rsvpCounts}
         attendees={attendees}

@@ -55,7 +55,10 @@ export type EventBodyProps = {
   eventPrice: number | null;
   eventCurrency: string;
   paymentMethod: string | null;
-  paymentContact: string | null;
+  /** Preview mode only. On live pages the contact is fetched on demand from the gated API. */
+  paymentContact?: string | null;
+  /** Whether the event has a payment contact that an authorized viewer can request. */
+  hasPaymentContact?: boolean;
   rsvpDeadline: string | null;
   // Moments
   guestsCanPost: boolean;
@@ -688,9 +691,54 @@ function WhereCard({
 
 // ── PaymentPill ───────────────────────────────────────────────────────────────
 
-function PaymentPill({ method, contact }: { method: string | null; contact: string | null }) {
+// The payment contact is personal data. On live pages it is not in the page
+// payload: `contact` is null and the pill fetches it on tap from
+// GET /api/events/[id]/payment-contact, which only answers hosts, cohosts,
+// invited users and users who have RSVP'd. `contact` is passed directly only by
+// the create/edit preview, where the viewer is the author typing it.
+function PaymentPill({
+  method, contact, hasContact, eventId,
+}: {
+  method: string | null;
+  contact: string | null;
+  hasContact: boolean;
+  eventId: string;
+}) {
+  const { session } = useAuth();
   const [revealed, setRevealed] = useState(false);
+  const [fetchedContact, setFetchedContact] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "denied">("idle");
   if (!method) return null;
+
+  const knownContact = contact ?? fetchedContact;
+
+  async function handleInteracTap() {
+    if (knownContact) { setRevealed(v => !v); return; }
+    if (!session?.access_token) {
+      window.dispatchEvent(new CustomEvent("outsy:open-signin"));
+      return;
+    }
+    if (status === "loading") return;
+    setStatus("loading");
+    try {
+      const res = await fetch(`/api/events/${eventId}/payment-contact`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => null) as { ok?: boolean; paymentContact?: string | null } | null;
+      if (res.ok && json?.ok && json.paymentContact) {
+        setFetchedContact(json.paymentContact);
+        setRevealed(true);
+        setStatus("idle");
+      } else if (res.status === 403) {
+        setStatus("denied");
+      } else {
+        setStatus("idle");
+      }
+    } catch {
+      setStatus("idle");
+    }
+  }
 
   const base: React.CSSProperties = {
     display: "inline-flex", alignItems: "center",
@@ -704,11 +752,11 @@ function PaymentPill({ method, contact }: { method: string | null; contact: stri
 
   if (method === "door" || method === "cash") return <span style={base}>Pay on site</span>;
 
-  if (method === "interac" && contact) {
+  if (method === "interac" && (knownContact || hasContact)) {
     return (
-      <button type="button" onClick={() => setRevealed(v => !v)}
-        style={{ ...base, cursor: "pointer", fontFamily: "inherit" }}>
-        {revealed ? contact : "Via Interac"}
+      <button type="button" onClick={handleInteracTap}
+        style={{ ...base, cursor: status === "loading" ? "wait" : "pointer", fontFamily: "inherit" }}>
+        {revealed && knownContact ? knownContact : status === "denied" ? "RSVP to view" : "Via Interac"}
       </button>
     );
   }
@@ -722,6 +770,7 @@ function PaymentPill({ method, contact }: { method: string | null; contact: stri
 // ── DetailsSection ────────────────────────────────────────────────────────────
 
 function DetailsSection({
+  eventId,
   spotsLimited,
   spotsLimit,
   goingCount,
@@ -729,8 +778,11 @@ function DetailsSection({
   eventCurrency,
   paymentMethod,
   paymentContact,
+  hasPaymentContact,
   rsvpDeadline,
 }: {
+  eventId: string;
+  hasPaymentContact: boolean;
   spotsLimited: boolean;
   spotsLimit: number | null;
   goingCount: number;
@@ -784,7 +836,7 @@ function DetailsSection({
       label: "Cost",
       value: formatPrice(eventPrice!, eventCurrency),
       rightSlot: paymentMethod
-        ? <PaymentPill method={paymentMethod} contact={paymentContact} /> as React.ReactNode
+        ? <PaymentPill method={paymentMethod} contact={paymentContact} hasContact={hasPaymentContact} eventId={eventId} /> as React.ReactNode
         : null,
       muted: false,
     },
@@ -917,7 +969,7 @@ export function EventBody(props: EventBodyProps) {
     description, descriptionTitle,
     organizers,
     venueName, venueAddress, venueCity, venueLat, venueLng, mapHref,
-    eventPrice, eventCurrency, paymentMethod, paymentContact, rsvpDeadline,
+    eventPrice, eventCurrency, paymentMethod, paymentContact = null, hasPaymentContact = false, rsvpDeadline,
     guestsCanPost, guestsCanReact, initialMoments, eventOrganizerIds = [],
     relatedEventsNode,
   } = props;
@@ -1191,6 +1243,8 @@ export function EventBody(props: EventBodyProps) {
 
             {/* Details */}
             <DetailsSection
+              eventId={eventId}
+              hasPaymentContact={hasPaymentContact}
               spotsLimited={spotsLimited}
               spotsLimit={spotsLimit}
               goingCount={rsvpCounts.going}

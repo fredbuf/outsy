@@ -184,7 +184,8 @@ export type EditEventData = {
   price?: number | null;
   currency?: string | null;
   payment_method?: string | null;
-  payment_contact?: string | null;
+  // payment_contact is intentionally not part of the server-rendered edit data.
+  // It is loaded client-side from the gated /api/events/[id]/payment-contact route.
   rsvp_deadline?: string | null;
   description_title?: string | null;
 };
@@ -793,9 +794,12 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   const [costCurrency, setCostCurrency] = useState<"CAD" | "USD">(() =>
     (editData?.currency as "CAD" | "USD") ?? "CAD"
   );
-  const [costPaymentContact, setCostPaymentContact] = useState(() =>
-    editData?.payment_contact ?? ""
-  );
+  const [costPaymentContact, setCostPaymentContact] = useState("");
+  // Edit mode: the stored payment contact is fetched from the gated API (never
+  // server-rendered). Until it is loaded — or the user sets one themselves — the
+  // form does not know the stored value and must not overwrite it on save.
+  const [storedContactLoaded, setStoredContactLoaded] = useState(false);
+  const contactTouchedRef = useRef(false);
   // "free" | "paid" | "door" — committed pricing mode
   const [costMode, setCostMode] = useState<"free" | "paid" | "door">(() => {
     if (editData?.payment_method === "door") return "door";
@@ -816,6 +820,25 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
   );
   const [rsvpClosing, setRsvpClosing] = useState(false);
   const [rsvpDraft, setRsvpDraft] = useState("");
+
+  // In edit mode, load the stored payment contact through the gated route.
+  useEffect(() => {
+    const token = session?.access_token;
+    if (!editData?.id || !token || storedContactLoaded) return;
+    let cancelled = false;
+    fetch(`/api/events/${editData.id}/payment-contact`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => null) as { ok?: boolean; paymentContact?: string | null } | null;
+        if (cancelled || !res.ok || !json?.ok) return;
+        if (!contactTouchedRef.current) setCostPaymentContact(json.paymentContact ?? "");
+        setStoredContactLoaded(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [editData?.id, session?.access_token, storedContactLoaded]);
 
   // In edit mode, fetch profiles for pre-existing cohosts so they appear in the UI
   useEffect(() => {
@@ -1207,9 +1230,15 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               : null,
             currency: (costMode === "paid" || costMode === "door") && costAmount.trim() && parseFloat(costAmount) > 0 ? costCurrency : null,
             paymentMethod: costMode === "paid" ? "interac" : costMode === "door" ? "door" : null,
-            paymentContact: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
-              ? costPaymentContact.trim() || null
-              : null,
+            // Edit mode: omit the field (server keeps the stored value) when the
+            // stored contact never loaded and the user did not set one.
+            ...(isEditMode && costMode === "paid" && !storedContactLoaded && !contactTouchedRef.current
+              ? {}
+              : {
+                  paymentContact: costMode === "paid" && costAmount.trim() && parseFloat(costAmount) > 0
+                    ? costPaymentContact.trim() || null
+                    : null,
+                }),
             rsvpDeadline: rsvpDeadline || null,
           }
         : {
@@ -1422,6 +1451,7 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
               setSpotsLimit("");
               setCostAmount("");
               setCostCurrency("CAD");
+              contactTouchedRef.current = true;
               setCostPaymentContact("");
               setCostMode("free");
               setRsvpDeadline("");
@@ -2247,7 +2277,13 @@ export function CreateEventPage({ editData }: { editData?: EditEventData } = {})
                     setCostMode(resolvedMode);
                     setCostAmount(costDraftTopMode === "paid" ? costDraftAmount : "");
                     setCostCurrency(costDraftCurrency);
-                    setCostPaymentContact(costDraftTopMode === "paid" && costDraftPayMethod === "advance" ? costDraftContact : "");
+                    const nextContact = costDraftTopMode === "paid" && costDraftPayMethod === "advance" ? costDraftContact : "";
+                    // Confirming the sheet with an empty contact before the stored one
+                    // has loaded is not a deliberate "clear" — don't let it erase it.
+                    if (!isEditMode || storedContactLoaded || nextContact.trim() || resolvedMode !== "paid") {
+                      contactTouchedRef.current = true;
+                    }
+                    setCostPaymentContact(nextContact);
                     setCostClosing(true);
                     setTimeout(() => { setOptionSheet(null); setCostClosing(false); }, 250);
                   }}

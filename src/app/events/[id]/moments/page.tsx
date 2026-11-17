@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase-server";
 import { fetchEventOrganizerIds } from "@/lib/event-host";
@@ -50,7 +52,8 @@ export type MomentRow = {
   comment_count?: number;
 };
 
-async function fetchEventForMoments(id: string) {
+// cache() so generateMetadata and the page share one round-trip per request.
+const fetchEventForMoments = cache(async (id: string) => {
   const { data } = await supabaseServer()
     .from("events")
     .select(
@@ -61,6 +64,19 @@ async function fetchEventForMoments(id: string) {
     .eq("is_rejected", false)
     .maybeSingle();
   return data;
+});
+
+// Private events are shared by link only — keep them out of search engines.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const event = await fetchEventForMoments(id);
+  return (event as { visibility?: string } | null)?.visibility === "private"
+    ? { robots: { index: false, follow: false } }
+    : {};
 }
 
 async function fetchMoments(eventId: string): Promise<MomentRow[]> {

@@ -6,6 +6,7 @@ import { CreateEventPage } from "../../new/CreateEventPage";
 
 export const metadata: Metadata = {
   title: "Edit event — Outsy",
+  robots: { index: false, follow: false },
 };
 
 export default async function EditEventPage({
@@ -15,10 +16,13 @@ export default async function EditEventPage({
 }) {
   const { id } = await params;
 
+  // This page renders without an auth context, so nothing sensitive may be
+  // selected here. The payment contact is deliberately absent: the form loads
+  // it from the gated /api/events/[id]/payment-contact route instead.
   const { data: event } = await supabaseServer()
     .from("events")
     .select(
-      "id,title,description,description_title,start_at,end_at,visibility,category_primary,source_url,image_url,venue_id,cohost_ids,spots_mode,spots_limit,price,currency,payment_method,payment_contact,rsvp_deadline,venues(name,address_line1,city,lat,lng)"
+      "id,title,description,description_title,start_at,end_at,visibility,category_primary,source_url,image_url,venue_id,cohost_ids,spots_mode,spots_limit,price,currency,payment_method,rsvp_deadline,venues(name,address_line1,city,lat,lng)"
     )
     .eq("id", id)
     .eq("source", "manual")
@@ -38,7 +42,6 @@ export default async function EditEventPage({
     price?: number | null;
     currency?: string | null;
     payment_method?: string | null;
-    payment_contact?: string | null;
     rsvp_deadline?: string | null;
   };
 
@@ -67,7 +70,6 @@ export default async function EditEventPage({
         price: evtExt.price ?? null,
         currency: evtExt.currency ?? null,
         payment_method: evtExt.payment_method ?? null,
-        payment_contact: evtExt.payment_contact ?? null,
         rsvp_deadline: evtExt.rsvp_deadline ?? null,
       }}
     />

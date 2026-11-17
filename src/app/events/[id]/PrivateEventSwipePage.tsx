@@ -64,7 +64,10 @@ type Props = {
   eventPrice: number | null;
   eventCurrency: string;
   paymentMethod: string | null;
-  paymentContact: string | null;
+  /** Preview mode only (create/edit form). The live page never receives the contact. */
+  paymentContact?: string | null;
+  /** Live page: whether a contact exists to be fetched from the gated API. */
+  hasPaymentContact?: boolean;
   rsvpDeadline: string | null;
   rsvpCounts: { going: number; maybe: number; cant_go: number };
   attendees: Attendee[];
@@ -88,7 +91,7 @@ export function PrivateEventSwipePage(props: Props) {
     dateLine, timeLine, privateMapHref, venueName, venueAddress, venueCity, venueLat, venueLng,
     description, descriptionTitle,
     spotsLimited, spotsLimit, eventPrice, eventCurrency,
-    paymentMethod, paymentContact, rsvpDeadline,
+    paymentMethod, paymentContact = null, hasPaymentContact = false, rsvpDeadline,
     rsvpCounts, attendees,
     guestsCanPost, guestsCanReact, initialMoments,
     preview,
@@ -316,6 +319,7 @@ export function PrivateEventSwipePage(props: Props) {
         eventCurrency={eventCurrency}
         paymentMethod={paymentMethod}
         paymentContact={paymentContact}
+        hasPaymentContact={hasPaymentContact}
         rsvpDeadline={rsvpDeadline}
         guestsCanPost={guestsCanPost}
         guestsCanReact={guestsCanReact}

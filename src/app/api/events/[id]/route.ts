@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase-server";
+import { resolvePaymentContactUpdate } from "@/lib/payment-contact-access";
 import { normalizeText, upsertVenue } from "@/lib/ingestion-shared";
 import { createNotification } from "@/lib/notifications";
 import { canManageEvent } from "@/lib/event-host";
@@ -261,9 +262,9 @@ export async function PATCH(
   const paymentMethod = body.paymentMethod === "door"
     ? "door"
     : (priceRaw && body.paymentMethod === "interac" ? "interac" : null);
-  const paymentContact = paymentMethod
-    ? (typeof body.paymentContact === "string" ? body.paymentContact.trim().slice(0, 200) || null : null)
-    : null;
+  // An omitted paymentContact leaves the stored value untouched (the edit form
+  // omits it when it could not load the current value).
+  const paymentContactUpdate = resolvePaymentContactUpdate(body, paymentMethod);
   const rsvpDeadlineDate =
     typeof body.rsvpDeadline === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.rsvpDeadline.trim())
       ? body.rsvpDeadline.trim()
@@ -292,7 +293,7 @@ export async function PATCH(
         price: priceRaw,
         currency,
         payment_method: paymentMethod,
-        payment_contact: paymentContact,
+        ...(paymentContactUpdate.write ? { payment_contact: paymentContactUpdate.value } : {}),
         rsvp_deadline: rsvpDeadlineDate,
       } : {}),
     })
