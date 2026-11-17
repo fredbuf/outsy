@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { hasKnownStartTime } from "@/lib/event-time";
 import Link from "next/link";
 import { useTileTransition } from "../../components/TileTransitionProvider";
 import { BackButton } from "./BackButton";
@@ -45,7 +46,7 @@ function smartDate(iso: string): string {
   const rawTime = d.toLocaleString("en-US", {
     timeZone: "America/Toronto", hour: "numeric", minute: "2-digit", hour12: true,
   });
-  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  const isUnknownTime = !hasKnownStartTime(iso);
   const timeStr = isUnknownTime ? "" : " at " + rawTime.replace(/:00\s/, " ").replace(/\s/, "").toLowerCase();
   if (eventDay === today)    return `Today${timeStr}`;
   if (eventDay === tomorrow) return `Tomorrow${timeStr}`;

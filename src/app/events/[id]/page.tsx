@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase-server";
 import { fetchEventOrganizerIds } from "@/lib/event-host";
+import { hasKnownStartTime } from "@/lib/event-time";
 import { type EventPreview } from "./ShareButton";
 import { PrivateEventSwipePage } from "./PrivateEventSwipePage";
 import { PublicEventSwipePage } from "./PublicEventSwipePage";
@@ -157,7 +158,7 @@ export async function generateMetadata({
 
   // Date/time — compact "May 8 · 8:30 PM" format
   const startD = new Date(event.start_at);
-  const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
+  const isUnknownTime = !hasKnownStartTime(event.start_at);
   const datePart = startD.toLocaleString("en-US", {
     timeZone: "America/Toronto",
     month: "short",
@@ -211,7 +212,7 @@ export async function generateMetadata({
 // Share card date — always "May 8 · 8:30 PM" style (not context-relative)
 function shareCardDate(iso: string): string {
   const d = new Date(iso);
-  const isUnknownTime = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+  const isUnknownTime = !hasKnownStartTime(iso);
   const monthDay = d.toLocaleDateString("en-US", {
     timeZone: "America/Toronto",
     month: "short",
@@ -317,7 +318,7 @@ export default async function EventPage({
     const guestsCanReact = evtExt.moments_guests_can_react !== false;
 
     const startD = new Date(event.start_at);
-    const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
+    const isUnknownTime = !hasKnownStartTime(event.start_at);
     const dateLine = startD.toLocaleString("en-US", {
       timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
     });
@@ -406,7 +407,7 @@ export default async function EventPage({
   const pubPaymentMethod = (event as { payment_method?: string | null }).payment_method ?? null;
   const pubRsvpDeadline = (event as { rsvp_deadline?: string | null }).rsvp_deadline ?? null;
   const pubStartD = new Date(event.start_at);
-  const pubIsUnknownTime = pubStartD.getUTCHours() === 0 && pubStartD.getUTCMinutes() === 0;
+  const pubIsUnknownTime = !hasKnownStartTime(event.start_at);
   const dateLine = pubStartD.toLocaleString("en-US", {
     timeZone: "America/Toronto", weekday: "long", month: "long", day: "numeric",
   });

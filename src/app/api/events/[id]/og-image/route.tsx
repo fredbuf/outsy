@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { hasKnownStartTime } from "@/lib/event-time";
 import { supabaseServer } from "@/lib/supabase-server";
 
 // 1200×630 — standard Open Graph image size.
@@ -85,7 +86,7 @@ export async function GET(
 
   // Format date
   const startD = new Date(event.start_at);
-  const isUnknownTime = startD.getUTCHours() === 0 && startD.getUTCMinutes() === 0;
+  const isUnknownTime = !hasKnownStartTime(event.start_at as string);
   const datePart = startD.toLocaleString("en-US", {
     timeZone: "America/Toronto",
     month: "short",
